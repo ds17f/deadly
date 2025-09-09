@@ -21,6 +21,7 @@ help:
 	@echo "Available targets:"
 	@echo "  android-debug   - Build Android debug APK"
 	@echo "  android-release - Build Android release APK"
+	@echo "  android-device  - Build and install Android app to connected device"
 	@echo "  android-run     - Build and run Android app in emulator"
 ifeq ($(UNAME_S),Darwin)
 	@echo "  ios-sim         - Build and launch iOS app in simulator"
@@ -47,6 +48,29 @@ android-release:
 	$(GRADLEW) :composeApp:assembleRelease
 	@echo "✅ Android release APK built successfully!"
 	@echo "📱 APK location: composeApp/build/outputs/apk/release/"
+
+.PHONY: android-device
+android-device:
+	@echo "🤖 Building and installing Android app to connected device..."
+	@echo "🔍 Checking for connected device..."
+	@DEVICE_COUNT=$$(adb devices | grep -c "device$$"); \
+	if [ $$DEVICE_COUNT -eq 0 ]; then \
+		echo "❌ No Android device detected"; \
+		echo "💡 Please connect an Android device with USB debugging enabled"; \
+		exit 1; \
+	else \
+		echo "✅ Found $$DEVICE_COUNT connected device(s)"; \
+	fi
+	@echo "📱 Installing app..."
+	@mkdir -p logs
+	$(GRADLEW) :composeApp:installDebug > logs/gradle-install.log 2>&1 || (echo "❌ Install failed - check logs/gradle-install.log"; exit 1)
+	@echo "🚀 Launching app on device..."
+	@if adb shell am start -n "com.grateful.deadly/com.grateful.deadly.MainActivity"; then \
+		echo "✅ Android app installed and launched successfully!"; \
+	else \
+		echo "❌ Failed to launch Android app"; \
+		exit 1; \
+	fi
 
 .PHONY: android-run
 android-run:
