@@ -32,6 +32,15 @@ else
 endif
 	@echo "  clean           - Clean all build outputs"
 	@echo "  all             - Build Android debug and iOS simulator (if on macOS)"
+	@echo ""
+	@echo "Log Reading:"
+	@echo "  logs-help       - Show detailed log reading help"
+	@echo "  logs-search-android - Show Android debug logs for search functionality"
+	@echo "  logs-search-ios     - Show iOS debug logs for search functionality"
+	@echo "  logs-android LEVEL='-d' CONCEPT='ui' - Custom Android log filter"
+	@echo "  logs-ios LEVEL='-e' CONCEPT='di'     - Custom iOS log filter"
+	@echo "  logs-follow-android CONCEPT='search' - Follow Android logs live"
+	@echo ""
 	@echo "  help            - Show this help message"
 
 # Android targets (work on all platforms)
@@ -186,6 +195,35 @@ tasks:
 dependencies:
 	@echo "📦 Project dependencies:"
 	$(GRADLEW) :composeApp:dependencies
+
+# Log reading targets
+.PHONY: logs-help
+logs-help:
+	@./scripts/readlogs -h
+
+.PHONY: logs-android
+logs-android:
+	@./scripts/readlogs -a $(LEVEL) $(CONCEPT)
+
+.PHONY: logs-ios  
+logs-ios:
+	@./scripts/readlogs -i $(LEVEL) $(CONCEPT)
+
+.PHONY: logs-search-android
+logs-search-android:
+	@./scripts/readlogs -a -d search
+
+.PHONY: logs-search-ios
+logs-search-ios:
+	@./scripts/readlogs -i -d search
+
+.PHONY: logs-follow-android
+logs-follow-android:
+	@./scripts/readlogs -a -f $(CONCEPT)
+
+.PHONY: logs-follow-ios
+logs-follow-ios:
+	@./scripts/readlogs -i -f $(CONCEPT)
 
 # Debugging targets
 .PHONY: gradle-version

@@ -2,6 +2,7 @@ package com.grateful.deadly.feature.search
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.grateful.deadly.core.logging.Logger
 import com.grateful.deadly.domain.search.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -44,7 +45,7 @@ class SearchViewModel(
     val debounceDelayMs: StateFlow<Long> = _debounceDelayMs.asStateFlow()
     
     init {
-        println("$TAG: SearchViewModel initialized with SearchService")
+        Logger.d(TAG, "SearchViewModel initialized with SearchService")
         loadInitialState()
         observeServiceFlows()
         setupDebouncedSearch()
@@ -54,14 +55,14 @@ class SearchViewModel(
      * Load initial state and populate test data
      */
     private fun loadInitialState() {
-        println("$TAG: Loading initial Search state")
+        Logger.d(TAG, "Loading initial Search state")
         viewModelScope.launch {
             try {
                 // Populate test data for immediate UI development
                 searchService.populateTestData()
-                println("$TAG: Initial Search state loaded successfully")
+                Logger.d(TAG, "Initial Search state loaded successfully")
             } catch (e: Exception) {
-                println("$TAG: Failed to load initial Search state: ${e.message}")
+                Logger.e(TAG, "Failed to load initial Search state: ${e.message}", e)
             }
         }
     }
@@ -70,7 +71,7 @@ class SearchViewModel(
      * Handle search query changes from UI with debounced search execution
      */
     fun onSearchQueryChanged(query: String) {
-        println("$TAG: Search query changed: $query")
+        Logger.d(TAG, "Search query changed: $query")
         
         // Update the debounced flow which will trigger search after delay
         _searchQueryFlow.value = query
@@ -105,7 +106,7 @@ class SearchViewModel(
      * Perform the actual search after debounce delay
      */
     private suspend fun performDebouncedSearch(query: String) {
-        println("$TAG: Performing debounced search for: '$query'")
+        Logger.d(TAG, "Performing debounced search for: '$query'")
         
         try {
             // Cancel any previous search job
@@ -120,11 +121,11 @@ class SearchViewModel(
                 // and only after the search has been "committed" by the delay
                 if (query.length >= 3) {
                     searchService.addRecentSearch(query)
-                    println("$TAG: Added '$query' to recent searches")
+                    Logger.d(TAG, "Added '$query' to recent searches")
                 }
             }
         } catch (e: Exception) {
-            println("$TAG: Failed to perform debounced search for '$query': ${e.message}")
+            Logger.e(TAG, "Failed to perform debounced search for '$query': ${e.message}", e)
         }
     }
     
@@ -132,7 +133,7 @@ class SearchViewModel(
      * Handle recent search selection - execute immediately without debounce
      */
     fun onRecentSearchSelected(recentSearch: RecentSearch) {
-        println("$TAG: Recent search selected: ${recentSearch.query}")
+        Logger.i(TAG, "Recent search selected: ${recentSearch.query}")
         
         // Execute search immediately (no debounce for deliberate selections)
         viewModelScope.launch {
@@ -140,7 +141,7 @@ class SearchViewModel(
                 searchService.updateSearchQuery(recentSearch.query)
                 // Don't re-add to recent searches since it's already there
             } catch (e: Exception) {
-                println("$TAG: Failed to execute recent search: ${e.message}")
+                Logger.e(TAG, "Failed to execute recent search: ${e.message}", e)
             }
         }
     }
@@ -149,7 +150,7 @@ class SearchViewModel(
      * Handle suggested search selection - execute immediately without debounce
      */
     fun onSuggestionSelected(suggestion: SuggestedSearch) {
-        println("$TAG: Suggestion selected: ${suggestion.query}")
+        Logger.i(TAG, "Suggestion selected: ${suggestion.query}")
         
         // Execute search immediately (no debounce for deliberate selections)
         viewModelScope.launch {
@@ -158,7 +159,7 @@ class SearchViewModel(
                 // Add to recent searches since this is a deliberate action
                 searchService.addRecentSearch(suggestion.query)
             } catch (e: Exception) {
-                println("$TAG: Failed to select suggestion: ${e.message}")
+                Logger.e(TAG, "Failed to select suggestion: ${e.message}", e)
             }
         }
     }
@@ -167,12 +168,12 @@ class SearchViewModel(
      * Clear search query and results
      */
     fun onClearSearch() {
-        println("$TAG: Clearing search")
+        Logger.i(TAG, "Clearing search")
         viewModelScope.launch {
             try {
                 searchService.clearSearch()
             } catch (e: Exception) {
-                println("$TAG: Failed to clear search: ${e.message}")
+                Logger.e(TAG, "Failed to clear search: ${e.message}", e)
             }
         }
     }
@@ -181,12 +182,12 @@ class SearchViewModel(
      * Clear recent search history
      */
     fun onClearRecentSearches() {
-        println("$TAG: Clearing recent searches")
+        Logger.i(TAG, "Clearing recent searches")
         viewModelScope.launch {
             try {
                 searchService.clearRecentSearches()
             } catch (e: Exception) {
-                println("$TAG: Failed to clear recent searches: ${e.message}")
+                Logger.e(TAG, "Failed to clear recent searches: ${e.message}", e)
             }
         }
     }
@@ -195,7 +196,7 @@ class SearchViewModel(
      * Update the debounce delay for search queries
      */
     fun updateDebounceDelay(delayMs: Long) {
-        println("$TAG: Updating debounce delay to ${delayMs}ms")
+        Logger.d(TAG, "Updating debounce delay to ${delayMs}ms")
         _debounceDelayMs.value = delayMs.coerceIn(0L, 2000L) // Clamp between 0-2000ms
     }
     
@@ -246,7 +247,7 @@ class SearchViewModel(
     
     override fun onCleared() {
         super.onCleared()
-        println("$TAG: SearchViewModel cleared")
+        Logger.d(TAG, "SearchViewModel cleared")
         
         // Cancel any pending search jobs
         searchJob?.cancel()
