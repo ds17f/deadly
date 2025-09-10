@@ -8,6 +8,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.decodeFromString
+import kotlinx.datetime.Clock
 import kotlinx.serialization.json.Json
 
 /**
@@ -263,9 +264,9 @@ class SearchServiceStub(
             // Simulate search delay
             delay(300)
             
-            val startTime = System.currentTimeMillis()
+            val startTime = Clock.System.now()
             val results = performSearch(query)
-            val searchDuration = System.currentTimeMillis() - startTime
+            val searchDuration = (Clock.System.now() - startTime).inWholeMilliseconds
             
             _searchResults.value = results
             _searchStatus.value = if (results.isEmpty()) SearchStatus.NO_RESULTS else SearchStatus.SUCCESS
@@ -298,7 +299,7 @@ class SearchServiceStub(
             current.removeAll { it.query == query }
             
             // Add to the beginning
-            current.add(0, RecentSearch(query, System.currentTimeMillis()))
+            current.add(0, RecentSearch(query, Clock.System.now().toEpochMilliseconds()))
             
             // Keep only the most recent entries
             if (current.size > MAX_RECENT_SEARCHES) {
@@ -391,9 +392,9 @@ class SearchServiceStub(
     override suspend fun populateTestData(): Result<Unit> {
         // Add some test recent searches
         val testRecentSearches = listOf(
-            RecentSearch("Cornell", System.currentTimeMillis() - 86400000),
-            RecentSearch("1977", System.currentTimeMillis() - 172800000),
-            RecentSearch("Fillmore", System.currentTimeMillis() - 259200000)
+            RecentSearch("Cornell", Clock.System.now().toEpochMilliseconds() - 86400000),
+            RecentSearch("1977", Clock.System.now().toEpochMilliseconds() - 172800000),
+            RecentSearch("Fillmore", Clock.System.now().toEpochMilliseconds() - 259200000)
         )
         
         _recentSearches.value = testRecentSearches

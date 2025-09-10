@@ -77,3 +77,16 @@ make all           # Build and run on all available platforms
 - Makefile logs all build noise to `logs/` directory
 - Use `--info --stacktrace` with Gradle for detailed error information
 - Check `logs/emulator.log`, `logs/gradle-install.log` for Android issues
+
+## KMM Compatibility Guidelines
+
+**⚠️ Critical**: Avoid platform-specific APIs in `commonMain` source sets.
+
+**Quick Reference:**
+- ❌ `System.currentTimeMillis()` → ✅ `Clock.System.now()` (kotlinx-datetime)
+- ❌ `String.format()` → ✅ `kotlin.math.round()` + string templates  
+- ❌ `java.util.*` → ✅ `kotlinx.*` libraries
+- ❌ `Date()`, `Calendar` → ✅ `kotlinx-datetime` types
+
+**For comprehensive compatibility guidance, troubleshooting, and examples:**
+📖 **See [docs/KMM_COMPATIBILITY.md](docs/KMM_COMPATIBILITY.md)**

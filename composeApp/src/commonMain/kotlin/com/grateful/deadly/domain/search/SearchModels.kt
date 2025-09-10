@@ -125,7 +125,10 @@ data class Show(
      * Formatted rating display
      */
     val displayRating: String
-        get() = averageRating?.let { "%.1f★".format(it) } ?: "Not Rated"
+        get() = averageRating?.let { 
+            val rounded = kotlin.math.round(it * 10) / 10.0
+            "$rounded★"
+        } ?: "Not Rated"
     
     /**
      * Whether this show has multiple recordings
