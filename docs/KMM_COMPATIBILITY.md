@@ -208,6 +208,73 @@ When converting existing Android code to KMM:
 2. Enable Gradle parallel builds in gradle.properties
 3. Use `--no-daemon` for CI builds to avoid memory issues
 
+## iOS-Specific Integration Issues
+
+### Koin Dependency Injection Initialization
+When integrating Koin DI in an iOS KMM project, the initialization must happen **before** any Compose components try to inject dependencies.
+
+#### ❌ Problem: iOS App Crash on Startup
+```
+Fatal error: [Koin] No definition found for class:'SearchViewModel' and qualifier:'null'
+```
+
+**Root Cause**: The App() composable tries to inject dependencies via Koin before Koin is initialized.
+
+#### ✅ Solution: Initialize Koin in SwiftUI
+```swift
+// In iOS ContentView.swift
+import SwiftUI
+import ComposeApp
+
+struct ContentView: View {
+    init() {
+        // Initialize Koin DI before any Compose UI is created
+        IOSKoinInitKt.doInitKoin()
+    }
+    
+    var body: some View {
+        ComposeView()
+            .ignoresSafeArea()
+    }
+}
+```
+
+**Key Points**:
+- Swift uses `doInitKoin()` not `initKoin()` - Kotlin/Native function naming conventions
+- Must be called in `init()` of the SwiftUI view that hosts the Compose content
+- Ensures Koin is ready before any `@Composable` functions execute
+
+#### Function Name Resolution
+Kotlin functions exported to iOS follow specific naming conventions:
+```kotlin
+// Kotlin: initKoin()
+// Swift: doInitKoin() or IOSKoinInitKt.doInitKoin()
+
+// Top-level functions are often prefixed with "do" in Swift
+// Check generated framework headers in Xcode for exact names
+```
+
+### iOS UIKit Interoperability
+When using iOS UIKit components in Compose Multiplatform:
+
+#### ExperimentalForeignApi Annotation Required
+```kotlin
+// In iosMain source sets
+@OptIn(ExperimentalForeignApi::class)
+@Composable
+actual fun AppIcon.Render(size: Dp) {
+    UIKitView<UIImageView>(
+        factory = {
+            val config = UIImageSymbolConfiguration
+                .configurationWithPointSize(size.value.toDouble())
+            // ...
+        }
+    )
+}
+```
+
+**Why Needed**: Kotlin/Native's C interop APIs are experimental and require explicit opt-in.
+
 ## Resources
 
 - [Kotlin Multiplatform Documentation](https://kotlinlang.org/docs/multiplatform.html)
@@ -215,3 +282,4 @@ When converting existing Android code to KMM:
 - [kotlinx.datetime](https://github.com/Kotlin/kotlinx-datetime)
 - [Ktor Client](https://ktor.io/docs/getting-started-ktor-client.html)
 - [SQLDelight](https://cashapp.github.io/sqldelight/)
+- [Koin for KMM](https://insert-koin.io/docs/setup/multiplatform/)
