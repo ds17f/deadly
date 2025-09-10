@@ -6,6 +6,7 @@ plugins {
     alias(libs.plugins.androidApplication)
     alias(libs.plugins.composeMultiplatform)
     alias(libs.plugins.composeCompiler)
+    alias(libs.plugins.kotlinx.serialization)
     alias(libs.plugins.sqldelight)
 }
 
@@ -62,6 +63,7 @@ kotlin {
             implementation(libs.ktor.serialization.json)
             implementation(libs.multiplatform.settings)
             implementation(libs.koin.core)
+            implementation(libs.kotlinx.serialization.json)
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)
