@@ -1,0 +1,30 @@
+package com.grateful.deadly.core.design.icons
+
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
+
+/**
+ * Cross-platform icon abstraction for KMM using native rendering approaches
+ * 
+ * This enum represents semantic icons that get rendered natively on each platform:
+ * - Android: Material Symbols font glyphs
+ * - iOS: SF Symbols via SwiftUI
+ * 
+ * Usage: AppIcon.QrCodeScanner.Render(size = 24.dp)
+ */
+enum class AppIcon {
+    QrCodeScanner,
+    Home,
+    Settings,
+    Search,
+    // Add more icons as needed for the search feature and beyond
+}
+
+/**
+ * Platform-specific rendering function
+ * - Android: Renders Material Symbols font glyph as Text
+ * - iOS: Renders SF Symbol as SwiftUI Image
+ */
+@Composable
+expect fun AppIcon.Render(size: Dp = 24.dp)

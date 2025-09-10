@@ -28,44 +28,58 @@ kotlin {
     }
     
     sourceSets {
-        androidMain.dependencies {
-            implementation(compose.preview)
-            implementation(libs.androidx.activity.compose)
-            
-            // Platform-specific KMM dependencies
-            implementation(libs.sqldelight.android.driver)
-            implementation(libs.ktor.client.okhttp)
+        val commonMain by getting {
+            dependencies {
+                // Compose Multiplatform
+                implementation(compose.runtime)
+                implementation(compose.foundation)
+                implementation(compose.material3)
+                implementation(compose.ui)
+                implementation(compose.components.resources)
+                implementation(compose.components.uiToolingPreview)
+                implementation(libs.androidx.lifecycle.viewmodelCompose)
+                implementation(libs.androidx.lifecycle.runtimeCompose)
+                
+                // KMM Libraries
+                implementation(libs.okio)
+                implementation(libs.sqldelight.runtime)
+                implementation(libs.sqldelight.coroutines)
+                implementation(libs.ktor.client.core)
+                implementation(libs.ktor.client.content.negotiation)
+                implementation(libs.ktor.serialization.json)
+                implementation(libs.multiplatform.settings)
+                implementation(libs.koin.core)
+                implementation(libs.kotlinx.serialization.json)
+                implementation(libs.kotlinx.datetime)
+            }
         }
         
-        iosMain.dependencies {
-            // Platform-specific KMM dependencies
-            implementation(libs.sqldelight.native.driver)
-            implementation(libs.ktor.client.darwin)
+        val androidMain by getting {
+            dependencies {
+                implementation(compose.preview)
+                implementation(libs.androidx.activity.compose)
+                
+                // Android-specific Koin Compose helpers
+                implementation(libs.koin.androidx.compose)
+                
+                // Platform-specific KMM dependencies
+                implementation(libs.sqldelight.android.driver)
+                implementation(libs.ktor.client.okhttp)
+            }
         }
-        commonMain.dependencies {
-            implementation(compose.runtime)
-            implementation(compose.foundation)
-            implementation(compose.material3)
-            implementation(compose.ui)
-            implementation(compose.components.resources)
-            implementation(compose.components.uiToolingPreview)
-            implementation(libs.androidx.lifecycle.viewmodelCompose)
-            implementation(libs.androidx.lifecycle.runtimeCompose)
-            
-            // KMM Libraries
-            implementation(libs.okio)
-            implementation(libs.sqldelight.runtime)
-            implementation(libs.sqldelight.coroutines)
-            implementation(libs.ktor.client.core)
-            implementation(libs.ktor.client.content.negotiation)
-            implementation(libs.ktor.serialization.json)
-            implementation(libs.multiplatform.settings)
-            implementation(libs.koin.core)
-            implementation(libs.kotlinx.serialization.json)
-            implementation(libs.kotlinx.datetime)
+        
+        val iosMain by creating {
+            dependencies {
+                // Platform-specific KMM dependencies
+                implementation(libs.sqldelight.native.driver)
+                implementation(libs.ktor.client.darwin)
+            }
         }
-        commonTest.dependencies {
-            implementation(libs.kotlin.test)
+        
+        val commonTest by getting {
+            dependencies {
+                implementation(libs.kotlin.test)
+            }
         }
     }
 }

@@ -112,7 +112,7 @@ okio = "3.9.0"
 sqldelight = "2.0.2"
 ktor = "2.3.6"
 multiplatform-settings = "1.1.1"
-koin = "3.5.0"
+koin = "4.1.0"
 
 [libraries]
 # File System
@@ -136,7 +136,7 @@ multiplatform-settings = { module = "com.russhwolf:multiplatform-settings", vers
 
 # DI
 koin-core = { module = "io.insert-koin:koin-core", version.ref = "koin" }
-koin-compose = { module = "io.insert-koin:koin-compose", version.ref = "koin" }
+koin-androidx-compose = { module = "io.insert-koin:koin-androidx-compose", version.ref = "koin" }
 ```
 
 #### Step 1.2: Update build.gradle.kts
@@ -151,12 +151,12 @@ commonMain {
         implementation(libs.ktor.serialization.json)
         implementation(libs.multiplatform.settings)
         implementation(libs.koin.core)
-        implementation(libs.koin.compose)
     }
 }
 
 androidMain {
     dependencies {
+        implementation(libs.koin.androidx.compose)
         implementation(libs.sqldelight.android.driver)
         implementation(libs.ktor.client.okhttp)
     }
@@ -275,20 +275,32 @@ class SearchViewModel(
 }
 ```
 
-#### Step 2.5: Port Compose UI
+#### Step 2.5: Port Compose UI (Use KoinComponent Pattern)
 ```kotlin
+// commonMain - Create DI helper for Koin 4.1.0
+import org.koin.core.component.KoinComponent
+import org.koin.core.component.get
+
+object DIHelper : KoinComponent
+
 // commonMain/feature/search/SearchScreen.kt
 @Composable
 fun SearchScreen(
+    viewModel: SearchViewModel,  // Accept as parameter instead of injecting
     onNavigateToPlayer: (String) -> Unit,
     onNavigateToShow: (String) -> Unit,
     onNavigateToSearchResults: () -> Unit,
-    initialEra: String? = null,
-    viewModel: SearchViewModel = koinInject()  // Replace hiltViewModel()
+    initialEra: String? = null
 ) {
     // Port complete 800+ line UI from V2
-    // Keep all debug integration, rich UI components
-    // Replace hiltViewModel() with koinInject()
+    // Manual dependency injection instead of magic injection
+}
+
+// Usage in App.kt
+@Composable
+fun App() {
+    val searchViewModel: SearchViewModel = DIHelper.get()
+    SearchScreen(viewModel = searchViewModel, ...)
 }
 ```
 
