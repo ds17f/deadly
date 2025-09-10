@@ -1,4 +1,5 @@
 # Makefile for Kotlin Multiplatform Mobile (KMM) project
+# Consistent naming pattern: action-platform-target
 # Works on macOS, Linux, and Windows (with Java and Android SDK installed)
 
 # Detect OS
@@ -18,49 +19,91 @@ endif
 # Help target - shows available commands
 .PHONY: help
 help:
-	@echo "Available targets:"
-	@echo "  android-debug   - Build Android debug APK"
-	@echo "  android-release - Build Android release APK"
-	@echo "  android-device  - Build and install Android app to connected device"
-	@echo "  android-run     - Build and run Android app in emulator"
+	@echo "KMM Build System - Consistent Command Pattern"
+	@echo ""
+	@echo "BUILD COMMANDS:"
+	@echo "  build-debug-android     - Build Android debug APK"
+	@echo "  build-release-android   - Build Android release APK"
 ifeq ($(UNAME_S),Darwin)
-	@echo "  ios-sim         - Build and launch iOS app in simulator"
-	@echo "  ios-device      - Build iOS framework for connected device"
+	@echo "  build-debug-ios         - Build iOS debug framework"
+	@echo "  build-release-ios       - Build iOS release framework"
 else
-	@echo "  ios-sim         - [macOS only] Build and launch iOS app in simulator"
-	@echo "  ios-device      - [macOS only] Build iOS framework for connected device"
+	@echo "  build-debug-ios         - [macOS only] Build iOS debug framework"
+	@echo "  build-release-ios       - [macOS only] Build iOS release framework"
 endif
-	@echo "  clean           - Clean all build outputs"
-	@echo "  all             - Build Android debug and iOS simulator (if on macOS)"
 	@echo ""
-	@echo "Log Reading:"
-	@echo "  logs-help       - Show detailed log reading help"
-	@echo "  logs-search-android - Show Android debug logs for search functionality"
-	@echo "  logs-search-ios     - Show iOS debug logs for search functionality"
-	@echo "  logs-android LEVEL='-d' CONCEPT='ui' - Custom Android log filter"
-	@echo "  logs-ios LEVEL='-e' CONCEPT='di'     - Custom iOS log filter"
+	@echo "INSTALL COMMANDS:"
+	@echo "  install-android-device  - Install to connected Android device"
+	@echo "  install-android-emulator - Install to Android emulator (auto-start if needed)"
+ifeq ($(UNAME_S),Darwin)
+	@echo "  install-ios-simulator   - Install to iOS simulator"
+	@echo "  install-ios-device      - Install to connected iOS device"
+else
+	@echo "  install-ios-simulator   - [macOS only] Install to iOS simulator"
+	@echo "  install-ios-device      - [macOS only] Install to connected iOS device"
+endif
+	@echo ""
+	@echo "RUN COMMANDS:"
+	@echo "  run-android-emulator    - Build, install, and run on Android emulator"
+	@echo "  run-android-device      - Build, install, and run on Android device"
+ifeq ($(UNAME_S),Darwin)
+	@echo "  run-ios-simulator       - Build, install, and run on iOS simulator"
+else
+	@echo "  run-ios-simulator       - [macOS only] Build, install, and run on iOS simulator"
+endif
+	@echo ""
+	@echo "LOG COMMANDS:"
+	@echo "  logs-help               - Show detailed log reading help"
+	@echo "  logs-android-search     - Show Android search logs"
+	@echo "  logs-ios-search         - Show iOS search logs"
 	@echo "  logs-follow-android CONCEPT='search' - Follow Android logs live"
+	@echo "  logs-follow-ios CONCEPT='di'         - Follow iOS logs live"
 	@echo ""
-	@echo "  help            - Show this help message"
+	@echo "UTILITY COMMANDS:"
+	@echo "  clean                   - Clean all build outputs"
+	@echo "  clean-android          - Clean Android build outputs only"
+	@echo "  clean-ios              - Clean iOS build outputs only"
 
-# Android targets (work on all platforms)
-.PHONY: android-debug
-android-debug:
+# =============================================================================
+# BUILD COMMANDS
+# =============================================================================
+
+.PHONY: build-debug-android
+build-debug-android:
 	@echo "🤖 Building Android debug APK..."
 	$(GRADLEW) :composeApp:assembleDebug
 	@echo "✅ Android debug APK built successfully!"
 	@echo "📱 APK location: composeApp/build/outputs/apk/debug/"
 
-.PHONY: android-release
-android-release:
+.PHONY: build-release-android
+build-release-android:
 	@echo "🤖 Building Android release APK..."
 	$(GRADLEW) :composeApp:assembleRelease
 	@echo "✅ Android release APK built successfully!"
 	@echo "📱 APK location: composeApp/build/outputs/apk/release/"
 
-.PHONY: android-device
-android-device:
-	@echo "🤖 Building and installing Android app to connected device..."
+ifeq ($(UNAME_S),Darwin)
+.PHONY: build-debug-ios
+build-debug-ios:
+	@echo "🍎 Building iOS debug framework..."
+	@echo "🔍 Detected architecture: $(UNAME_M)"
+	$(GRADLEW) :composeApp:linkDebugFrameworkIosSimulatorArm64
+	@echo "✅ iOS debug framework built successfully!"
+
+.PHONY: build-release-ios
+build-release-ios:
+	@echo "🍎 Building iOS release framework..."
+	$(GRADLEW) :composeApp:linkReleaseFrameworkIosSimulatorArm64
+	@echo "✅ iOS release framework built successfully!"
+endif
+
+# =============================================================================
+# INSTALL COMMANDS  
+# =============================================================================
+
+.PHONY: install-android-device
+install-android-device:
+	@echo "🤖 Installing Android app to connected device..."
 	@echo "🔍 Checking for connected device..."
 	@DEVICE_COUNT=$$(adb devices | grep -c "device$$"); \
 	if [ $$DEVICE_COUNT -eq 0 ]; then \
@@ -73,21 +116,15 @@ android-device:
 	@echo "📱 Installing app..."
 	@mkdir -p logs
 	$(GRADLEW) :composeApp:installDebug > logs/gradle-install.log 2>&1 || (echo "❌ Install failed - check logs/gradle-install.log"; exit 1)
-	@echo "🚀 Launching app on device..."
-	@if adb shell am start -n "com.grateful.deadly/com.grateful.deadly.MainActivity"; then \
-		echo "✅ Android app installed and launched successfully!"; \
-	else \
-		echo "❌ Failed to launch Android app"; \
-		exit 1; \
-	fi
+	@echo "✅ Android app installed to device successfully!"
 
-.PHONY: android-run
-android-run:
-	@echo "🤖 Building and installing Android app..."
-	@echo "🔍 Checking for running emulator or connected device..."
-	@DEVICE_COUNT=$$(adb devices | grep -c "device$$\|emulator"); \
-	if [ $$DEVICE_COUNT -eq 0 ]; then \
-		echo "⚠️  No Android device or emulator detected"; \
+.PHONY: install-android-emulator
+install-android-emulator:
+	@echo "🤖 Installing Android app to emulator..."
+	@echo "🔍 Checking for running emulator..."
+	@EMULATOR_COUNT=$$(adb devices | grep -c "emulator"); \
+	if [ $$EMULATOR_COUNT -eq 0 ]; then \
+		echo "⚠️  No Android emulator detected"; \
 		echo "💡 Starting Android emulator (if available)..."; \
 		AVD=$$(emulator -list-avds | head -1); \
 		if [ -n "$$AVD" ]; then \
@@ -104,117 +141,94 @@ android-run:
 			exit 1; \
 		fi \
 	else \
-		echo "✅ Found $$DEVICE_COUNT connected device(s)"; \
+		echo "✅ Found $$EMULATOR_COUNT running emulator(s)"; \
 	fi
 	@echo "📱 Installing app... (logs: logs/gradle-install.log)"
 	@mkdir -p logs
 	$(GRADLEW) :composeApp:installDebug > logs/gradle-install.log 2>&1 || (echo "❌ Install failed - check logs/gradle-install.log"; exit 1)
-	@echo "🚀 Launching app on device/emulator..."
+	@echo "✅ Android app installed to emulator successfully!"
+
+ifeq ($(UNAME_S),Darwin)
+.PHONY: install-ios-simulator
+install-ios-simulator: build-debug-ios
+	@echo "🍎 Installing iOS app to simulator..."
+	@SIMULATOR=$$(xcrun simctl list devices | grep "iPhone" | grep -v "iPad" | head -1 | sed 's/.*iPhone \([^(]*\).*/iPhone \1/' | sed 's/ *$$//' || echo "iPhone 16"); \
+	echo "📱 Using iPhone simulator: $$SIMULATOR"; \
+	mkdir -p iosApp/build; \
+	cd iosApp && xcodebuild -project iosApp.xcodeproj -scheme iosApp -destination "platform=iOS Simulator,name=$$SIMULATOR" -configuration Debug -derivedDataPath ./build build
+	@echo "📱 Installing app to simulator..."
+	@xcrun simctl boot "$$(xcrun simctl list devices | grep "iPhone" | grep -v "iPad" | head -1 | sed 's/.*iPhone \([^(]*\).*/iPhone \1/' | sed 's/ *$$//' || echo "iPhone 16")" 2>/dev/null || true
+	@APP_PATH=$$(find iosApp/build -name "*.app" -type d | head -1); \
+	if [ -n "$$APP_PATH" ] && [ -d "$$APP_PATH" ]; then \
+		echo "📱 Installing app: $$APP_PATH"; \
+		xcrun simctl install booted "$$APP_PATH"; \
+		echo "✅ iOS app installed to simulator successfully!"; \
+	else \
+		echo "❌ App build not found"; \
+		exit 1; \
+	fi
+
+.PHONY: install-ios-device
+install-ios-device: build-debug-ios
+	@echo "🍎 Installing iOS app to connected device..."
+	@echo "💡 Note: This requires proper iOS development setup (certificates, provisioning profiles)"
+	@echo "🔍 Building for device..."
+	$(GRADLEW) :composeApp:linkDebugFrameworkIosArm64
+	@echo "✅ iOS device installation prepared!"
+	@echo "💡 Use Xcode to install to device or configure automatic deployment"
+endif
+
+# =============================================================================
+# RUN COMMANDS (Build + Install + Launch)
+# =============================================================================
+
+.PHONY: run-android-device
+run-android-device: install-android-device
+	@echo "🚀 Launching Android app on device..."
 	@if adb shell am start -n "com.grateful.deadly/com.grateful.deadly.MainActivity"; then \
-		echo "✅ Android app launched successfully!"; \
+		echo "✅ Android app launched on device successfully!"; \
 	else \
 		echo "❌ Failed to launch Android app"; \
 		exit 1; \
 	fi
 
-# iOS targets (macOS only)
-ifeq ($(UNAME_S),Darwin)
-.PHONY: ios-sim
-ios-sim:
-	@echo "🍎 Building Compose framework for iOS simulator..."
-	@echo "🔍 Detected architecture: $(UNAME_M)"
-	@echo "🔨 Building iOS simulator framework..."
-	$(GRADLEW) :composeApp:linkDebugFrameworkIosSimulatorArm64
-	@echo "🚀 Building iOS app for simulator..."
-	@SIMULATOR=$$(xcrun simctl list devices | grep "iPhone" | grep -v "iPad" | head -1 | sed 's/.*iPhone \([^(]*\).*/iPhone \1/' | sed 's/ *$$//' || echo "iPhone 16"); \
-	echo "📱 Using iPhone simulator: $$SIMULATOR"; \
-	mkdir -p iosApp/build; \
-	cd iosApp && xcodebuild -project iosApp.xcodeproj -scheme iosApp -destination "platform=iOS Simulator,name=$$SIMULATOR" -configuration Debug -derivedDataPath ./build build
-	@echo "📱 Opening iPhone Simulator and launching app..."
-	@SIMULATOR=$$(xcrun simctl list devices | grep "iPhone" | grep -v "iPad" | head -1 | sed 's/.*iPhone \([^(]*\).*/iPhone \1/' | sed 's/ *$$//' || echo "iPhone 16"); \
-	xcrun simctl boot "$$SIMULATOR" 2>/dev/null || true; \
-	open -a Simulator; \
-	sleep 3; \
-	APP_PATH=$$(find iosApp/build -name "*.app" -type d | head -1); \
-	if [ -n "$$APP_PATH" ] && [ -d "$$APP_PATH" ]; then \
-		echo "📱 Installing app: $$APP_PATH"; \
-		xcrun simctl install booted "$$APP_PATH" && \
-		BUNDLE_ID=$$(/usr/libexec/PlistBuddy -c "Print CFBundleIdentifier" "$$APP_PATH/Info.plist"); \
-		echo "🚀 Launching app with bundle ID: $$BUNDLE_ID"; \
-		xcrun simctl launch booted "$$BUNDLE_ID" && \
-		echo "✅ iOS simulator build and launch completed!"; \
+.PHONY: run-android-emulator
+run-android-emulator: install-android-emulator
+	@echo "🚀 Launching Android app on emulator..."
+	@if adb shell am start -n "com.grateful.deadly/com.grateful.deadly.MainActivity"; then \
+		echo "✅ Android app launched on emulator successfully!"; \
 	else \
-		echo "❌ App build not found - check Xcode build output"; \
-		find iosApp/build -name "*.app" -type d 2>/dev/null || echo "No .app files found"; \
+		echo "❌ Failed to launch Android app"; \
 		exit 1; \
 	fi
 
-.PHONY: ios-device
-ios-device:
-	@echo "🍎 Building Compose framework for iOS device..."
-	@echo "🔨 Building iOS device framework..."
-	$(GRADLEW) :composeApp:linkDebugFrameworkIosArm64
-	@echo "📱 Building iOS app for device..."
-	cd iosApp && xcodebuild -project iosApp.xcodeproj -scheme iosApp -destination 'generic/platform=iOS' -configuration Debug build
-	@echo "✅ iOS device build completed!"
-	@echo "📋 Note: Use Xcode to deploy to your connected device"
-
-else
-# Non-macOS iOS targets
-.PHONY: ios-sim ios-device
-ios-sim ios-device:
-	@echo "⚠️  iOS builds are only supported on macOS"
-	@echo "💡 Current OS: $(UNAME_S)"
-	@echo "🍎 Please run this command on a Mac to build for iOS"
-endif
-
-# Clean target (works on all platforms)
-.PHONY: clean
-clean:
-	@echo "🧹 Cleaning all build outputs..."
-	$(GRADLEW) clean
-	@echo "✅ Clean completed!"
-
-# Build all target
-.PHONY: all
-all: android-run
 ifeq ($(UNAME_S),Darwin)
-	@$(MAKE) ios-sim
-else
-	@echo "ℹ️  Skipping iOS build (not on macOS)"
+.PHONY: run-ios-simulator
+run-ios-simulator: install-ios-simulator
+	@echo "🚀 Launching iOS app on simulator..."
+	@open -a Simulator
+	@sleep 3
+	@APP_PATH=$$(find iosApp/build -name "*.app" -type d | head -1); \
+	BUNDLE_ID=$$(/usr/libexec/PlistBuddy -c "Print CFBundleIdentifier" "$$APP_PATH/Info.plist"); \
+	echo "🚀 Launching app with bundle ID: $$BUNDLE_ID"; \
+	xcrun simctl launch booted "$$BUNDLE_ID" && \
+	echo "✅ iOS app launched on simulator successfully!"
 endif
-	@echo "🎉 All builds completed!"
 
-# Utility targets for development
-.PHONY: tasks
-tasks:
-	@echo "📋 Available Gradle tasks:"
-	$(GRADLEW) tasks
+# =============================================================================
+# LOG COMMANDS
+# =============================================================================
 
-.PHONY: dependencies
-dependencies:
-	@echo "📦 Project dependencies:"
-	$(GRADLEW) :composeApp:dependencies
-
-# Log reading targets
 .PHONY: logs-help
 logs-help:
 	@./scripts/readlogs -h
 
-.PHONY: logs-android
-logs-android:
-	@./scripts/readlogs -a $(LEVEL) $(CONCEPT)
-
-.PHONY: logs-ios  
-logs-ios:
-	@./scripts/readlogs -i $(LEVEL) $(CONCEPT)
-
-.PHONY: logs-search-android
-logs-search-android:
+.PHONY: logs-android-search
+logs-android-search:
 	@./scripts/readlogs -a -d search
 
-.PHONY: logs-search-ios
-logs-search-ios:
+.PHONY: logs-ios-search
+logs-ios-search:
 	@./scripts/readlogs -i -d search
 
 .PHONY: logs-follow-android
@@ -225,16 +239,45 @@ logs-follow-android:
 logs-follow-ios:
 	@./scripts/readlogs -i -f $(CONCEPT)
 
-# Debugging targets
+# =============================================================================
+# CLEAN COMMANDS
+# =============================================================================
+
+.PHONY: clean
+clean:
+	@echo "🧹 Cleaning all build outputs..."
+	$(GRADLEW) clean
+	@rm -rf iosApp/build 2>/dev/null || true
+	@rm -rf logs 2>/dev/null || true
+	@echo "✅ Clean completed!"
+
+.PHONY: clean-android
+clean-android:
+	@echo "🧹 Cleaning Android build outputs..."
+	$(GRADLEW) :composeApp:clean
+	@echo "✅ Android clean completed!"
+
+.PHONY: clean-ios
+clean-ios:
+	@echo "🧹 Cleaning iOS build outputs..."
+	@rm -rf iosApp/build 2>/dev/null || true
+	@echo "✅ iOS clean completed!"
+
+# =============================================================================
+# UTILITY TARGETS
+# =============================================================================
+
+.PHONY: tasks
+tasks:
+	@echo "📋 Available Gradle tasks:"
+	$(GRADLEW) tasks
+
+.PHONY: dependencies
+dependencies:
+	@echo "📦 Project dependencies:"
+	$(GRADLEW) :composeApp:dependencies
+
 .PHONY: gradle-version
 gradle-version:
-	@echo "🔧 Gradle version:"
+	@echo "📋 Gradle version information:"
 	$(GRADLEW) --version
-
-.PHONY: project-info
-project-info:
-	@echo "📊 Project information:"
-	@echo "OS: $(UNAME_S)"
-	@echo "Architecture: $(UNAME_M)"
-	@echo "Gradle wrapper: $(GRADLEW)"
-	$(GRADLEW) projects

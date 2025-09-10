@@ -163,7 +163,7 @@ get_tag_filters() {
             echo "SearchViewModel|SearchScreen|SearchService"
             ;;
         "di")
-            echo "DeadlyApplication|CommonModule|AndroidModule|IOSModule|Koin"
+            echo "KoinInitializer|DeadlyApplication|CommonModule|AndroidModule|IOSModule|Koin"
             ;;
         "ui")
             echo "App|SearchScreen|Navigation"
