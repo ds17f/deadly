@@ -17,7 +17,8 @@ fun AppScreen.route(): String = when (this) {
     AppScreen.Collections -> "collections"
     AppScreen.Settings -> "settings"
     AppScreen.SearchResults -> "search-results"
-    is AppScreen.ShowDetail -> "show/${this.id}"
+    is AppScreen.ShowDetail -> if (recordingId != null) "showDetail/${showId}/${recordingId}" else "showDetail/${showId}"
+    AppScreen.Player -> "player"
 }
 
 /**
@@ -31,6 +32,14 @@ fun String.toAppScreen(): AppScreen? = when {
     this == "collections" -> AppScreen.Collections
     this == "settings" -> AppScreen.Settings
     this == "search-results" -> AppScreen.SearchResults
-    this.startsWith("show/") -> AppScreen.ShowDetail(this.removePrefix("show/"))
+    this == "player" -> AppScreen.Player
+    this.startsWith("showDetail/") -> {
+        val parts = this.removePrefix("showDetail/").split("/")
+        when (parts.size) {
+            1 -> AppScreen.ShowDetail(parts[0])
+            2 -> AppScreen.ShowDetail(parts[0], parts[1])
+            else -> null
+        }
+    }
     else -> null
 }

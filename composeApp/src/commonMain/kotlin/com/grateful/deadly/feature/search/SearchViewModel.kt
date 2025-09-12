@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.grateful.deadly.core.logging.Logger
 import com.grateful.deadly.domain.search.*
+import com.grateful.deadly.navigation.AppScreen
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -243,6 +244,24 @@ class SearchViewModel(
                 _uiState.value = _uiState.value.copy(searchStats = stats)
             }
         }
+    }
+    
+    /**
+     * Navigation methods that return AppScreen objects for type-safe navigation
+     */
+    fun onSearchResultSelected(showId: String): AppScreen {
+        Logger.i(TAG, "Navigate to show detail: $showId")
+        return AppScreen.ShowDetail(showId)
+    }
+
+    fun onSearchQuerySubmitted(query: String): AppScreen {
+        Logger.i(TAG, "Navigate to search results for query: $query")
+        return AppScreen.SearchResults
+    }
+    
+    fun onNavigateToPlayer(recordingId: String): AppScreen {
+        Logger.i(TAG, "Navigate to player: $recordingId")
+        return AppScreen.Player
     }
     
     override fun onCleared() {

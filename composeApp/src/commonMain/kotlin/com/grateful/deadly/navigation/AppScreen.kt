@@ -11,9 +11,10 @@ package com.grateful.deadly.navigation
 sealed interface AppScreen {
     object Home : AppScreen
     object Search : AppScreen
-    data class ShowDetail(val id: String) : AppScreen
     object Library : AppScreen
     object Collections : AppScreen
     object Settings : AppScreen
     object SearchResults : AppScreen
+    data class ShowDetail(val showId: String, val recordingId: String? = null) : AppScreen
+    object Player : AppScreen
 }
