@@ -1,6 +1,9 @@
 package com.grateful.deadly.navigation
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -16,12 +19,20 @@ import androidx.navigation.navArgument
 actual class NavigationController(
     internal val navController: NavHostController
 ) {
+    private var _currentScreen by mutableStateOf<AppScreen?>(null)
+    actual val currentScreen: AppScreen? get() = _currentScreen
+    
     actual fun navigate(screen: AppScreen) {
+        _currentScreen = screen
         navController.navigate(screen.route())
     }
     
     actual fun navigateUp() {
         navController.navigateUp()
+    }
+    
+    internal fun setCurrentScreen(screen: AppScreen) {
+        _currentScreen = screen
     }
 }
 
@@ -115,6 +126,11 @@ actual fun DeadlyNavHost(
 ) {
     val builder = DeadlyNavGraphBuilder()
     builder.content()
+    
+    // Set initial current screen
+    if (navigationController.currentScreen == null) {
+        navigationController.setCurrentScreen(startDestination)
+    }
     
     NavHost(
         navController = navigationController.navController,

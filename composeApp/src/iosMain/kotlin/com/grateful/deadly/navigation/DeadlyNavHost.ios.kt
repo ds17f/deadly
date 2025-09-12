@@ -10,10 +10,11 @@ import androidx.compose.ui.Modifier
  * TODO: Integrate with SwiftUI NavigationStack in future
  */
 actual class NavigationController {
-    private var currentScreen = mutableStateOf<AppScreen?>(null)
+    private var _currentScreen = mutableStateOf<AppScreen?>(null)
+    actual val currentScreen: AppScreen? get() = _currentScreen.value
     
     actual fun navigate(screen: AppScreen) {
-        currentScreen.value = screen
+        _currentScreen.value = screen
         // TODO: Integrate with iOS NavigationStack
     }
     
@@ -21,7 +22,7 @@ actual class NavigationController {
         // TODO: Implement back navigation for iOS
     }
     
-    internal fun getCurrentScreen(): AppScreen? = currentScreen.value
+    internal fun getCurrentScreen(): AppScreen? = _currentScreen.value
 }
 
 /**
@@ -72,7 +73,11 @@ actual fun DeadlyNavHost(
     val builder = DeadlyNavGraphBuilder()
     builder.content()
     
-    val currentScreen = navigationController.getCurrentScreen() ?: startDestination
+    // Set initial current screen
+    val currentScreen = navigationController.getCurrentScreen() ?: run {
+        navigationController.navigate(startDestination)
+        startDestination
+    }
     val routes = builder.getRoutes()
     
     // Simple placeholder implementation - just show current screen content

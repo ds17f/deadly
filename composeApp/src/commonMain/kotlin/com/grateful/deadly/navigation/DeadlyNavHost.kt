@@ -10,6 +10,7 @@ import androidx.compose.ui.Modifier
 expect class NavigationController {
     fun navigate(screen: AppScreen)
     fun navigateUp()
+    val currentScreen: AppScreen?
 }
 
 /**

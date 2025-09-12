@@ -1,5 +1,6 @@
 package com.grateful.deadly
 
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
@@ -9,7 +10,9 @@ import com.grateful.deadly.core.logging.Logger
 import com.grateful.deadly.feature.search.SearchViewModel
 import com.grateful.deadly.navigation.AppScreen
 import com.grateful.deadly.navigation.DeadlyNavHost
+import com.grateful.deadly.navigation.NavigationBarConfig
 import com.grateful.deadly.navigation.rememberNavigationController
+import com.grateful.deadly.core.design.scaffold.AppScaffold
 import kotlinx.coroutines.launch
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.get
@@ -53,11 +56,24 @@ fun App() {
             }
         }
         
-        // DeadlyNavHost with cross-platform navigation abstraction
-        DeadlyNavHost(
-            navigationController = navigationController,
-            startDestination = AppScreen.Search // Start on Search for development
-        ) {
+        // Get current screen and bar configuration
+        val currentScreen = navigationController.currentScreen ?: AppScreen.Search
+        val barConfig = NavigationBarConfig.getBarConfig(currentScreen)
+        
+        // AppScaffold wraps the navigation with consistent TopBar and BottomBar
+        AppScaffold(
+            topBarConfig = barConfig.topBar,
+            bottomBarConfig = barConfig.bottomBar,
+            currentScreen = currentScreen,
+            onNavigateBack = { navigationController.navigateUp() },
+            onNavigateToTab = { screen -> navigationController.navigate(screen) }
+        ) { paddingValues ->
+            // DeadlyNavHost with cross-platform navigation abstraction
+            DeadlyNavHost(
+                navigationController = navigationController,
+                startDestination = AppScreen.Search, // Start on Search for development
+                modifier = Modifier.padding(paddingValues)
+            ) {
             // Main bottom navigation tabs
             composable(AppScreen.Home) {
                 Text("Home Screen")
@@ -118,6 +134,7 @@ fun App() {
                 val showId = args["showId"] ?: ""
                 val recordingId = args["recordingId"] ?: ""
                 Text("Show Detail Screen: $showId, Recording: $recordingId")
+            }
             }
         }
     }
