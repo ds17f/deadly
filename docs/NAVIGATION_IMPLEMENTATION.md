@@ -1,6 +1,15 @@
-# Navigation System Implementation Guide
+# Navigation System Implementation Guide (Updated)
 
-This document provides a step-by-step plan to implement the sophisticated navigation architecture from V2 Android app into our KMM project, using **sealed classes for shared, type-safe navigation**. This approach ensures Android and iOS share a **single source of truth for routes**.
+This document provides a step-by-step plan to implement the navigation architecture from V2 Android app into our KMM project, using **sealed classes for shared, type-safe navigation**.
+The design ensures Android and iOS share a **single source of truth for routes** and makes it easy to extend later.
+
+## Key Improvements in This Version
+
+* **Cross-platform abstraction**: Introduce `DeadlyNavHost` wrapper to abstract Android's `NavHost` vs iOS SwiftUI `NavigationStack`. Keeps sealed model platform-agnostic.
+* **Argument handling**: Add a small `RouteSpec` interface for parameterized screens (`ShowDetail`, `SearchResults`) so encoding/decoding args is consistent.
+* **Lifecycle-safe navigation**: ViewModels emit `NavigationEvent` via `Flow`/`StateFlow`, avoiding one-off return values.
+* **Bar configuration centralization**: Keep `NavigationBarConfig` lightweight and declarative, but enforce defaults so every screen always has a defined bar state.
+* **MiniPlayer slot**: Scaffold now exposes a `miniPlayerContent` slot, even if it's empty at first, so it's easy to add Spotify-style layering later.
 
 ## Overview
 
@@ -31,12 +40,12 @@ All paths relative to `../dead/v2/`:
 Each checkpoint is independently testable on Android and iOS.
 
 ### Checkpoint 1: Navigation Foundation (Shared)
-**Goal**: Add sealed class to represent all app screens, usable from Android and iOS
+**Goal**: Add sealed class to represent all app screens with type-safe route handling
 
 **Success Criteria**:
 - ✅ AppScreen sealed class compiles on both Android and iOS
-- ✅ ViewModels can emit `AppScreen` for navigation events
-- ✅ Foundation ready for platform-specific navigation integration
+- ✅ RouteSpec interface handles parameterized routes consistently
+- ✅ Foundation ready for cross-platform navigation integration
 
 **Implementation**:
 1. **Create AppScreen sealed interface (`commonMain/navigation/AppScreen.kt`)**:
@@ -48,20 +57,66 @@ Each checkpoint is independently testable on Android and iOS.
        object Library : AppScreen
        object Collections : AppScreen
        object Settings : AppScreen
-       object SearchResults : AppScreen
+       data class SearchResults(val query: String = "") : AppScreen
    }
    ```
 
-2. **Add route conversion extensions (`commonMain/navigation/AppScreenExtensions.kt`)**:
+2. **Add RouteSpec interface for type-safe routing (`commonMain/navigation/RouteSpec.kt`)**:
    ```kotlin
+   interface RouteSpec<T : AppScreen> {
+       val pattern: String
+       fun toRoute(screen: T): String
+       fun fromRoute(route: String): T?
+   }
+   
+   // Example implementation for ShowDetail
+   object ShowDetailRouteSpec : RouteSpec<AppScreen.ShowDetail> {
+       override val pattern = "show/{id}"
+       
+       override fun toRoute(screen: AppScreen.ShowDetail): String {
+           return "show/${screen.id}"
+       }
+       
+       override fun fromRoute(route: String): AppScreen.ShowDetail? {
+           return if (route.startsWith("show/")) {
+               val id = route.removePrefix("show/")
+               if (id.isNotBlank()) AppScreen.ShowDetail(id) else null
+           } else null
+       }
+   }
+   ```
+
+3. **Add route conversion extensions that use RouteSpec (`commonMain/navigation/AppScreenExtensions.kt`)**:
+   ```kotlin
+   // Add RouteSpec for SearchResults using path params (better Navigation Compose support)
+   object SearchResultsRouteSpec : RouteSpec<AppScreen.SearchResults> {
+       override val pattern = "search-results/{query?}"
+       
+       override fun toRoute(screen: AppScreen.SearchResults): String {
+           return if (screen.query.isNotEmpty()) "search-results/${screen.query}" else "search-results/"
+       }
+       
+       override fun fromRoute(route: String): AppScreen.SearchResults? {
+           return when {
+               route == "search-results/" -> AppScreen.SearchResults("")
+               route.startsWith("search-results/") -> {
+                   val query = route.removePrefix("search-results/")
+                   AppScreen.SearchResults(query)
+               }
+               else -> null
+           }
+       }
+   }
+   
+   // Extensions that delegate to RouteSpec for type safety
    fun AppScreen.route(): String = when (this) {
        AppScreen.Home -> "home"
        AppScreen.Search -> "search"
        AppScreen.Library -> "library"
        AppScreen.Collections -> "collections"
        AppScreen.Settings -> "settings"
-       AppScreen.SearchResults -> "search-results"
-       is AppScreen.ShowDetail -> "show/${this.id}"
+       is AppScreen.SearchResults -> SearchResultsRouteSpec.toRoute(this)
+       is AppScreen.ShowDetail -> ShowDetailRouteSpec.toRoute(this)
    }
    
    fun String.toAppScreen(): AppScreen? = when {
@@ -70,126 +125,217 @@ Each checkpoint is independently testable on Android and iOS.
        this == "library" -> AppScreen.Library
        this == "collections" -> AppScreen.Collections
        this == "settings" -> AppScreen.Settings
-       this == "search-results" -> AppScreen.SearchResults
-       this.startsWith("show/") -> AppScreen.ShowDetail(this.removePrefix("show/"))
+       this.startsWith("search-results") -> SearchResultsRouteSpec.fromRoute(this)
+       this.startsWith("show/") -> ShowDetailRouteSpec.fromRoute(this)
        else -> null
    }
    ```
 
-3. **Test**: Verify sealed class compiles and route conversion works correctly
+4. **Test**: Verify sealed class compiles and route conversion works correctly
+
+> **📝 Note on Code Duplication**: You may notice that `AppScreenExtensions.kt` maps routes while `DeadlyNavGraphBuilder` also handles routing. This duplication is temporary - as the navigation system matures, `DeadlyNavGraphBuilder` will automatically bind `AppScreen` objects to their Composable destinations, eliminating the need for manual route string mapping. The `RouteSpec` pattern provides the foundation for this future automation.
 
 ---
 
 ### Checkpoint 2: ViewModels Emit Navigation Events
-**Goal**: Refactor shared ViewModels to return `AppScreen` when navigating
+**Goal**: Refactor shared ViewModels to use Flow-based navigation events
 
 **Success Criteria**:
 - ✅ Shared logic triggers navigation without platform-specific references
-- ✅ Android and iOS can observe these navigation events
-- ✅ SearchViewModel updated to use sealed navigation
+- ✅ Android and iOS can observe navigation events reactively
+- ✅ SearchViewModel updated to use Flow-based sealed navigation
 
 **Implementation**:
-1. **Update SearchViewModel to emit AppScreen**:
+1. **Create navigation event system (`commonMain/navigation/NavigationEvent.kt`)**:
    ```kotlin
-   class SearchViewModel {
-       fun onSearchResultSelected(showId: String): AppScreen {
-           return AppScreen.ShowDetail(showId)
-       }
-
-       fun onSearchQuerySubmitted(query: String): AppScreen {
-           return AppScreen.SearchResults
-       }
-       
-       fun onNavigateToPlayer(recordingId: String): AppScreen {
-           Logger.i("SearchViewModel", "Navigate to player: $recordingId")
-           // TODO: Return AppScreen.Player when implemented
-           return AppScreen.Home
-       }
-   }
-   ```
-
-2. **Create navigation event system**:
-   ```kotlin
-   // commonMain/navigation/NavigationEvent.kt
    data class NavigationEvent(
        val screen: AppScreen,
        val clearBackStack: Boolean = false
    )
    ```
 
-3. **Test**: Verify ViewModels can emit navigation events without crashes
+2. **Update SearchViewModel to emit navigation events**:
+   ```kotlin
+   class SearchViewModel {
+       private val _navigation = MutableSharedFlow<NavigationEvent>()
+       val navigation: SharedFlow<NavigationEvent> = _navigation
+
+       suspend fun onSearchResultSelected(showId: String) {
+           _navigation.emit(NavigationEvent(AppScreen.ShowDetail(showId)))
+       }
+
+       suspend fun onSearchQuerySubmitted(query: String) {
+           _navigation.emit(NavigationEvent(AppScreen.SearchResults(query)))
+       }
+       
+       suspend fun onNavigateToPlayer(recordingId: String) {
+           Logger.i("SearchViewModel", "Navigate to player: $recordingId")
+           // TODO: Emit AppScreen.Player when implemented
+           _navigation.emit(NavigationEvent(AppScreen.Home))
+       }
+   }
+   ```
+
+3. **Add navigation event collection pattern**:
+   ```kotlin
+   // Example of how navigation events are consumed
+   @Composable
+   fun SomeScreen(viewModel: SearchViewModel) {
+       val navController = rememberNavController()
+       
+       LaunchedEffect(Unit) {
+           viewModel.navigation.collect { event ->
+               if (event.clearBackStack) {
+                   navController.navigate(event.screen.route()) {
+                       popUpTo(0) { inclusive = true }
+                   }
+               } else {
+                   navController.navigate(event.screen.route())
+               }
+           }
+       }
+       
+       // Screen content...
+   }
+   ```
+
+4. **Test**: Verify ViewModels can emit navigation events without crashes
 
 ---
 
-### Checkpoint 3: Android NavHost Integration
-**Goal**: Wire sealed class into Android's Compose Navigation
+### Checkpoint 3: Cross-Platform NavHost Integration
+**Goal**: Create DeadlyNavHost wrapper for cross-platform navigation
 
 **Success Criteria**:
+- ✅ DeadlyNavHost abstracts platform-specific navigation
 - ✅ Navigation triggered by `AppScreen` events
 - ✅ Arguments passed correctly for parameterized screens
-- ✅ App navigates to search screen via NavHost
-- ✅ Search screen looks and functions identically to before
+- ✅ App navigates to search screen via DeadlyNavHost
+- ✅ Foundation ready for iOS NavigationStack integration
 
 **Implementation**:
-1. **Update App.kt to use NavHost with AppScreen**:
+
+> **Note**: This checkpoint focuses on Android implementation using `NavHost`. On iOS, this will be implemented later using SwiftUI's `NavigationStack` with the same `AppScreen` sealed class, ensuring consistent navigation behavior across platforms.
+
+1. **Create DeadlyNavHost abstraction (`androidMain/navigation/DeadlyNavHost.android.kt`)**:
+   ```kotlin
+   // Cross-platform navigation graph builder
+   actual class DeadlyNavGraphBuilder {
+       private val routes = mutableMapOf<AppScreen, @Composable () -> Unit>()
+       private val parameterizedRoutes = mutableMapOf<String, @Composable (Map<String, String>) -> Unit>()
+       
+       actual fun composable(
+           screen: AppScreen,
+           content: @Composable () -> Unit
+       ) {
+           routes[screen] = content
+       }
+       
+       actual fun composable(
+           route: String,
+           content: @Composable (Map<String, String>) -> Unit
+       ) {
+           parameterizedRoutes[route] = content
+       }
+       
+       fun build(): NavGraphBuilder.() -> Unit = {
+           // Build standard routes
+           routes.forEach { (screen, content) ->
+               composable(screen.route()) { content() }
+           }
+           
+           // Build parameterized routes
+           parameterizedRoutes.forEach { (route, content) ->
+               composable(route) { backStackEntry ->
+                   val args = backStackEntry.arguments?.let { bundle ->
+                       bundle.keySet().associateWith { key -> bundle.getString(key) ?: "" }
+                   } ?: emptyMap()
+                   content(args)
+               }
+           }
+       }
+   }
+
+   @Composable
+   actual fun DeadlyNavHost(
+       navigationController: NavigationController,
+       startDestination: AppScreen,
+       modifier: Modifier,
+       content: DeadlyNavGraphBuilder.() -> Unit
+   ) {
+       val navController = navigationController.navController
+       val builder = DeadlyNavGraphBuilder()
+       builder.content()
+       
+       NavHost(
+           navController = navController,
+           startDestination = startDestination.route(),
+           modifier = modifier,
+           builder = builder.build()
+       )
+   }
+   ```
+
+2. **Update App.kt to use DeadlyNavHost abstraction**:
    ```kotlin
    @Composable
    fun App() {
        Logger.i("App", "🎵 Deadly app UI starting")
        
        MaterialTheme {
-           val navController = rememberNavController()
+           val navigationController = rememberNavigationController()
            val searchViewModel: SearchViewModel = DIHelper.get()
            
-           NavHost(
-               navController = navController,
-               startDestination = AppScreen.Search.route()
+           // Collect navigation events from ViewModels
+           LaunchedEffect(Unit) {
+               searchViewModel.navigation.collect { event ->
+                   navigationController.navigate(event.screen)
+               }
+           }
+           
+           // Use DeadlyNavHost abstraction (works on Android now, iOS later)
+           DeadlyNavHost(
+               navigationController = navigationController,
+               startDestination = AppScreen.Search
            ) {
-               composable(AppScreen.Home.route()) {
-                   // TODO: HomeScreen placeholder
+               composable(AppScreen.Home) {
                    Text("Home Screen")
                }
                
-               composable(AppScreen.Search.route()) {
+               composable(AppScreen.Search) {
                    SearchScreen(
                        viewModel = searchViewModel,
+                       // ViewModel handles navigation via Flow events
                        onNavigateToPlayer = { recordingId -> 
-                           val screen = searchViewModel.onNavigateToPlayer(recordingId)
-                           navController.navigate(screen.route())
+                           searchViewModel.onNavigateToPlayer(recordingId)
                        },
                        onNavigateToShow = { showId ->
-                           val screen = searchViewModel.onSearchResultSelected(showId)
-                           navController.navigate(screen.route())
+                           searchViewModel.onSearchResultSelected(showId)
                        },
                        onNavigateToSearchResults = {
-                           val screen = searchViewModel.onSearchQuerySubmitted("")
-                           navController.navigate(screen.route())
+                           searchViewModel.onSearchQuerySubmitted("")
                        }
                    )
                }
                
-               composable(AppScreen.SearchResults.route()) {
-                   // TODO: SearchResultsScreen placeholder
+               composable(AppScreen.SearchResults()) {
                    Text("Search Results Screen")
                }
                
-               composable(AppScreen.Library.route()) {
+               composable(AppScreen.Library) {
                    Text("Library Screen")
                }
                
-               composable(AppScreen.Collections.route()) {
+               composable(AppScreen.Collections) {
                    Text("Collections Screen")
                }
                
-               composable(AppScreen.Settings.route()) {
+               composable(AppScreen.Settings) {
                    Text("Settings Screen")
                }
                
-               composable(
-                   "show/{id}",
-                   arguments = listOf(navArgument("id") { type = NavType.StringType })
-               ) { backStackEntry ->
-                   val id = backStackEntry.arguments?.getString("id") ?: ""
+               composable("show/{id}") { args ->
+                   val id = args["id"] ?: ""
                    Text("Show Detail Screen: $id")
                }
            }
@@ -201,14 +347,15 @@ Each checkpoint is independently testable on Android and iOS.
 
 ---
 
-### Checkpoint 4: AppScaffold with TopBar
-**Goal**: Add AppScaffold wrapper with TopBar support using AppScreen-based configuration
+### Checkpoint 4: AppScaffold with TopBar + MiniPlayer Slot
+**Goal**: Add AppScaffold wrapper with TopBar support and MiniPlayer slot for future layering
 
 **Success Criteria**:
 - ✅ Search screen now has a top bar
 - ✅ TopBar shows "Search" title and looks native on both platforms
 - ✅ Search content is properly padded below TopBar
-- ✅ Bar configuration based on AppScreen type
+- ✅ Bar configuration based on AppScreen type with defaults
+- ✅ MiniPlayer slot exists in Scaffold for future layering
 
 **Implementation**:
 1. **Create TopBar modes (`commonMain/design/topbar/TopBarMode.kt`)**:
@@ -219,7 +366,7 @@ Each checkpoint is independently testable on Android and iOS.
    }
    ```
 
-2. **Create BarConfiguration system (`commonMain/navigation/BarConfiguration.kt`)**:
+2. **Create BarConfiguration system with defaults (`commonMain/navigation/BarConfiguration.kt`)**:
    ```kotlin
    data class TopBarConfig(
        val visible: Boolean = true,
@@ -238,66 +385,60 @@ Each checkpoint is independently testable on Android and iOS.
    )
    
    object NavigationBarConfig {
-       fun getBarConfig(screen: AppScreen): BarConfiguration = when(screen) {
-           AppScreen.Home -> BarConfiguration(
-               topBar = TopBarConfig(title = "Home"),
-               bottomBar = BottomBarConfig(visible = true)
-           )
-           AppScreen.Search -> BarConfiguration(
-               topBar = TopBarConfig(title = "Search"),
-               bottomBar = BottomBarConfig(visible = true)
-           )
-           AppScreen.SearchResults -> BarConfiguration(
-               topBar = TopBarConfig(title = "Search Results", showBackButton = true),
-               bottomBar = BottomBarConfig(visible = true)
-           )
-           AppScreen.Library -> BarConfiguration(
-               topBar = TopBarConfig(title = "Library"),
-               bottomBar = BottomBarConfig(visible = true)
-           )
-           AppScreen.Collections -> BarConfiguration(
-               topBar = TopBarConfig(title = "Collections"),
-               bottomBar = BottomBarConfig(visible = true)
-           )
-           AppScreen.Settings -> BarConfiguration(
-               topBar = TopBarConfig(title = "Settings"),
-               bottomBar = BottomBarConfig(visible = true)
-           )
-           is AppScreen.ShowDetail -> BarConfiguration(
-               topBar = TopBarConfig(title = "Show Details", showBackButton = true),
-               bottomBar = BottomBarConfig(visible = true)
-           )
+       private val defaults = BarConfiguration(
+           topBar = TopBarConfig(title = "", visible = false),
+           bottomBar = BottomBarConfig(visible = true)
+       )
+
+       fun getBarConfig(screen: AppScreen): BarConfiguration = when (screen) {
+           AppScreen.Home -> defaults.copy(topBar = TopBarConfig(title = "Home"))
+           AppScreen.Search -> defaults.copy(topBar = TopBarConfig(title = "Search"))
+           is AppScreen.SearchResults -> defaults.copy(topBar = TopBarConfig(title = "Search Results", showBackButton = true))
+           AppScreen.Library -> defaults.copy(topBar = TopBarConfig(title = "Library"))
+           AppScreen.Collections -> defaults.copy(topBar = TopBarConfig(title = "Collections"))
+           AppScreen.Settings -> defaults.copy(topBar = TopBarConfig(title = "Settings"))
+           is AppScreen.ShowDetail -> defaults.copy(topBar = TopBarConfig(title = "Show Detail", showBackButton = true))
        }
    }
    ```
 
-3. **Create TopBar component (`commonMain/design/topbar/TopBar.kt`)**:
-   Port from V2 but simplified for Material3 TopAppBar
-
-4. **Create AppScaffold (`commonMain/design/scaffold/AppScaffold.kt`)**:
-   Port from V2 but start with TopBar + Content only (no BottomBar yet)
-
-5. **Update App.kt to use AppScaffold**:
+3. **Create AppScaffold with MiniPlayer slot (`commonMain/design/scaffold/AppScaffold.kt`)**:
    ```kotlin
-   NavHost(...) {
-       composable(AppScreen.Search.route()) {
-           val barConfig = NavigationBarConfig.getBarConfig(AppScreen.Search)
-           AppScaffold(
-               topBarConfig = barConfig.topBar,
-               onNavigateBack = { navController.popBackStack() }
-           ) { paddingValues ->
-               SearchScreen(
-                   viewModel = searchViewModel,
-                   // ... same callbacks
-                   modifier = Modifier.padding(paddingValues)
-               )
+   @Composable
+   fun AppScaffold(
+       topBarConfig: TopBarConfig?,
+       bottomBarConfig: BottomBarConfig,
+       currentScreen: AppScreen,
+       onNavigateBack: () -> Unit,
+       onNavigateToTab: (AppScreen) -> Unit = {},
+       miniPlayerContent: @Composable (() -> Unit)? = null,
+       content: @Composable (PaddingValues) -> Unit
+   ) {
+       Scaffold(
+           topBar = {
+               topBarConfig?.let {
+                   TopBar(it, onNavigateBack)
+               }
+           },
+           bottomBar = {
+               if (bottomBarConfig.visible) {
+                   // Spotify-style layering: MiniPlayer above BottomNav
+                   Column {
+                       miniPlayerContent?.invoke()
+                       BottomNavigationBar(
+                           currentScreen = currentScreen,
+                           onNavigateToTab = onNavigateToTab
+                       )
+                   }
+               }
            }
+       ) { padding ->
+           content(padding)
        }
-       // ... other routes with AppScaffold
    }
    ```
 
-6. **Test**: Search screen should now have a "Search" top bar
+4. **Test**: Search screen should now have a "Search" top bar and MiniPlayer slot ready
 
 ---
 
@@ -311,7 +452,7 @@ Each checkpoint is independently testable on Android and iOS.
 - ✅ Current tab is highlighted correctly
 
 **Implementation**:
-1. **Create BottomNavDestination (`commonMain/navigation/BottomNavDestination.kt`)**:
+1. **Create BottomNavTab (`commonMain/navigation/BottomNavTab.kt`)**:
    ```kotlin
    data class BottomNavTab(
        val screen: AppScreen,
@@ -333,45 +474,46 @@ Each checkpoint is independently testable on Android and iOS.
    
    **⚠️ MiniPlayer Space Reservation**: When implementing BottomBar, reserve space above it using `Box`/`Spacer` for future MiniPlayer layering (Spotify-style)
 
-3. **Update App.kt with centralized navigation**:
+3. **Update App.kt with centralized navigation using DeadlyNavHost**:
    ```kotlin
    @Composable
    fun App() {
        MaterialTheme {
-           val navController = rememberNavController()
-           val navBackStackEntry by navController.currentBackStackEntryAsState()
-           val currentRoute = navBackStackEntry?.destination?.route
-           val currentScreen = currentRoute?.toAppScreen() ?: AppScreen.Home
+           val navigationController = rememberNavigationController()
+           val currentScreen = navigationController.currentScreen ?: AppScreen.Home
            val barConfig = NavigationBarConfig.getBarConfig(currentScreen)
+           val searchViewModel: SearchViewModel = DIHelper.get()
+           
+           // Collect navigation events from ViewModels
+           LaunchedEffect(Unit) {
+               searchViewModel.navigation.collect { event ->
+                   navigationController.navigate(event.screen)
+               }
+           }
            
            AppScaffold(
                topBarConfig = barConfig.topBar,
                bottomBarConfig = barConfig.bottomBar,
                currentScreen = currentScreen,
                onNavigateToTab = { screen -> 
-                   navController.navigate(screen.route()) {
-                       popUpTo(navController.graph.findStartDestination().id) {
-                           saveState = true
-                       }
-                       launchSingleTop = true
-                       restoreState = true
-                   }
+                   navigationController.navigate(screen)
                },
-               onNavigateBack = { navController.popBackStack() }
+               onNavigateBack = { navigationController.navigateUp() }
            ) { paddingValues ->
-               NavHost(
-                   navController = navController,
-                   startDestination = AppScreen.Home.route(),
+               // Use DeadlyNavHost abstraction consistently
+               DeadlyNavHost(
+                   navigationController = navigationController,
+                   startDestination = AppScreen.Home,
                    modifier = Modifier.padding(paddingValues)
                ) {
                    // Simplified composable definitions - no repeated AppScaffold
-                   composable(AppScreen.Home.route()) {
+                   composable(AppScreen.Home) {
                        Text("Home Screen")
                    }
-                   composable(AppScreen.Search.route()) {
+                   composable(AppScreen.Search) {
                        SearchScreen(viewModel = searchViewModel, ...)
                    }
-                   // ... other routes
+                   // ... other routes use AppScreen directly
                }
            }
        }
@@ -456,8 +598,12 @@ Each checkpoint is independently testable on Android and iOS.
 
 ## Dependencies Required
 
-**⚠️ Cross-Platform Navigation Consideration**: 
-`androidx.navigation.compose` is Android-only. Compose Multiplatform provides its own cross-platform `NavHost` API. Verify your Compose Multiplatform version supports NavHost on iOS, or consider creating a `DeadlyNavHost` abstraction for future flexibility.
+**Cross-Platform Navigation Strategy**: 
+Uses `DeadlyNavHost` abstraction to wrap platform-specific navigation:
+- **Android**: `androidx.navigation.compose` for NavHost
+- **iOS**: Future SwiftUI NavigationStack integration
+
+Keep `navigation-compose` for Android. Add `compose-navigation` from JetBrains if you want experimental multiplatform navigation (can swap later).
 
 Already added:
 ```toml
@@ -499,12 +645,14 @@ After each checkpoint:
 
 ## Future Enhancements (Post-Checkpoints)
 
-- **iOS NavigationStack Integration**: Wire AppScreen into SwiftUI NavigationStack
-- **MiniPlayer Integration**: Layer above bottom navigation like Spotify
+- **iOS NavigationStack Integration**: Wire AppScreen into SwiftUI NavigationStack via DeadlyNavHost
+- **MiniPlayer Integration**: Use existing MiniPlayer slot for Spotify-style layering
 - **Navigation Animations**: Smooth transitions between screens
-- **Deep Linking**: Support URL-based navigation with AppScreen conversion
+- **Deep Linking**: Use `RouteSpec` consistently for URL-based navigation with AppScreen conversion
 - **Theme Integration**: Port V2's theme system for TopBar styling
 - **Advanced TopBar**: IMMERSIVE mode support
+- **SavedStateHandle Integration**: Add Android SavedStateHandle integration
+- **State Persistence**: Add rememberSaveable to persist current tab across config changes
 
 ## Success Metrics
 
@@ -515,3 +663,96 @@ Upon completion:
 - ✅ Clean, maintainable architecture using sealed classes
 - ✅ Foundation ready for additional screens and features
 - ✅ Type-safe navigation throughout the app
+- ✅ Navigation flow is **reactive** (`Flow`-based events)
+- ✅ All screens have default bar config (no missing UI states)
+- ✅ MiniPlayer slot exists in Scaffold for future layering
+- ✅ DeadlyNavHost abstraction ready for iOS NavigationStack integration
+
+---
+
+# 📐 Appendix: Navigation Architecture Overview
+
+This diagram shows how the navigation pieces fit together in the KMM project.
+
+```
+ ┌─────────────────────────┐
+ │       AppScreen         │
+ │ (sealed interface)      │
+ │  • Home                 │
+ │  • Search               │
+ │  • ShowDetail(id)       │
+ │  • Library              │
+ │  • Collections          │
+ │  • Settings             │
+ │  • SearchResults(query) │
+ └───────────┬─────────────┘
+             │ implements
+             ▼
+ ┌─────────────────────────┐
+ │       RouteSpec         │
+ │ (encode/decode routes)  │
+ │  • pattern: String      │
+ │  • toRoute(AppScreen)   │
+ │  • fromBackStack(...)   │
+ └───────────┬─────────────┘
+             │ used by
+             ▼
+ ┌─────────────────────────┐
+ │   AppScreenExtensions   │
+ │ (helpers, delegates to  │
+ │  RouteSpec to avoid     │
+ │  string duplication)    │
+ └───────────┬─────────────┘
+             │
+             ▼
+ ┌─────────────────────────┐
+ │    NavigationEvent      │
+ │ (sealed class, emitted  │
+ │  from ViewModels)       │
+ │  • NavigateTo(screen)   │
+ │  • Back                 │
+ └───────────┬─────────────┘
+             │ flows into
+             ▼
+ ┌─────────────────────────┐
+ │     DeadlyNavHost       │
+ │ (expect/actual wrapper  │
+ │  around navigation impl)│
+ │  • Android → NavHost    │
+ │  • iOS → NavigationStack│
+ └───────────┬─────────────┘
+             │ rendered inside
+             ▼
+ ┌─────────────────────────┐
+ │      AppScaffold        │
+ │ (layout shell w/        │
+ │  TopBar, BottomNav,     │
+ │  MiniPlayer, content)   │
+ └─────────────────────────┘
+```
+
+---
+
+### 🔑 Key Flow
+
+1. **AppScreen**
+   Defines all possible destinations (sealed interface).
+
+2. **RouteSpec**
+   Encodes/decodes routes for each `AppScreen`.
+
+3. **NavigationEvent**
+   ViewModels emit these events → "navigate to screen X".
+
+4. **DeadlyNavHost**
+   Platform-specific navigation host.
+
+   * On Android: delegates to `NavHost` (Navigation Compose).
+   * On iOS: delegates to `NavigationStack` (SwiftUI).
+
+5. **AppScaffold**
+   Wraps the whole UI in a consistent frame with `TopBar`, `BottomNav`, and optional `MiniPlayer`.
+
+---
+
+This appendix gives a **bird's-eye map** so devs can see how the checkpoints connect.
