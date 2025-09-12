@@ -51,7 +51,6 @@ kotlin {
                 implementation(libs.koin.core)
                 implementation(libs.kotlinx.serialization.json)
                 implementation(libs.kotlinx.datetime)
-                implementation(libs.androidx.navigation.compose)
             }
         }
         
@@ -66,6 +65,9 @@ kotlin {
                 // Platform-specific KMM dependencies
                 implementation(libs.sqldelight.android.driver)
                 implementation(libs.ktor.client.okhttp)
+                
+                // Navigation - Android only
+                implementation(libs.androidx.navigation.compose)
             }
         }
         
