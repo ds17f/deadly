@@ -5,12 +5,15 @@ import androidx.lifecycle.viewModelScope
 import com.grateful.deadly.core.logging.Logger
 import com.grateful.deadly.domain.search.*
 import com.grateful.deadly.navigation.AppScreen
+import com.grateful.deadly.navigation.NavigationEvent
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Job
 
@@ -36,6 +39,10 @@ class SearchViewModel(
     // UI State 
     private val _uiState = MutableStateFlow(SearchUiState())
     val uiState: StateFlow<SearchUiState> = _uiState.asStateFlow()
+    
+    // Navigation event flow for reactive navigation
+    private val _navigation = MutableSharedFlow<NavigationEvent>()
+    val navigation: SharedFlow<NavigationEvent> = _navigation
     
     // Debounced search query flow
     private val _searchQueryFlow = MutableStateFlow("")
@@ -247,21 +254,21 @@ class SearchViewModel(
     }
     
     /**
-     * Navigation methods that return AppScreen objects for type-safe navigation
+     * Navigation methods that emit NavigationEvent via Flow for reactive navigation
      */
-    fun onSearchResultSelected(showId: String): AppScreen {
+    suspend fun onSearchResultSelected(showId: String) {
         Logger.i(TAG, "Navigate to show detail: $showId")
-        return AppScreen.ShowDetail(showId)
+        _navigation.emit(NavigationEvent(AppScreen.ShowDetail(showId)))
     }
 
-    fun onSearchQuerySubmitted(query: String): AppScreen {
+    suspend fun onSearchQuerySubmitted(query: String) {
         Logger.i(TAG, "Navigate to search results for query: $query")
-        return AppScreen.SearchResults
+        _navigation.emit(NavigationEvent(AppScreen.SearchResults))
     }
     
-    fun onNavigateToPlayer(recordingId: String): AppScreen {
+    suspend fun onNavigateToPlayer(recordingId: String) {
         Logger.i(TAG, "Navigate to player: $recordingId")
-        return AppScreen.Player
+        _navigation.emit(NavigationEvent(AppScreen.Player))
     }
     
     override fun onCleared() {

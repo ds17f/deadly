@@ -4,16 +4,13 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.navigation.compose.NavHost
-import androidx.navigation.compose.composable
-import androidx.navigation.compose.rememberNavController
-import androidx.navigation.NavType
-import androidx.navigation.navArgument
 import org.jetbrains.compose.ui.tooling.preview.Preview
 import com.grateful.deadly.core.logging.Logger
 import com.grateful.deadly.feature.search.SearchViewModel
 import com.grateful.deadly.navigation.AppScreen
-import com.grateful.deadly.navigation.route
+import com.grateful.deadly.navigation.DeadlyNavHost
+import com.grateful.deadly.navigation.rememberNavigationController
+import kotlinx.coroutines.launch
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.get
 
@@ -28,14 +25,15 @@ object DIHelper : KoinComponent
  * 
  * Architecture:
  * - Uses AppScreen sealed interface for type-safe navigation 
- * - ViewModels return AppScreen objects instead of performing navigation directly
- * - NavHost handles route conversion via AppScreen.route() extension
- * - Supports parameterized routes (showDetail with showId/recordingId)
+ * - ViewModels emit NavigationEvent via Flow for reactive navigation
+ * - DeadlyNavHost abstracts platform-specific navigation (NavHost on Android, NavigationStack on iOS)
+ * - Supports parameterized routes with cross-platform argument handling
  * 
  * Navigation Flow:
- * - SearchScreen callbacks return AppScreen objects  
- * - NavController navigates using sealed class routes
- * - All screens accessible via bottom navigation or deep navigation
+ * - SearchScreen callbacks trigger ViewModel navigation methods
+ * - ViewModels emit NavigationEvent to Flow  
+ * - App.kt collects navigation events and triggers navigation via NavigationController
+ * - All screens accessible via cross-platform navigation abstraction
  */
 @Composable
 @Preview
@@ -43,80 +41,82 @@ fun App() {
     Logger.i("App", "🎵 Deadly app UI starting")
     
     MaterialTheme {
-        val navController = rememberNavController()
+        val navigationController = rememberNavigationController()
         // Manual injection using KoinComponent for Koin 4.1.0
         val searchViewModel: SearchViewModel = DIHelper.get()
+        val coroutineScope = rememberCoroutineScope()
         
-        // NavHost with AppScreen sealed class integration
-        NavHost(
-            navController = navController,
-            startDestination = AppScreen.Search.route() // Start on Search for development
+        // Collect navigation events from ViewModels
+        LaunchedEffect(Unit) {
+            searchViewModel.navigation.collect { event ->
+                navigationController.navigate(event.screen)
+            }
+        }
+        
+        // DeadlyNavHost with cross-platform navigation abstraction
+        DeadlyNavHost(
+            navigationController = navigationController,
+            startDestination = AppScreen.Search // Start on Search for development
         ) {
             // Main bottom navigation tabs
-            composable(AppScreen.Home.route()) {
+            composable(AppScreen.Home) {
                 Text("Home Screen")
             }
             
-            composable(AppScreen.Search.route()) {
-                // Real SearchScreen with ViewModel navigation integration
+            composable(AppScreen.Search) {
+                // Real SearchScreen with ViewModel Flow-based navigation integration
                 com.grateful.deadly.feature.search.SearchScreen(
                     viewModel = searchViewModel,
-                    // All callbacks now use AppScreen sealed class for type-safe navigation
+                    // All callbacks now trigger ViewModel navigation methods that emit NavigationEvent
                     onNavigateToPlayer = { recordingId -> 
-                        val screen = searchViewModel.onNavigateToPlayer(recordingId)
-                        navController.navigate(screen.route())
+                        coroutineScope.launch {
+                            searchViewModel.onNavigateToPlayer(recordingId)
+                        }
                     },
                     onNavigateToShow = { showId ->
-                        val screen = searchViewModel.onSearchResultSelected(showId)
-                        navController.navigate(screen.route())
+                        coroutineScope.launch {
+                            searchViewModel.onSearchResultSelected(showId)
+                        }
                     },
                     onNavigateToSearchResults = {
-                        val screen = searchViewModel.onSearchQuerySubmitted("")
-                        navController.navigate(screen.route())
+                        coroutineScope.launch {
+                            searchViewModel.onSearchQuerySubmitted("")
+                        }
                     }
                 )
             }
             
             // Placeholder screens for remaining bottom nav tabs
-            composable(AppScreen.Library.route()) {
+            composable(AppScreen.Library) {
                 Text("Library Screen")
             }
             
-            composable(AppScreen.Collections.route()) {
+            composable(AppScreen.Collections) {
                 Text("Collections Screen")
             }
             
-            composable(AppScreen.Settings.route()) {
+            composable(AppScreen.Settings) {
                 Text("Settings Screen")
             }
             
             // Secondary screens
-            composable(AppScreen.SearchResults.route()) {
+            composable(AppScreen.SearchResults) {
                 Text("Search Results Screen")
             }
             
-            composable(AppScreen.Player.route()) {
+            composable(AppScreen.Player) {
                 Text("Player Screen")
             }
             
-            // Show detail routes with parameters
-            composable(
-                "showDetail/{showId}",
-                arguments = listOf(navArgument("showId") { type = NavType.StringType })
-            ) { backStackEntry ->
-                val showId = backStackEntry.arguments?.getString("showId") ?: ""
+            // Show detail routes with parameters using cross-platform argument handling
+            composable("showDetail/{showId}") { args ->
+                val showId = args["showId"] ?: ""
                 Text("Show Detail Screen: $showId")
             }
             
-            composable(
-                "showDetail/{showId}/{recordingId}",
-                arguments = listOf(
-                    navArgument("showId") { type = NavType.StringType },
-                    navArgument("recordingId") { type = NavType.StringType }
-                )
-            ) { backStackEntry ->
-                val showId = backStackEntry.arguments?.getString("showId") ?: ""
-                val recordingId = backStackEntry.arguments?.getString("recordingId") ?: ""
+            composable("showDetail/{showId}/{recordingId}") { args ->
+                val showId = args["showId"] ?: ""
+                val recordingId = args["recordingId"] ?: ""
                 Text("Show Detail Screen: $showId, Recording: $recordingId")
             }
         }
