@@ -45,8 +45,8 @@ fun App() {
     
     MaterialTheme {
         val navigationController = rememberNavigationController()
-        // Manual injection using KoinComponent for Koin 4.1.0
-        val searchViewModel: SearchViewModel = DIHelper.get()
+        // Manual injection using KoinComponent for Koin 4.1.0 - cached to survive recomposition
+        val searchViewModel: SearchViewModel = remember { DIHelper.get() }
         val coroutineScope = rememberCoroutineScope()
         
         // Collect navigation events from ViewModels
@@ -117,7 +117,9 @@ fun App() {
             
             // Secondary screens
             composable(AppScreen.SearchResults) {
-                Text("Search Results Screen")
+                // SearchResultsScreen shares the same ViewModel instance for state continuity
+                // TODO: Create SearchResultsScreen component
+                Text("Search Results Screen - Query: ${searchViewModel.uiState.collectAsState().value.searchQuery}")
             }
             
             composable(AppScreen.Player) {
