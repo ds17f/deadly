@@ -23,6 +23,8 @@ enum class AppIcon {
     Edit,
     AlbumArt,
     CheckCircle,
+    LibraryMusic,
+    Collections,
     // Add more icons as needed for the search feature and beyond
 }
 
@@ -32,4 +34,4 @@ enum class AppIcon {
  * - iOS: Renders SF Symbol as SwiftUI Image
  */
 @Composable
-expect fun AppIcon.Render(size: Dp = 24.dp)
+expect fun AppIcon.Render(size: Dp = 24.dp, tint: androidx.compose.ui.graphics.Color? = null)

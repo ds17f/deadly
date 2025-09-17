@@ -6,6 +6,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import com.grateful.deadly.core.design.component.topbar.TopBar
+import com.grateful.deadly.core.design.component.bottombar.BottomNavigationBar
 import com.grateful.deadly.navigation.AppScreen
 import com.grateful.deadly.navigation.BottomBarConfig
 import com.grateful.deadly.navigation.TopBarConfig
@@ -40,12 +41,11 @@ fun AppScaffold(
                 // Spotify-style layering: MiniPlayer above BottomNav
                 Column {
                     miniPlayerContent?.invoke()
-                    
-                    // TODO: Implement BottomNavigationBar
-                    // BottomNavigationBar(
-                    //     currentScreen = currentScreen,
-                    //     onNavigateToTab = onNavigateToTab
-                    // )
+
+                    BottomNavigationBar(
+                        currentScreen = currentScreen,
+                        onNavigateToTab = onNavigateToTab
+                    )
                 }
             }
         }

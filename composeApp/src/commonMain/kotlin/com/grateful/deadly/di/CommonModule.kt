@@ -4,6 +4,7 @@ import com.grateful.deadly.core.logging.Logger
 import com.grateful.deadly.domain.search.SearchService
 import com.grateful.deadly.feature.search.SearchViewModel
 import com.grateful.deadly.services.search.SearchServiceStub
+import com.grateful.deadly.core.design.theme.ThemeManager
 import org.koin.dsl.module
 
 /**
@@ -18,9 +19,15 @@ val commonModule = module {
         SearchServiceStub(get())
     }
     
+    // Theme
+    single {
+        Logger.d("CommonModule", "Creating ThemeManager instance")
+        ThemeManager()
+    }
+
     // ViewModels
-    factory { 
+    factory {
         Logger.d("CommonModule", "Creating SearchViewModel instance")
-        SearchViewModel(get()) 
+        SearchViewModel(get())
     }
 }

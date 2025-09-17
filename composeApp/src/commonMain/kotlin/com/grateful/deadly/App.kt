@@ -13,6 +13,8 @@ import com.grateful.deadly.navigation.DeadlyNavHost
 import com.grateful.deadly.navigation.NavigationBarConfig
 import com.grateful.deadly.navigation.rememberNavigationController
 import com.grateful.deadly.core.design.scaffold.AppScaffold
+import com.grateful.deadly.core.design.theme.DeadlyTheme
+import com.grateful.deadly.core.design.theme.ThemeManager
 import kotlinx.coroutines.launch
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.get
@@ -42,8 +44,12 @@ object DIHelper : KoinComponent
 @Preview
 fun App() {
     Logger.i("App", "🎵 Deadly app UI starting")
-    
-    MaterialTheme {
+
+    // Get theme manager and current theme
+    val themeManager: ThemeManager = remember { DIHelper.get() }
+    val currentTheme by themeManager.currentTheme.collectAsState()
+
+    DeadlyTheme(themeMode = currentTheme) {
         val navigationController = rememberNavigationController()
         // Manual injection using KoinComponent for Koin 4.1.0 - cached to survive recomposition
         val searchViewModel: SearchViewModel = remember { DIHelper.get() }
@@ -112,7 +118,7 @@ fun App() {
             }
             
             composable(AppScreen.Settings) {
-                Text("Settings Screen")
+                com.grateful.deadly.feature.settings.SettingsScreen()
             }
             
             // Secondary screens

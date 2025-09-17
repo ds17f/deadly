@@ -20,18 +20,25 @@ This is a **Kotlin Multiplatform Mobile (KMM)** project called "Deadly" that tar
 # See all available commands
 make help
 
-# Android development
-make android-debug    # Build debug APK
-make android-run      # Build, install, and run in emulator/device
-make android-release  # Build release APK
+# Local Android development
+make build-debug-android       # Build debug APK
+make install-android-device    # Install to connected Android device
+make install-android-emulator  # Install to Android emulator
+make run-android-emulator      # Build, install, and run on Android emulator
+make run-android-device        # Build, install, and run on Android device
 
-# iOS development (macOS only)
-make ios-sim         # Build and run in iPhone simulator
-make ios-device      # Build for connected iOS device
+# Local iOS development (macOS only)
+make build-debug-ios           # Build iOS debug framework
+make install-ios-simulator     # Install to iOS simulator
+make run-ios-simulator         # Build, install, and run on iOS simulator
 
-# Utilities  
-make clean          # Clean all build artifacts
-make all           # Build and run on all available platforms
+# Remote development (Linux only - for testing on remote Mac)
+make run-ios-remotesim         # Build and run iOS on remote Mac simulator
+make run-android-remote-emu    # Build and run Android on remote Mac emulator
+make run-remote-all           # Build and run on both remote iOS and Android
+
+# Utilities
+make clean                    # Clean all build artifacts
 ```
 
 **Raw Gradle commands** (if needed):
@@ -90,3 +97,26 @@ make all           # Build and run on all available platforms
 
 **For comprehensive compatibility guidance, troubleshooting, and examples:**
 📖 **See [docs/KMM_COMPATIBILITY.md](docs/KMM_COMPATIBILITY.md)**
+
+## Current Implementation Status
+
+### ✅ Completed Features
+- **Cross-platform Navigation System**: Expect/actual pattern with `DeadlyNavHost` abstraction
+- **AppScaffold with TopBar/BottomBar**: Feature-colocated bar configurations following V2 patterns
+- **SearchScreen**: Complete search interface with QR scanner, browse sections, and discovery
+- **SearchResultsScreen**: Full search results UI with V2 patterns (TopBar, sections, cards, pin indicators)
+- **Cross-platform AppIcon System**: Material Symbols (Android) + SF Symbols (iOS)
+- **Remote Development Workflow**: Linux→Mac remote builds for both iOS and Android
+- **5-Tab Bottom Navigation**: Home, Search, Library, Collections, Settings (with placeholder screens)
+
+### 🔧 Architecture Highlights
+- **expect/actual Navigation**: `DeadlyNavHost` abstracts platform differences
+- **Feature-colocated Configuration**: Each feature defines its own bar configuration
+- **Shared ViewModel Pattern**: SearchViewModel works across SearchScreen and SearchResultsScreen
+- **V2 Design Patterns**: Pin indicators, LibraryV2-style cards, integrated search headers
+- **Cross-platform Icon System**: Unified `AppIcon.Render()` API for both platforms
+
+### 🚀 Development Workflow
+- **Local Development**: Standard Android/iOS development on respective platforms
+- **Remote Testing**: Complete Linux→Mac workflow for testing both platforms remotely
+- **Cross-platform Builds**: Single codebase builds and runs on Android and iOS

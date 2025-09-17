@@ -2,6 +2,8 @@ package com.grateful.deadly.core.design.icons
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.interop.UIKitView
 import platform.UIKit.*
@@ -13,7 +15,7 @@ import kotlinx.cinterop.cValue
  */
 @OptIn(ExperimentalForeignApi::class)
 @Composable
-actual fun AppIcon.Render(size: Dp) {
+actual fun AppIcon.Render(size: Dp, tint: Color?) {
     val symbolName = when (this) {
         AppIcon.QrCodeScanner -> "qrcode.viewfinder"
         AppIcon.Home -> "house.fill"
@@ -24,6 +26,8 @@ actual fun AppIcon.Render(size: Dp) {
         AppIcon.Edit -> "pencil"
         AppIcon.AlbumArt -> "music.note"
         AppIcon.CheckCircle -> "checkmark.circle.fill"
+        AppIcon.LibraryMusic -> "music.note.list"
+        AppIcon.Collections -> "folder.fill"
     }
 
     UIKitView<UIImageView>(
@@ -32,8 +36,15 @@ actual fun AppIcon.Render(size: Dp) {
             val image = UIImage.systemImageNamed(symbolName, config)!!
             val imageView = UIImageView(image)
             imageView.apply {
-                // Use black for maximum visibility
-                tintColor = UIColor.blackColor
+                // Use tint color if provided, otherwise use system primary color
+                tintColor = tint?.let {
+                    val argb = it.toArgb()
+                    val alpha = ((argb shr 24) and 0xFF) / 255.0
+                    val red = ((argb shr 16) and 0xFF) / 255.0
+                    val green = ((argb shr 8) and 0xFF) / 255.0
+                    val blue = (argb and 0xFF) / 255.0
+                    UIColor.colorWithRed(red, green, blue, alpha)
+                } ?: UIColor.systemBlueColor
                 contentMode = UIViewContentMode.UIViewContentModeScaleAspectFit
             }
             imageView

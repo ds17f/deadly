@@ -5,6 +5,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextAlign
@@ -20,7 +21,7 @@ private val MaterialSymbols = FontFamily(
  * Android implementation using Material Symbols font
  */
 @Composable
-actual fun AppIcon.Render(size: Dp) {
+actual fun AppIcon.Render(size: Dp, tint: Color?) {
     val codepoint = when (this) {
         AppIcon.QrCodeScanner -> "\uE4C6"  // qr_code_scanner
         AppIcon.Home -> "\uE88A"           // home
@@ -31,13 +32,15 @@ actual fun AppIcon.Render(size: Dp) {
         AppIcon.Edit -> "\uE3C9"           // edit
         AppIcon.AlbumArt -> "\uE030"       // album
         AppIcon.CheckCircle -> "\uE86C"    // check_circle
+        AppIcon.LibraryMusic -> "\uE030"   // library_music
+        AppIcon.Collections -> "\uE0E9"    // collections
     }
 
     Text(
         text = codepoint,
         fontFamily = MaterialSymbols,
         fontSize = size.value.sp,
-        color = MaterialTheme.colorScheme.primary,
+        color = tint ?: MaterialTheme.colorScheme.primary,
         textAlign = TextAlign.Center,
         modifier = Modifier.size(size)
     )
