@@ -7,3 +7,6 @@ plugins {
     alias(libs.plugins.composeCompiler) apply false
     alias(libs.plugins.kotlinMultiplatform) apply false
 }
+
+// remote ios builds on my work laptop
+apply(from = "remote-build.gradle.kts")

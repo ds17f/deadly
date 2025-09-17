@@ -18,6 +18,11 @@ enum class AppIcon {
     Home,
     Settings,
     Search,
+    ArrowBack,
+    Clear,
+    Edit,
+    AlbumArt,
+    CheckCircle,
     // Add more icons as needed for the search feature and beyond
 }
 

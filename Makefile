@@ -50,6 +50,7 @@ ifeq ($(UNAME_S),Darwin)
 	@echo "  run-ios-simulator       - Build, install, and run on iOS simulator"
 else
 	@echo "  run-ios-simulator       - [macOS only] Build, install, and run on iOS simulator"
+	@echo "  run-ios-remotesim       - [Linux only] Build and run on remote iOS simulator"
 endif
 	@echo ""
 	@echo "LOG COMMANDS:"
@@ -213,6 +214,15 @@ run-ios-simulator: install-ios-simulator
 	echo "🚀 Launching app with bundle ID: $$BUNDLE_ID"; \
 	xcrun simctl launch booted "$$BUNDLE_ID" && \
 	echo "✅ iOS app launched on simulator successfully!"
+endif
+
+# Linux-only commands for remote iOS development
+ifeq ($(UNAME_S),Linux)
+.PHONY: run-ios-remotesim
+run-ios-remotesim:
+	@echo "🍎 Building and running iOS app on remote simulator..."
+	$(GRADLEW) iosRemoteRunSimulator
+	@echo "✅ iOS app launched on remote simulator successfully!"
 endif
 
 # =============================================================================

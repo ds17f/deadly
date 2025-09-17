@@ -19,6 +19,11 @@ actual fun AppIcon.Render(size: Dp) {
         AppIcon.Home -> "house.fill"
         AppIcon.Settings -> "gearshape.fill"
         AppIcon.Search -> "magnifyingglass"
+        AppIcon.ArrowBack -> "arrow.left"
+        AppIcon.Clear -> "xmark"
+        AppIcon.Edit -> "pencil"
+        AppIcon.AlbumArt -> "music.note"
+        AppIcon.CheckCircle -> "checkmark.circle.fill"
     }
 
     UIKitView<UIImageView>(
