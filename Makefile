@@ -47,6 +47,7 @@ endif
 	@echo "  run-android-emulator    - Build, install, and run on Android emulator"
 	@echo "  run-android-device      - Build, install, and run on Android device"
 	@echo "  run-android-remote-emu  - [Linux only] Build and run on remote Android emulator"
+	@echo "  run-remote-all          - [Linux only] Build and run on both remote iOS and Android"
 ifeq ($(UNAME_S),Darwin)
 	@echo "  run-ios-simulator       - Build, install, and run on iOS simulator"
 else
@@ -230,6 +231,18 @@ run-android-remote-emu:
 	@echo "🤖 Building and running Android app on remote emulator..."
 	$(GRADLEW) androidRemoteRunEmulator
 	@echo "✅ Android app launched on remote emulator successfully!"
+
+.PHONY: run-remote-all
+run-remote-all:
+	@echo "🚀 Building and running app on both remote iOS and Android..."
+	@echo ""
+	@echo "📱 Step 1/2: Running iOS simulator..."
+	$(MAKE) run-ios-remotesim
+	@echo ""
+	@echo "🤖 Step 2/2: Running Android emulator..."
+	$(MAKE) run-android-remote-emu
+	@echo ""
+	@echo "✅ App successfully launched on both remote iOS and Android platforms!"
 endif
 
 # =============================================================================
