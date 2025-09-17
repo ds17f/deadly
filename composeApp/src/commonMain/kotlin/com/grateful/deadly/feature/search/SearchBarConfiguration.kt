@@ -30,16 +30,11 @@ object SearchBarConfiguration {
     
     /**
      * Configuration for Search Results screen
-     * 
-     * Shows back navigation and search context
+     *
+     * No TopBar - SearchResultsScreen has integrated search header
      */
     fun getSearchResultsBarConfig(): BarConfiguration = BarConfiguration(
-        topBar = TopBarConfig(
-            title = "Search Results", 
-            mode = TopBarMode.SOLID,
-            visible = true,
-            showBackButton = true
-        ),
+        topBar = null, // SearchResultsScreen handles its own header
         bottomBar = BottomBarConfig(visible = true)
     )
 }

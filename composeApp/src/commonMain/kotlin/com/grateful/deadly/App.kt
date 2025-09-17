@@ -118,8 +118,22 @@ fun App() {
             // Secondary screens
             composable(AppScreen.SearchResults) {
                 // SearchResultsScreen shares the same ViewModel instance for state continuity
-                // TODO: Create SearchResultsScreen component
-                Text("Search Results Screen - Query: ${searchViewModel.uiState.collectAsState().value.searchQuery}")
+                com.grateful.deadly.feature.search.SearchResultsScreen(
+                    viewModel = searchViewModel,
+                    onNavigateBack = {
+                        navigationController.navigateUp()
+                    },
+                    onNavigateToShow = { showId ->
+                        coroutineScope.launch {
+                            searchViewModel.onSearchResultSelected(showId)
+                        }
+                    },
+                    onNavigateToPlayer = { recordingId ->
+                        coroutineScope.launch {
+                            searchViewModel.onNavigateToPlayer(recordingId)
+                        }
+                    }
+                )
             }
             
             composable(AppScreen.Player) {
