@@ -1,8 +1,6 @@
 package com.grateful.deadly.core.design.component.topbar
 
 import androidx.compose.material3.*
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import com.grateful.deadly.navigation.TopBarConfig
@@ -31,11 +29,8 @@ fun TopBar(
         },
         navigationIcon = {
             if (config.showBackButton) {
-                IconButton(onClick = onNavigateBack) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = "Navigate back"
-                    )
+                TextButton(onClick = onNavigateBack) {
+                    Text("← Back")
                 }
             }
         },

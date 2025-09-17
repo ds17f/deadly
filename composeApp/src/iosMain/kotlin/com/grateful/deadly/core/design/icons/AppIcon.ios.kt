@@ -6,6 +6,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.interop.UIKitView
 import platform.UIKit.*
 import kotlinx.cinterop.ExperimentalForeignApi
+import kotlinx.cinterop.cValue
 
 /**
  * iOS implementation using SF Symbols via UIKit interop
@@ -26,8 +27,8 @@ actual fun AppIcon.Render(size: Dp) {
             val image = UIImage.systemImageNamed(symbolName, config)!!
             val imageView = UIImageView(image)
             imageView.apply {
-                // TODO: Match MaterialTheme.colorScheme.primary (see docs/TODO.md)
-                tintColor = UIColor.systemBlueColor 
+                // Use black for maximum visibility
+                tintColor = UIColor.blackColor
                 contentMode = UIViewContentMode.UIViewContentModeScaleAspectFit
             }
             imageView

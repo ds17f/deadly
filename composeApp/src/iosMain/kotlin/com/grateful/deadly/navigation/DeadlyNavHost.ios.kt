@@ -1,5 +1,6 @@
 package com.grateful.deadly.navigation
 
+import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -19,7 +20,9 @@ actual class NavigationController {
     }
     
     actual fun navigateUp() {
-        // TODO: Implement back navigation for iOS
+        // Simple back navigation - go to Search screen
+        // TODO: Implement proper navigation stack with SwiftUI NavigationStack
+        _currentScreen.value = AppScreen.Search
     }
     
     internal fun getCurrentScreen(): AppScreen? = _currentScreen.value
@@ -82,5 +85,7 @@ actual fun DeadlyNavHost(
     
     // Simple placeholder implementation - just show current screen content
     // TODO: Replace with proper SwiftUI NavigationStack integration
-    routes[currentScreen]?.invoke()
+    Box(modifier = modifier) {
+        routes[currentScreen]?.invoke()
+    }
 }
