@@ -4,5 +4,9 @@
 <dict>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
+	<key>UIAppFonts</key>
+	<array>
+		<string>material_symbols_outlined.ttf</string>
+	</array>
 </dict>
 </plist>

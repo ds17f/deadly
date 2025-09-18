@@ -1,68 +1,48 @@
 package com.grateful.deadly.core.design.icons
 
-import androidx.compose.foundation.layout.size
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.interop.UIKitView
-import platform.UIKit.*
-import kotlinx.cinterop.ExperimentalForeignApi
+import androidx.compose.ui.unit.sp
+import deadly.composeapp.generated.resources.Res
+import deadly.composeapp.generated.resources.material_symbols_outlined
+import org.jetbrains.compose.resources.Font
 
 /**
- * iOS implementation using SF Symbols via UIKit interop
+ * iOS implementation using Material Design Icons via Compose resources
+ * Uses the new Compose Multiplatform resource system for consistent cross-platform icons
  */
-@OptIn(ExperimentalForeignApi::class)
 @Composable
 actual fun AppIcon.Render(size: Dp, tint: Color?) {
-    // Use the same color logic as Android: tint parameter OR MaterialTheme primary
     val iconColor = tint ?: MaterialTheme.colorScheme.primary
-    // Map your AppIcon enum to SF Symbol names
-    val symbolName = when (this) {
-        AppIcon.QrCodeScanner -> "qrcode.viewfinder"
-        AppIcon.Home -> "house.fill"
-        AppIcon.Settings -> "gearshape.fill"
-        AppIcon.Search -> "magnifyingglass"
-        AppIcon.ArrowBack -> "arrow.left"
-        AppIcon.Clear -> "xmark"
-        AppIcon.Edit -> "pencil"
-        AppIcon.AlbumArt -> "music.note"
-        AppIcon.CheckCircle -> "checkmark.circle.fill"
-        AppIcon.LibraryMusic -> "music.note.list"
-        AppIcon.Collections -> "folder.fill"
+
+    // Use the same Material Design Icons codepoints as Android for perfect consistency
+    val codepoint = when (this) {
+        AppIcon.QrCodeScanner -> "\uE4C6"  // qr_code_scanner
+        AppIcon.Home -> "\uE88A"           // home
+        AppIcon.Settings -> "\uE8B8"       // settings
+        AppIcon.Search -> "\uE8B6"         // search
+        AppIcon.ArrowBack -> "\uE5C4"      // arrow_back
+        AppIcon.Clear -> "\uE14C"          // clear
+        AppIcon.Edit -> "\uE3C9"           // edit
+        AppIcon.AlbumArt -> "\uE030"       // album
+        AppIcon.CheckCircle -> "\uE86C"    // check_circle
+        AppIcon.LibraryMusic -> "\uE030"   // library_music
+        AppIcon.Collections -> "\uE0E9"    // collections
     }
 
-    UIKitView(
-        factory = {
-            // Configure symbol size
-            val config = UIImageSymbolConfiguration.configurationWithPointSize(size.value.toDouble())
+    // Create FontFamily using the new Compose Multiplatform resource system
+    val materialSymbols = FontFamily(Font(Res.font.material_symbols_outlined))
 
-            // Force the symbol into template mode so tintColor actually applies
-            val image = UIImage.systemImageNamed(symbolName, config)
-                ?.imageWithRenderingMode(UIImageRenderingMode.UIImageRenderingModeAlwaysTemplate)
-                ?: UIImage.systemImageNamed("questionmark.square.dashed", config)
-                    ?.imageWithRenderingMode(UIImageRenderingMode.UIImageRenderingModeAlwaysTemplate)
-
-            // Create UIImageView with the symbol
-            val imageView = UIImageView(image).apply {
-                contentMode = UIViewContentMode.UIViewContentModeScaleAspectFit
-
-                // Convert the Compose Color to UIColor (same logic as Android's Text color)
-                val argb = iconColor.toArgb()
-                val alpha = ((argb shr 24) and 0xFF) / 255.0
-                val red = ((argb shr 16) and 0xFF) / 255.0
-                val green = ((argb shr 8) and 0xFF) / 255.0
-                val blue = (argb and 0xFF) / 255.0
-                tintColor = UIColor.colorWithRed(red, green, blue, alpha)
-
-                // Ensure transparent background (like Android Text)
-                backgroundColor = UIColor.clearColor
-            }
-            imageView
-        },
-        // Important: give the Compose wrapper a size, or the imageView may collapse
-        modifier = Modifier.size(size)
+    Text(
+        text = codepoint,
+        fontFamily = materialSymbols,
+        fontSize = size.value.sp,
+        color = iconColor,
+        textAlign = TextAlign.Center
     )
 }
