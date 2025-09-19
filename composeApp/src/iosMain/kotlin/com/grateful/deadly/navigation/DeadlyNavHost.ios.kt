@@ -9,25 +9,70 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 
 /**
- * iOS implementation of NavigationController
- * TODO: Integrate with SwiftUI NavigationStack in future
+ * iOS implementation of NavigationController with proper stack management
+ * Provides immediate state synchronization to prevent UI timing issues
  */
 actual class NavigationController {
+    private val _navigationStack = mutableListOf<AppScreen>()
     private var _currentScreen = mutableStateOf<AppScreen?>(null)
+    private var _onScreenChanged: ((AppScreen) -> Unit)? = null
+
     actual val currentScreen: AppScreen? get() = _currentScreen.value
 
+    /**
+     * Set the callback that should be notified immediately when navigation occurs
+     * This ensures synchronous state propagation to prevent UI glitches
+     */
+    internal fun setOnScreenChanged(callback: (AppScreen) -> Unit) {
+        _onScreenChanged = callback
+    }
+
     actual fun navigate(screen: AppScreen) {
+        // Add to navigation stack if it's a new screen
+        if (_navigationStack.isEmpty() || _navigationStack.last() != screen) {
+            _navigationStack.add(screen)
+        }
+
+        // Update current screen state
         _currentScreen.value = screen
-        // TODO: Integrate with iOS NavigationStack
+
+        // Immediately notify callback for synchronous state propagation
+        _onScreenChanged?.invoke(screen)
     }
 
     actual fun navigateUp() {
-        // Simple back navigation - go to Search screen
-        // TODO: Implement proper navigation stack with SwiftUI NavigationStack
-        _currentScreen.value = AppScreen.Search
+        if (_navigationStack.size > 1) {
+            // Remove current screen from stack
+            _navigationStack.removeLastOrNull()
+
+            // Navigate to previous screen
+            val previousScreen = _navigationStack.lastOrNull() ?: AppScreen.Search
+            _currentScreen.value = previousScreen
+            _onScreenChanged?.invoke(previousScreen)
+        } else {
+            // Fallback to Search if stack is empty
+            navigate(AppScreen.Search)
+        }
+    }
+
+    /**
+     * Initialize the navigation stack with a start destination
+     * This ensures proper initial state setup like Android implementation
+     */
+    internal fun initialize(startDestination: AppScreen) {
+        if (_navigationStack.isEmpty()) {
+            _navigationStack.add(startDestination)
+            _currentScreen.value = startDestination
+            _onScreenChanged?.invoke(startDestination)
+        }
     }
 
     internal fun getCurrentScreenState() = _currentScreen
+
+    /**
+     * Get current navigation stack (for debugging)
+     */
+    internal fun getNavigationStack(): List<AppScreen> = _navigationStack.toList()
 }
 
 /**
@@ -65,8 +110,8 @@ actual fun rememberNavigationController(): NavigationController {
 }
 
 /**
- * iOS implementation of DeadlyNavHost
- * TODO: Replace with SwiftUI NavigationStack integration
+ * iOS implementation of DeadlyNavHost with immediate state synchronization
+ * Eliminates timing issues by using synchronous state propagation
  */
 @Composable
 actual fun DeadlyNavHost(
@@ -78,24 +123,26 @@ actual fun DeadlyNavHost(
 ) {
     val builder = DeadlyNavGraphBuilder()
     builder.content()
-    
-    // Set initial current screen and observe state
-    val currentScreenState = navigationController.getCurrentScreenState()
-    val currentScreen by currentScreenState
-    val actualCurrentScreen = currentScreen ?: run {
-        navigationController.navigate(startDestination)
-        startDestination
+
+    // Set up immediate callback registration - this must happen first
+    LaunchedEffect(navigationController) {
+        navigationController.setOnScreenChanged(onScreenChanged)
     }
 
-    // Notify callback when screen changes
-    LaunchedEffect(actualCurrentScreen) {
-        onScreenChanged(actualCurrentScreen)
+    // Initialize navigation stack with start destination (like Android does)
+    LaunchedEffect(Unit) {
+        navigationController.initialize(startDestination)
     }
+
+    // Get current screen state for rendering
+    val currentScreenState = navigationController.getCurrentScreenState()
+    val currentScreen by currentScreenState
+    val actualCurrentScreen = currentScreen ?: startDestination
 
     val routes = builder.getRoutes()
 
-    // Simple placeholder implementation - just show current screen content
-    // TODO: Replace with proper SwiftUI NavigationStack integration
+    // Render current screen content
+    // State changes are now synchronous, so TopBar updates happen immediately
     Box(modifier = modifier) {
         routes[actualCurrentScreen]?.invoke()
     }
