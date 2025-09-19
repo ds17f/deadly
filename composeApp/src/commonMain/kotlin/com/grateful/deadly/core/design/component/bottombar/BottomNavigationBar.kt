@@ -53,7 +53,7 @@ fun BottomNavigationBar(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 8.dp, vertical = 4.dp),
+                .padding(horizontal = 4.dp, vertical = 4.dp),
             horizontalArrangement = Arrangement.SpaceEvenly,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -89,17 +89,17 @@ private fun BottomNavItem(
         modifier = modifier
             .clip(RoundedCornerShape(12.dp))
             .clickable { onClick() }
-            .padding(horizontal = 8.dp, vertical = 8.dp),
+            .padding(horizontal = 4.dp, vertical = 6.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         tab.icon.Render(size = 24.dp, tint = contentColor)
 
-        Spacer(modifier = Modifier.height(4.dp))
+        Spacer(modifier = Modifier.height(2.dp))
 
         Text(
             text = tab.label,
             color = contentColor,
-            fontSize = 12.sp,
+            fontSize = 11.sp,
             fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
             textAlign = TextAlign.Center,
             maxLines = 1
