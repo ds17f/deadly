@@ -1,0 +1,99 @@
+-- SQLDelight schema for Show table
+-- Based on V2 ShowEntity - exact same structure for proven performance
+
+-- Main shows table (denormalized for fast search - V2 pattern)
+CREATE TABLE Show (
+    showId TEXT PRIMARY KEY NOT NULL,
+
+    -- Date components for flexible searching (V2 pattern)
+    date TEXT NOT NULL,                    -- "1977-05-08"
+    year INTEGER NOT NULL,                 -- 1977
+    month INTEGER NOT NULL,                -- 5
+    yearMonth TEXT NOT NULL,               -- "1977-05"
+
+    -- Show metadata
+    band TEXT NOT NULL,                    -- "Grateful Dead"
+    url TEXT,                              -- Jerry Garcia URL
+
+    -- Venue data (denormalized for fast search - V2 pattern)
+    venueName TEXT NOT NULL,               -- "Barton Hall, Cornell University"
+    city TEXT,                             -- "Ithaca"
+    state TEXT,                            -- "NY"
+    country TEXT NOT NULL DEFAULT 'USA',
+    locationRaw TEXT,                      -- "Ithaca, NY"
+
+    -- Setlist data (JSON strings - V2 pattern)
+    setlistStatus TEXT,                    -- "found", "not_found"
+    setlistRaw TEXT,                       -- JSON string for UI display
+    songList TEXT,                         -- "Scarlet Begonias,Fire on the Mountain" (comma-separated for search)
+
+    -- Lineup data (JSON strings - V2 pattern)
+    lineupStatus TEXT,                     -- "found", "missing"
+    lineupRaw TEXT,                        -- JSON string for UI display
+    memberList TEXT,                       -- "Jerry Garcia,Bob Weir,Phil Lesh" (comma-separated for search)
+
+    -- Recording data
+    recordingCount INTEGER NOT NULL DEFAULT 0,
+    bestRecordingId TEXT,
+    averageRating REAL,
+    totalReviews INTEGER NOT NULL DEFAULT 0,
+
+    -- Library status (for future V2 features)
+    isInLibrary INTEGER NOT NULL DEFAULT 0,
+    libraryAddedAt INTEGER,
+
+    -- Timestamps
+    createdAt INTEGER NOT NULL,
+    updatedAt INTEGER NOT NULL
+);
+
+-- Indexes for fast search (based on V2 ShowEntity indexes)
+CREATE INDEX idx_shows_date ON Show(date);
+CREATE INDEX idx_shows_year ON Show(year);
+CREATE INDEX idx_shows_yearMonth ON Show(yearMonth);
+CREATE INDEX idx_shows_venueName ON Show(venueName);
+CREATE INDEX idx_shows_city ON Show(city);
+CREATE INDEX idx_shows_state ON Show(state);
+
+-- Basic queries
+selectAllShows:
+SELECT * FROM Show ORDER BY date DESC;
+
+selectShowById:
+SELECT * FROM Show WHERE showId = ?;
+
+getShowCount:
+SELECT COUNT(*) FROM Show;
+
+-- Search query (simplified version of V2 complex search)
+searchShows:
+SELECT * FROM Show
+WHERE date LIKE '%' || ? || '%'
+   OR venueName LIKE '%' || ? || '%'
+   OR city LIKE '%' || ? || '%'
+   OR state LIKE '%' || ? || '%'
+   OR songList LIKE '%' || ? || '%'
+   OR memberList LIKE '%' || ? || '%'
+ORDER BY
+  CASE
+    WHEN venueName LIKE ? || '%' THEN 1
+    WHEN city LIKE ? || '%' THEN 2
+    WHEN date LIKE ? || '%' THEN 3
+    ELSE 4
+  END,
+  averageRating DESC,
+  date DESC;
+
+-- Data management queries
+insertShow:
+INSERT OR REPLACE INTO Show (
+    showId, date, year, month, yearMonth, band, url,
+    venueName, city, state, country, locationRaw,
+    setlistStatus, setlistRaw, songList,
+    lineupStatus, lineupRaw, memberList,
+    recordingCount, bestRecordingId, averageRating, totalReviews,
+    isInLibrary, libraryAddedAt, createdAt, updatedAt
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+deleteAllShows:
+DELETE FROM Show;
