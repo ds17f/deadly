@@ -10,6 +10,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.grateful.deadly.core.design.icons.AppIcon
@@ -53,7 +54,7 @@ fun BottomNavigationBar(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 4.dp, vertical = 4.dp),
+                .padding(horizontal = 16.dp, vertical = 8.dp),
             horizontalArrangement = Arrangement.SpaceEvenly,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -61,8 +62,7 @@ fun BottomNavigationBar(
                 BottomNavItem(
                     tab = tab,
                     isSelected = currentScreen == tab.screen,
-                    onClick = { onNavigateToTab(tab.screen) },
-                    modifier = Modifier.weight(1f)
+                    onClick = { onNavigateToTab(tab.screen) }
                 )
             }
         }
@@ -89,17 +89,17 @@ private fun BottomNavItem(
         modifier = modifier
             .clip(RoundedCornerShape(12.dp))
             .clickable { onClick() }
-            .padding(horizontal = 4.dp, vertical = 6.dp),
+            .padding(horizontal = 12.dp, vertical = 8.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         tab.icon.Render(size = 24.dp, tint = contentColor)
 
-        Spacer(modifier = Modifier.height(2.dp))
+        Spacer(modifier = Modifier.height(4.dp))
 
         Text(
             text = tab.label,
             color = contentColor,
-            fontSize = 11.sp,
+            fontSize = 12.sp,
             fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
             textAlign = TextAlign.Center,
             maxLines = 1
