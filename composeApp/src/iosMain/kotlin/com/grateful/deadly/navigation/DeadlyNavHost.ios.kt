@@ -2,6 +2,8 @@ package com.grateful.deadly.navigation
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
@@ -13,19 +15,19 @@ import androidx.compose.ui.Modifier
 actual class NavigationController {
     private var _currentScreen = mutableStateOf<AppScreen?>(null)
     actual val currentScreen: AppScreen? get() = _currentScreen.value
-    
+
     actual fun navigate(screen: AppScreen) {
         _currentScreen.value = screen
         // TODO: Integrate with iOS NavigationStack
     }
-    
+
     actual fun navigateUp() {
         // Simple back navigation - go to Search screen
         // TODO: Implement proper navigation stack with SwiftUI NavigationStack
         _currentScreen.value = AppScreen.Search
     }
-    
-    internal fun getCurrentScreen(): AppScreen? = _currentScreen.value
+
+    internal fun getCurrentScreenState() = _currentScreen
 }
 
 /**
@@ -71,21 +73,30 @@ actual fun DeadlyNavHost(
     navigationController: NavigationController,
     startDestination: AppScreen,
     modifier: Modifier,
+    onScreenChanged: (AppScreen) -> Unit,
     content: DeadlyNavGraphBuilder.() -> Unit
 ) {
     val builder = DeadlyNavGraphBuilder()
     builder.content()
     
-    // Set initial current screen
-    val currentScreen = navigationController.getCurrentScreen() ?: run {
+    // Set initial current screen and observe state
+    val currentScreenState = navigationController.getCurrentScreenState()
+    val currentScreen by currentScreenState
+    val actualCurrentScreen = currentScreen ?: run {
         navigationController.navigate(startDestination)
         startDestination
     }
+
+    // Notify callback when screen changes
+    LaunchedEffect(actualCurrentScreen) {
+        onScreenChanged(actualCurrentScreen)
+    }
+
     val routes = builder.getRoutes()
-    
+
     // Simple placeholder implementation - just show current screen content
     // TODO: Replace with proper SwiftUI NavigationStack integration
     Box(modifier = modifier) {
-        routes[currentScreen]?.invoke()
+        routes[actualCurrentScreen]?.invoke()
     }
 }

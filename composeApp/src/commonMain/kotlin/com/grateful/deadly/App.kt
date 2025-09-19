@@ -62,8 +62,8 @@ fun App() {
             }
         }
         
-        // Get current screen and bar configuration
-        val currentScreen = navigationController.currentScreen ?: AppScreen.Search
+        // Track current screen with simple state in App composable
+        var currentScreen by remember { mutableStateOf<AppScreen>(AppScreen.Search) }
         val barConfig = NavigationBarConfig.getBarConfig(currentScreen)
         
         // AppScaffold wraps the navigation with consistent TopBar and BottomBar
@@ -78,7 +78,8 @@ fun App() {
             DeadlyNavHost(
                 navigationController = navigationController,
                 startDestination = AppScreen.Search, // Start on Search for development
-                modifier = Modifier.padding(paddingValues)
+                modifier = Modifier.padding(paddingValues),
+                onScreenChanged = { screen -> currentScreen = screen }
             ) {
             // Main bottom navigation tabs
             composable(AppScreen.Home) {

@@ -44,5 +44,6 @@ expect fun DeadlyNavHost(
     navigationController: NavigationController,
     startDestination: AppScreen,
     modifier: Modifier = Modifier,
+    onScreenChanged: (AppScreen) -> Unit = {},
     content: DeadlyNavGraphBuilder.() -> Unit
 )

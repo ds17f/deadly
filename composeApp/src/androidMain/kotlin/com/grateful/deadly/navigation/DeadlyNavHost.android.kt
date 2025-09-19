@@ -4,6 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -12,6 +13,8 @@ import androidx.navigation.NavController
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.navArgument
+import androidx.navigation.compose.currentBackStackEntryAsState
+import com.grateful.deadly.core.logging.Logger
 
 /**
  * Android implementation of NavigationController using Jetpack Navigation
@@ -21,16 +24,16 @@ actual class NavigationController(
 ) {
     private var _currentScreen by mutableStateOf<AppScreen?>(null)
     actual val currentScreen: AppScreen? get() = _currentScreen
-    
+
     actual fun navigate(screen: AppScreen) {
         _currentScreen = screen
         navController.navigate(screen.route())
     }
-    
+
     actual fun navigateUp() {
         navController.navigateUp()
     }
-    
+
     internal fun setCurrentScreen(screen: AppScreen) {
         _currentScreen = screen
     }
@@ -114,6 +117,7 @@ actual fun rememberNavigationController(): NavigationController {
     return NavigationController(navController)
 }
 
+
 /**
  * Android implementation of DeadlyNavHost using Jetpack Navigation NavHost
  */
@@ -122,16 +126,31 @@ actual fun DeadlyNavHost(
     navigationController: NavigationController,
     startDestination: AppScreen,
     modifier: Modifier,
+    onScreenChanged: (AppScreen) -> Unit,
     content: DeadlyNavGraphBuilder.() -> Unit
 ) {
     val builder = DeadlyNavGraphBuilder()
     builder.content()
-    
-    // Set initial current screen
-    if (navigationController.currentScreen == null) {
-        navigationController.setCurrentScreen(startDestination)
+
+    // Track current destination and update both callback and NavigationController
+    val currentBackStackEntry by navigationController.navController.currentBackStackEntryAsState()
+    LaunchedEffect(currentBackStackEntry) {
+        currentBackStackEntry?.destination?.route?.let { route ->
+            val screen = route.toAppScreen()
+            screen?.let {
+                Logger.d("AndroidNavigation", "Screen changed to: $it")
+                navigationController.setCurrentScreen(it)
+                onScreenChanged(it)
+            }
+        }
     }
-    
+
+    // Set initial screen
+    LaunchedEffect(Unit) {
+        navigationController.setCurrentScreen(startDestination)
+        onScreenChanged(startDestination)
+    }
+
     NavHost(
         navController = navigationController.navController,
         startDestination = startDestination.route(),
