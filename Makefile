@@ -59,8 +59,21 @@ endif
 	@echo "  logs-help               - Show detailed log reading help"
 	@echo "  logs-android-search     - Show Android search logs"
 	@echo "  logs-ios-search         - Show iOS search logs"
+	@echo "  logs-android-data       - Show Android data import logs"
+	@echo "  logs-ios-data           - Show iOS data import logs"
+	@echo "  logs-android-crash      - Show Android crash/error logs"
+	@echo "  logs-ios-crash          - Show iOS crash/error logs"
 	@echo "  logs-follow-android CONCEPT='search' - Follow Android logs live"
 	@echo "  logs-follow-ios CONCEPT='di'         - Follow iOS logs live"
+ifeq ($(UNAME_S),Linux)
+	@echo "  logs-remote-android     - [Linux only] View Android logs on remote device"
+	@echo "  logs-remote-ios         - [Linux only] View iOS logs on remote device"
+	@echo "  logs-remote-data        - [Linux only] Check data import logs on both platforms"
+else
+	@echo "  logs-remote-android     - [Linux only] View Android logs on remote device"
+	@echo "  logs-remote-ios         - [Linux only] View iOS logs on remote device"
+	@echo "  logs-remote-data        - [Linux only] Check data import logs on both platforms"
+endif
 	@echo ""
 	@echo "UTILITY COMMANDS:"
 	@echo "  clean                   - Clean all build outputs"
@@ -268,6 +281,43 @@ logs-follow-android:
 .PHONY: logs-follow-ios
 logs-follow-ios:
 	@./scripts/readlogs -i -f $(CONCEPT)
+
+.PHONY: logs-android-data
+logs-android-data:
+	@./scripts/readlogs -a -d data
+
+.PHONY: logs-ios-data
+logs-ios-data:
+	@./scripts/readlogs -i -d data
+
+.PHONY: logs-android-crash
+logs-android-crash:
+	@./scripts/readlogs -a -e $(CONCEPT)
+
+.PHONY: logs-ios-crash
+logs-ios-crash:
+	@./scripts/readlogs -i -e $(CONCEPT)
+
+# Linux-only remote logging commands
+ifeq ($(UNAME_S),Linux)
+.PHONY: logs-remote-android
+logs-remote-android:
+	@./scripts/remote-logs android $(or $(CONCEPT),all)
+
+.PHONY: logs-remote-ios
+logs-remote-ios:
+	@./scripts/remote-logs ios $(or $(CONCEPT),all)
+
+.PHONY: logs-remote-data
+logs-remote-data:
+	@echo "🔍 Checking remote data import logs on both platforms..."
+	@echo ""
+	@echo "📱 Step 1/2: iOS data logs..."
+	@./scripts/remote-logs ios data
+	@echo ""
+	@echo "🤖 Step 2/2: Android data logs..."
+	@./scripts/remote-logs android data
+endif
 
 # =============================================================================
 # CLEAN COMMANDS

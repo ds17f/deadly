@@ -4,37 +4,32 @@ import com.grateful.deadly.database.Database
 import com.grateful.deadly.core.util.Logger
 import com.russhwolf.settings.Settings
 import io.ktor.client.HttpClient
-import io.ktor.client.call.body
-import io.ktor.client.request.get
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.IO
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.withContext
 import kotlinx.datetime.Clock
-import kotlinx.serialization.SerialName
-import kotlinx.serialization.Serializable
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonElement
 import okio.FileSystem
-import okio.Path
 
 /**
- * Data import service following V2 DatabaseManager patterns.
+ * Data import service for real Grateful Dead show data.
  * Handles download → extract → parse → import flow with progress tracking.
  */
 class DataImportService(
     private val database: Database,
     private val httpClient: HttpClient,
     private val settings: Settings,
-    private val fileSystem: FileSystem = FileSystem.SYSTEM
+    private val fileSystem: FileSystem = FileSystem.SYSTEM,
+    private val getAppFilesDir: () -> String, // Platform-specific files directory
+    private val zipExtractionService: ZipExtractionService
 ) {
+
+    // Initialize services
+    private val fileDiscoveryService = FileDiscoveryService(httpClient, fileSystem)
+    private val downloadService = DownloadService(httpClient, fileSystem)
+    private val jsonImportService = JsonImportService(database, fileSystem)
 
     companion object {
         private const val TAG = "DataImportService"
-        // TODO: Replace with actual data source URL
-        private const val REMOTE_DATA_URL = "https://github.com/your-org/deadly-data/archive/main.zip"
         private const val DATA_IMPORTED_KEY = "has_imported_data"
         private const val IMPORT_TIMESTAMP_KEY = "import_timestamp"
     }
@@ -43,7 +38,7 @@ class DataImportService(
     val progress: Flow<ImportProgress> = _progress.asStateFlow()
 
     /**
-     * Initialize data if needed - called at app startup (V2 pattern)
+     * Initialize data if needed - called at app startup
      */
     suspend fun initializeDataIfNeeded(): ImportResult {
         return try {
@@ -59,8 +54,7 @@ class DataImportService(
             }
 
             Logger.d(TAG, "No data found, starting import process...")
-            // No data - download and import
-            downloadAndImportData()
+            downloadAndImportRealData()
 
         } catch (e: Exception) {
             Logger.e(TAG, "Failed to initialize data", e)
@@ -78,8 +72,11 @@ class DataImportService(
             // Clear existing data
             clearAllData()
 
+            // Delete cached data.zip to force re-download
+            deleteCachedDataFile()
+
             // Download fresh data
-            downloadAndImportData()
+            downloadAndImportRealData()
 
         } catch (e: Exception) {
             Logger.e(TAG, "Failed to refresh data", e)
@@ -116,299 +113,139 @@ class DataImportService(
         }
     }
 
+
     /**
-     * Import mock data for testing (temporary solution)
+     * Download and import real data from GitHub releases
      */
-    suspend fun importMockData(): ImportResult {
+    private suspend fun downloadAndImportRealData(): ImportResult {
         return try {
-            Logger.d(TAG, "Importing mock data for testing...")
-            _progress.value = ImportProgress.Parsing(0, 0)
-
-            // Get mock shows from our existing SearchServiceStub
-            val mockShows = getMockShowData()
-
-            _progress.value = ImportProgress.Importing(0, mockShows.size)
-            importShowsToDatabase(mockShows)
-
-            // Mark as completed
-            settings.putBoolean(DATA_IMPORTED_KEY, true)
-            settings.putLong(IMPORT_TIMESTAMP_KEY, Clock.System.now().toEpochMilliseconds())
-
-            _progress.value = ImportProgress.Idle
-
-            val finalCount = database.showQueries.getShowCount().executeAsOne()
-            Logger.d(TAG, "Mock data import completed: $finalCount shows")
-            ImportResult.Success(finalCount.toInt())
-
-        } catch (e: Exception) {
-            Logger.e(TAG, "Failed to import mock data", e)
-            _progress.value = ImportProgress.Idle
-            ImportResult.Error("Mock import failed: ${e.message}")
-        }
-    }
-
-    private suspend fun downloadAndImportData(): ImportResult = withContext(Dispatchers.IO) {
-        try {
-            // For now, use mock data until we have real data source
-            // TODO: Implement real download when data source is available
-            Logger.d(TAG, "Using mock data (real download not yet implemented)")
-            return@withContext importMockData()
-
-            /*
-            // Real implementation for future:
-            // 1. Download ZIP file
+            Logger.d(TAG, "Starting real data import process...")
             _progress.value = ImportProgress.Downloading
-            val zipBytes = httpClient.get(REMOTE_DATA_URL).body<ByteArray>()
 
-            // 2. Extract ZIP to memory (using Okio)
+            val appFilesDir = getAppFilesDir()
+
+            // 1. Check for local data.zip file first
+            val localFile = fileDiscoveryService.getLocalDataFile(appFilesDir)
+            val dataZipPath = if (localFile != null) {
+                Logger.d(TAG, "Using cached data.zip file: ${localFile.sizeBytes} bytes")
+                localFile.path
+            } else {
+                // 2. Download from GitHub releases
+                Logger.d(TAG, "No local data.zip found, downloading from GitHub...")
+                val remoteFile = fileDiscoveryService.getRemoteDataFile()
+                    ?: return ImportResult.Error("No data.zip file found in GitHub releases")
+
+                val downloadResult = downloadService.downloadFile(remoteFile, appFilesDir) { progress ->
+                    _progress.value = ImportProgress.Downloading
+                }
+
+                when (downloadResult) {
+                    is DownloadService.DownloadResult.Success -> downloadResult.localFilePath
+                    is DownloadService.DownloadResult.Error -> {
+                        return ImportResult.Error("Download failed: ${downloadResult.message}")
+                    }
+                }
+            }
+
+            // 3. Extract ZIP file
+            Logger.d(TAG, "Extracting data.zip...")
             _progress.value = ImportProgress.Extracting
-            val showFiles = extractShowFilesFromZip(zipBytes)
 
-            // 3. Parse JSON files
-            _progress.value = ImportProgress.Parsing(0, showFiles.size)
-            val shows = parseShowFiles(showFiles)
+            val extractionResult = zipExtractionService.extractDataZip(dataZipPath, appFilesDir) { progress ->
+                _progress.value = ImportProgress.Extracting
+            }
 
-            // 4. Import to database
-            _progress.value = ImportProgress.Importing(0, shows.size)
-            importShowsToDatabase(shows)
+            val extractedFiles = when (extractionResult) {
+                is ZipExtractionService.ExtractionResult.Success -> extractionResult.extractedFiles
+                is ZipExtractionService.ExtractionResult.Error -> {
+                    return ImportResult.Error("Extraction failed: ${extractionResult.message}")
+                }
+            }
 
-            // 5. Mark as completed
+            // 4. Import JSON files to database
+            Logger.d(TAG, "Importing ${extractedFiles.size} JSON files...")
+            _progress.value = ImportProgress.Importing(0, extractedFiles.size)
+
+            val importResult = jsonImportService.importJsonFiles(extractedFiles) { progress ->
+                _progress.value = ImportProgress.Importing(progress.importedFiles, progress.totalFiles)
+            }
+
+            val importedCount = when (importResult) {
+                is JsonImportService.ImportResult.Success -> importResult.importedCount
+                is JsonImportService.ImportResult.Error -> {
+                    return ImportResult.Error("Import failed: ${importResult.message}")
+                }
+            }
+
+            // 5. Cleanup extraction directory
+            if (extractionResult is ZipExtractionService.ExtractionResult.Success) {
+                zipExtractionService.cleanupExtraction(extractionResult.extractionDirectory)
+            }
+
+            // 6. Mark as completed
             settings.putBoolean(DATA_IMPORTED_KEY, true)
             settings.putLong(IMPORT_TIMESTAMP_KEY, Clock.System.now().toEpochMilliseconds())
 
             _progress.value = ImportProgress.Idle
 
-            val finalCount = database.showQueries.getShowCount().executeAsOne()
-            ImportResult.Success(finalCount.toInt())
-            */
+            Logger.d(TAG, "Real data import completed: $importedCount shows imported")
+            ImportResult.Success(importedCount)
 
         } catch (e: Exception) {
-            Logger.e(TAG, "Download and import failed", e)
+            Logger.e(TAG, "Real data import failed", e)
             _progress.value = ImportProgress.Idle
             ImportResult.Error("Import failed: ${e.message}")
         }
     }
 
-    private fun getMockShowData(): List<ShowImportData> {
-        // Extract mock data from existing SearchServiceStub patterns
-        return listOf(
-            ShowImportData(
-                showId = "gd1977-05-08",
-                band = "Grateful Dead",
-                venue = "Barton Hall, Cornell University",
-                city = "Ithaca",
-                state = "NY",
-                country = "USA",
-                date = "1977-05-08",
-                locationRaw = "Ithaca, NY",
-                recordingCount = 1,
-                bestRecording = "gd1977-05-08.sbd.hicks.4982.sbeok.shnf",
-                avgRating = 4.8
-            ),
-            ShowImportData(
-                showId = "gd1972-05-03",
-                band = "Grateful Dead",
-                venue = "Olympia Theatre",
-                city = "Paris",
-                state = null,
-                country = "France",
-                date = "1972-05-03",
-                locationRaw = "Paris, France",
-                recordingCount = 1,
-                bestRecording = "gd72-05-03.sbd.unknown.30057.sbeok.shnf",
-                avgRating = 4.6
-            ),
-            ShowImportData(
-                showId = "gd1969-08-16",
-                band = "Grateful Dead",
-                venue = "Woodstock Music & Art Fair",
-                city = "Bethel",
-                state = "NY",
-                country = "USA",
-                date = "1969-08-16",
-                locationRaw = "Bethel, NY",
-                recordingCount = 1,
-                bestRecording = "gd69-08-16.aud.vernon.16793.sbeok.shnf",
-                avgRating = 4.2
-            ),
-            ShowImportData(
-                showId = "gd1973-06-10",
-                band = "Grateful Dead",
-                venue = "RFK Stadium",
-                city = "Washington",
-                state = "DC",
-                country = "USA",
-                date = "1973-06-10",
-                locationRaw = "Washington, DC",
-                recordingCount = 1,
-                bestRecording = "dp12",
-                avgRating = 4.7
-            ),
-            ShowImportData(
-                showId = "gd1995-07-09",
-                band = "Grateful Dead",
-                venue = "Soldier Field",
-                city = "Chicago",
-                state = "IL",
-                country = "USA",
-                date = "1995-07-09",
-                locationRaw = "Chicago, IL",
-                recordingCount = 1,
-                bestRecording = "gd95-07-09.sbd.miller.97483.flac1644",
-                avgRating = 4.1
-            ),
-            ShowImportData(
-                showId = "gd1970-02-14",
-                band = "Grateful Dead",
-                venue = "Fillmore East",
-                city = "New York",
-                state = "NY",
-                country = "USA",
-                date = "1970-02-14",
-                locationRaw = "New York, NY",
-                recordingCount = 2,
-                bestRecording = "gd70-02-14.sbd.miller.97484.flac1644",
-                avgRating = 4.5
-            ),
-            ShowImportData(
-                showId = "gd1977-10-29",
-                band = "Grateful Dead",
-                venue = "Winterland Arena",
-                city = "San Francisco",
-                state = "CA",
-                country = "USA",
-                date = "1977-10-29",
-                locationRaw = "San Francisco, CA",
-                recordingCount = 3,
-                bestRecording = "gd77-10-29.sbd.cotsman.6823.sbeok.shnf",
-                avgRating = 4.3
-            ),
-            ShowImportData(
-                showId = "gd1971-11-07",
-                band = "Grateful Dead",
-                venue = "Capitol Theatre",
-                city = "Port Chester",
-                state = "NY",
-                country = "USA",
-                date = "1971-11-07",
-                locationRaw = "Port Chester, NY",
-                recordingCount = 1,
-                bestRecording = "gd71-11-07.sbd.miller.97485.flac1644",
-                avgRating = 4.4
-            ),
-            ShowImportData(
-                showId = "gd1989-07-17",
-                band = "Grateful Dead",
-                venue = "Alpine Valley Music Theatre",
-                city = "East Troy",
-                state = "WI",
-                country = "USA",
-                date = "1989-07-17",
-                locationRaw = "East Troy, WI",
-                recordingCount = 2,
-                bestRecording = "gd89-07-17.sbd.miller.97486.flac1644",
-                avgRating = 4.0
-            ),
-            ShowImportData(
-                showId = "gd1994-10-19",
-                band = "Grateful Dead",
-                venue = "Madison Square Garden",
-                city = "New York",
-                state = "NY",
-                country = "USA",
-                date = "1994-10-19",
-                locationRaw = "New York, NY",
-                recordingCount = 1,
-                bestRecording = "gd94-10-19.sbd.miller.97487.flac1644",
-                avgRating = 3.9
-            )
-        )
+    /**
+     * Delete cached data.zip file to force re-download
+     */
+    suspend fun deleteCachedDataFile(): Boolean {
+        return try {
+            val appFilesDir = getAppFilesDir()
+            val localFile = fileDiscoveryService.getLocalDataFile(appFilesDir)
+
+            if (localFile != null) {
+                downloadService.deleteLocalFile(localFile.path)
+            } else {
+                Logger.d(TAG, "No cached data.zip file to delete")
+                true
+            }
+        } catch (e: Exception) {
+            Logger.e(TAG, "Failed to delete cached data.zip file", e)
+            false
+        }
     }
 
-    private suspend fun importShowsToDatabase(shows: List<ShowImportData>) {
-        database.transaction {
-            shows.forEachIndexed { index, show ->
-                _progress.value = ImportProgress.Importing(index + 1, shows.size)
+    /**
+     * Get cached data file info for Settings UI
+     */
+    suspend fun getCachedDataFileInfo(): CachedFileInfo? {
+        return try {
+            val appFilesDir = getAppFilesDir()
+            val localFile = fileDiscoveryService.getLocalDataFile(appFilesDir)
 
-                // Map import data to database format (following V2 patterns)
-                database.showQueries.insertShow(
-                    showId = show.showId,
-                    date = show.date,
-                    year = extractYear(show.date).toLong(),
-                    month = extractMonth(show.date).toLong(),
-                    yearMonth = "${extractYear(show.date)}-${extractMonth(show.date).toString().padStart(2, '0')}",
-                    band = show.band,
-                    url = show.url,
-                    venueName = show.venue,
-                    city = show.city,
-                    state = show.state,
-                    country = show.country ?: "USA",
-                    locationRaw = show.locationRaw,
-                    setlistStatus = show.setlistStatus,
-                    setlistRaw = null, // TODO: Add setlist JSON when available
-                    songList = null, // TODO: Extract comma-separated song list
-                    lineupStatus = show.lineupStatus,
-                    lineupRaw = null, // TODO: Add lineup JSON when available
-                    memberList = null, // TODO: Extract comma-separated member list
-                    recordingCount = show.recordingCount.toLong(),
-                    bestRecordingId = show.bestRecording,
-                    averageRating = show.avgRating,
-                    totalReviews = 0L, // TODO: Add to import data when available
-                    isInLibrary = 0L,
-                    libraryAddedAt = null,
-                    createdAt = Clock.System.now().toEpochMilliseconds(),
-                    updatedAt = Clock.System.now().toEpochMilliseconds()
+            localFile?.let {
+                CachedFileInfo(
+                    fileName = "data.zip",
+                    sizeBytes = it.sizeBytes,
+                    lastModified = settings.getLongOrNull(IMPORT_TIMESTAMP_KEY) ?: 0L
                 )
-
-                Logger.d(TAG, "Imported show ${index + 1}/${shows.size}: ${show.showId}")
             }
+        } catch (e: Exception) {
+            Logger.e(TAG, "Failed to get cached data file info", e)
+            null
         }
     }
 
-    private fun extractYear(date: String): Int = date.split("-")[0].toInt()
-    private fun extractMonth(date: String): Int = date.split("-")[1].toInt()
+    data class CachedFileInfo(
+        val fileName: String,
+        val sizeBytes: Long,
+        val lastModified: Long
+    )
 
-    // TODO: Implement when real data source is available
-    private fun extractShowFilesFromZip(zipBytes: ByteArray): Map<String, String> {
-        // Extract show JSON files from ZIP archive using Okio
-        // Return map of filename -> JSON content
-        return emptyMap()
-    }
-
-    private fun parseShowFiles(showFiles: Map<String, String>): List<ShowImportData> {
-        val json = Json { ignoreUnknownKeys = true }
-        val shows = mutableListOf<ShowImportData>()
-
-        showFiles.forEach { (filename, content) ->
-            try {
-                val show = json.decodeFromString<ShowImportData>(content)
-                shows.add(show)
-            } catch (e: Exception) {
-                Logger.e(TAG, "Failed to parse $filename", e)
-            }
-        }
-
-        return shows
-    }
 }
-
-@Serializable
-data class ShowImportData(
-    @SerialName("show_id") val showId: String,
-    val band: String,
-    val venue: String,
-    @SerialName("location_raw") val locationRaw: String? = null,
-    val city: String? = null,
-    val state: String? = null,
-    val country: String? = "USA",
-    val date: String,
-    val url: String? = null,
-    @SerialName("setlist_status") val setlistStatus: String? = null,
-    @SerialName("lineup_status") val lineupStatus: String? = null,
-    @SerialName("recording_count") val recordingCount: Int = 0,
-    @SerialName("best_recording") val bestRecording: String? = null,
-    @SerialName("avg_rating") val avgRating: Double = 0.0
-)
 
 sealed class ImportResult {
     data class Success(val showCount: Int) : ImportResult()

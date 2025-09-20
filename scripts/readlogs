@@ -19,6 +19,7 @@
 #   search    - Search functionality (SearchViewModel, SearchService, etc.)
 #   di        - Dependency injection (Koin, modules)
 #   ui        - UI interactions (App, navigation)
+#   data      - Data import/export (DataImportService, ZipExtraction, etc.)
 #   all       - All deadly app logs
 #   [custom]  - Custom tag filter
 #
@@ -75,6 +76,7 @@ CONCEPT GROUPS:
     search      Search functionality (SearchViewModel, SearchService, etc.)
     di          Dependency injection (Koin, modules, application startup)
     ui          UI interactions (App, navigation, screens)
+    data        Data import/export (DataImportService, ZipExtraction, etc.)
     icons       Cross-platform icon rendering
     logging     Logging system itself
     all         All deadly app logs (default)
@@ -134,6 +136,7 @@ if [ "$CONCEPT" = "all" ] && [ $# -eq 0 ]; then
     echo -e "  ${CYAN}search${NC}    - Search functionality (SearchViewModel, SearchService, etc.)"
     echo -e "  ${CYAN}di${NC}        - Dependency injection (Koin, modules, application startup)"
     echo -e "  ${CYAN}ui${NC}        - UI interactions (App, navigation, screens)"
+    echo -e "  ${CYAN}data${NC}      - Data import/export (DataImportService, ZipExtraction, etc.)"
     echo -e "  ${CYAN}icons${NC}     - Cross-platform icon rendering"
     echo -e "  ${CYAN}logging${NC}   - Logging system itself"
     echo -e "  ${CYAN}all${NC}       - All deadly app logs"
@@ -167,6 +170,9 @@ get_tag_filters() {
             ;;
         "ui")
             echo "App|SearchScreen|Navigation"
+            ;;
+        "data")
+            echo "DataImportService|ZipExtractionService|ZipExtractor|FileDiscoveryService|DownloadService|JsonImportService|GitHubModels"
             ;;
         "icons")
             echo "AppIcon|IconRenderer"

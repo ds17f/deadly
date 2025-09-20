@@ -7,7 +7,10 @@ import com.grateful.deadly.services.search.SearchServiceImpl
 import com.grateful.deadly.data.search.SearchRepository
 import com.grateful.deadly.data.search.SearchRepositoryImpl
 import com.grateful.deadly.services.data.DataImportService
+import com.grateful.deadly.services.data.ZipExtractor
+import com.grateful.deadly.services.data.ZipExtractionService
 import com.grateful.deadly.core.design.theme.ThemeManager
+import okio.FileSystem
 import io.ktor.client.HttpClient
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.serialization.kotlinx.json.json
@@ -32,6 +35,23 @@ val commonModule = module {
         }
     }
 
+    // File System
+    single<FileSystem> {
+        Logger.d("CommonModule", "Creating FileSystem instance")
+        FileSystem.SYSTEM
+    }
+
+    // ZIP Extraction
+    single<ZipExtractor> {
+        Logger.d("CommonModule", "Creating ZipExtractor instance")
+        ZipExtractor(get())
+    }
+
+    single<ZipExtractionService> {
+        Logger.d("CommonModule", "Creating ZipExtractionService instance")
+        ZipExtractionService(get(), get())
+    }
+
     // Data Layer
     single<SearchRepository> {
         Logger.d("CommonModule", "Creating SearchRepository instance")
@@ -43,7 +63,10 @@ val commonModule = module {
         DataImportService(
             database = get(),
             httpClient = get(),
-            settings = get()
+            settings = get(),
+            fileSystem = get(),
+            getAppFilesDir = get(), // Platform-specific files directory provider
+            zipExtractionService = get()
         )
     }
 

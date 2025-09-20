@@ -1,0 +1,42 @@
+#!/bin/bash
+
+# remote-logs - Simple remote logging for KMM development
+# Usage: remote-logs [android|ios] [concept]
+
+set -euo pipefail
+
+# Remote configuration
+REMOTE_HOST="dsilbergleithcu@worklaptop.local"
+REMOTE_DIR="~/AndroidStudioProjects/Deadly"
+
+# Default values
+PLATFORM=""
+CONCEPT="all"
+
+# Parse arguments
+if [ $# -eq 0 ]; then
+    echo "Usage: remote-logs [android|ios] [concept]"
+    echo ""
+    echo "Examples:"
+    echo "  remote-logs android data"
+    echo "  remote-logs ios crash"
+    echo "  remote-logs android search"
+    exit 1
+fi
+
+PLATFORM="$1"
+if [ $# -gt 1 ]; then
+    CONCEPT="$2"
+fi
+
+# Validate platform
+if [ "$PLATFORM" != "android" ] && [ "$PLATFORM" != "ios" ]; then
+    echo "Error: Platform must be 'android' or 'ios'"
+    exit 1
+fi
+
+echo "🔄 Syncing code to remote host..."
+rsync -az --delete --exclude '.gradle' --exclude 'build' ./ "$REMOTE_HOST:$REMOTE_DIR"
+
+echo "📱 Running remote $PLATFORM logs for concept: $CONCEPT"
+ssh "$REMOTE_HOST" "zsh -l -c 'cd $REMOTE_DIR && make logs-follow-$PLATFORM CONCEPT=$CONCEPT'"

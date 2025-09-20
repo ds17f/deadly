@@ -25,4 +25,9 @@ val androidModule = module {
         )
         Database(driver)
     }
+
+    single<() -> String> {
+        val context: Context = get()
+        return@single { context.filesDir.absolutePath }
+    }
 }

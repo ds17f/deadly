@@ -34,6 +34,12 @@ fun SettingsScreen() {
 
     val scope = rememberCoroutineScope()
     var importMessage by remember { mutableStateOf<String?>(null) }
+    var cachedFileInfo by remember { mutableStateOf<DataImportService.CachedFileInfo?>(null) }
+
+    // Load cached file info on start
+    LaunchedEffect(Unit) {
+        cachedFileInfo = dataImportService.getCachedDataFileInfo()
+    }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -46,10 +52,11 @@ fun SettingsScreen() {
                 DatabaseManagement(
                     importProgress = importProgress,
                     importMessage = importMessage,
+                    cachedFileInfo = cachedFileInfo,
                     onImportData = {
                         scope.launch {
                             importMessage = null
-                            val result = dataImportService.importMockData()
+                            val result = dataImportService.initializeDataIfNeeded()
                             importMessage = when (result) {
                                 is ImportResult.Success -> "Successfully imported ${result.showCount} shows"
                                 is ImportResult.AlreadyExists -> "Database already contains ${result.showCount} shows"
@@ -67,6 +74,8 @@ fun SettingsScreen() {
                                 is ImportResult.Error -> "Refresh failed: ${result.message}"
                                 else -> "Refresh completed"
                             }
+                            // Update cache info
+                            cachedFileInfo = dataImportService.getCachedDataFileInfo()
                         }
                     },
                     onClearData = {
@@ -78,6 +87,19 @@ fun SettingsScreen() {
                                 is ImportResult.Error -> "Clear failed: ${result.message}"
                                 else -> "Clear completed"
                             }
+                        }
+                    },
+                    onDeleteCache = {
+                        scope.launch {
+                            importMessage = null
+                            val success = dataImportService.deleteCachedDataFile()
+                            importMessage = if (success) {
+                                "Cached data file deleted successfully"
+                            } else {
+                                "Failed to delete cached data file"
+                            }
+                            // Update cache info
+                            cachedFileInfo = dataImportService.getCachedDataFileInfo()
                         }
                     }
                 )
@@ -187,15 +209,17 @@ private fun ThemeSelector(
 }
 
 /**
- * Database management component with import/clear/refresh operations
+ * Database management component with import/clear/refresh operations and cache management
  */
 @Composable
 private fun DatabaseManagement(
     importProgress: ImportProgress,
     importMessage: String?,
+    cachedFileInfo: DataImportService.CachedFileInfo?,
     onImportData: () -> Unit,
     onRefreshData: () -> Unit,
     onClearData: () -> Unit,
+    onDeleteCache: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -271,6 +295,41 @@ private fun DatabaseManagement(
             }
         }
 
+        // Cache information
+        cachedFileInfo?.let { cacheInfo ->
+            Card(
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.secondaryContainer
+                ),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(
+                    modifier = Modifier.padding(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Text(
+                        text = "Cached Data File",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Medium
+                    )
+                    Text(
+                        text = "File: ${cacheInfo.fileName}",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                    Text(
+                        text = "Size: ${formatFileSize(cacheInfo.sizeBytes)}",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                    if (cacheInfo.lastModified > 0) {
+                        Text(
+                            text = "Last imported: ${formatTimestamp(cacheInfo.lastModified)}",
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                }
+            }
+        }
+
         // Action buttons
         val isOperationInProgress = importProgress !is ImportProgress.Idle
 
@@ -295,22 +354,58 @@ private fun DatabaseManagement(
             }
         }
 
-        Button(
-            onClick = onClearData,
-            enabled = !isOperationInProgress,
-            colors = ButtonDefaults.buttonColors(
-                containerColor = MaterialTheme.colorScheme.error
-            ),
-            modifier = Modifier.fillMaxWidth()
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Text("Clear Database")
+            Button(
+                onClick = onClearData,
+                enabled = !isOperationInProgress,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.error
+                ),
+                modifier = Modifier.weight(1f)
+            ) {
+                Text("Clear Database")
+            }
+
+            OutlinedButton(
+                onClick = onDeleteCache,
+                enabled = !isOperationInProgress && cachedFileInfo != null,
+                modifier = Modifier.weight(1f)
+            ) {
+                Text("Delete Cache")
+            }
         }
 
         // Help text
         Text(
-            text = "Import: Load show data into database\nRefresh: Clear and reimport all data\nClear: Remove all data from database",
+            text = "Import: Load show data into database\n" +
+                    "Refresh: Clear database and re-download data\n" +
+                    "Clear Database: Remove all shows from database\n" +
+                    "Delete Cache: Remove cached data.zip file to force re-download",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
+}
+
+/**
+ * Format file size in bytes to human readable format
+ */
+private fun formatFileSize(bytes: Long): String {
+    return when {
+        bytes < 1024 -> "$bytes B"
+        bytes < 1024 * 1024 -> "${bytes / 1024} KB"
+        bytes < 1024 * 1024 * 1024 -> "${bytes / (1024 * 1024)} MB"
+        else -> "${bytes / (1024 * 1024 * 1024)} GB"
+    }
+}
+
+/**
+ * Format timestamp to human readable format
+ */
+private fun formatTimestamp(timestamp: Long): String {
+    // Simple format - could be enhanced with proper date formatting
+    return "Recent" // TODO: Implement proper date formatting for KMM
 }

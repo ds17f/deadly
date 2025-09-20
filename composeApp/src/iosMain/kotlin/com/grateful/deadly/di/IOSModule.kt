@@ -6,6 +6,9 @@ import com.russhwolf.settings.Settings
 import app.cash.sqldelight.driver.native.NativeSqliteDriver
 import org.koin.dsl.module
 import platform.Foundation.NSUserDefaults
+import platform.Foundation.NSDocumentDirectory
+import platform.Foundation.NSUserDomainMask
+import platform.Foundation.NSSearchPathForDirectoriesInDomains
 
 /**
  * iOS-specific Koin DI module.
@@ -21,5 +24,16 @@ val iosModule = module {
             name = "deadly.db"
         )
         Database(driver)
+    }
+
+    single<() -> String> {
+        return@single {
+            val documentDirectories = NSSearchPathForDirectoriesInDomains(
+                NSDocumentDirectory,
+                NSUserDomainMask,
+                true
+            )
+            documentDirectories.firstOrNull() as? String ?: ""
+        }
     }
 }
