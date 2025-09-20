@@ -10,9 +10,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.grateful.deadly.core.design.theme.ThemeMode
 import com.grateful.deadly.core.design.theme.ThemeManager
-import com.grateful.deadly.services.data.DataImportService
-import com.grateful.deadly.services.data.ImportProgress
-import com.grateful.deadly.services.data.ImportResult
+import com.grateful.deadly.services.data.DataSyncOrchestrator
+import com.grateful.deadly.services.data.SyncProgress
+import com.grateful.deadly.services.data.SyncResult
 import kotlinx.coroutines.launch
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.get
@@ -28,18 +28,12 @@ object SettingsDIHelper : KoinComponent
 @Composable
 fun SettingsScreen() {
     val themeManager: ThemeManager = remember { SettingsDIHelper.get() }
-    val dataImportService: DataImportService = remember { SettingsDIHelper.get() }
+    val dataSyncOrchestrator: DataSyncOrchestrator = remember { SettingsDIHelper.get() }
     val currentTheme by themeManager.currentTheme.collectAsState(initial = ThemeMode.SYSTEM)
-    val importProgress by dataImportService.progress.collectAsState(initial = ImportProgress.Idle)
+    val syncProgress by dataSyncOrchestrator.progress.collectAsState(initial = SyncProgress.Idle)
 
     val scope = rememberCoroutineScope()
     var importMessage by remember { mutableStateOf<String?>(null) }
-    var cachedFileInfo by remember { mutableStateOf<DataImportService.CachedFileInfo?>(null) }
-
-    // Load cached file info on start
-    LaunchedEffect(Unit) {
-        cachedFileInfo = dataImportService.getCachedDataFileInfo()
-    }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -50,56 +44,41 @@ fun SettingsScreen() {
         item {
             SettingsSection(title = "Database") {
                 DatabaseManagement(
-                    importProgress = importProgress,
+                    importProgress = syncProgress,
                     importMessage = importMessage,
-                    cachedFileInfo = cachedFileInfo,
                     onImportData = {
                         scope.launch {
                             importMessage = null
-                            val result = dataImportService.initializeDataIfNeeded()
+                            val result = dataSyncOrchestrator.syncData()
                             importMessage = when (result) {
-                                is ImportResult.Success -> "Successfully imported ${result.showCount} shows"
-                                is ImportResult.AlreadyExists -> "Database already contains ${result.showCount} shows"
-                                is ImportResult.Error -> "Import failed: ${result.message}"
-                                is ImportResult.Cleared -> "Database cleared"
+                                is SyncResult.Success -> "Successfully imported ${result.showCount} shows"
+                                is SyncResult.AlreadyExists -> "Database already contains ${result.showCount} shows"
+                                is SyncResult.Error -> "Import failed: ${result.message}"
+                                is SyncResult.Cleared -> "Database cleared"
                             }
                         }
                     },
                     onRefreshData = {
                         scope.launch {
                             importMessage = null
-                            val result = dataImportService.forceRefreshData()
+                            val result = dataSyncOrchestrator.forceRefreshData()
                             importMessage = when (result) {
-                                is ImportResult.Success -> "Successfully refreshed ${result.showCount} shows"
-                                is ImportResult.Error -> "Refresh failed: ${result.message}"
+                                is SyncResult.Success -> "Successfully refreshed ${result.showCount} shows"
+                                is SyncResult.Error -> "Refresh failed: ${result.message}"
                                 else -> "Refresh completed"
                             }
-                            // Update cache info
-                            cachedFileInfo = dataImportService.getCachedDataFileInfo()
+                            // TODO: Update cache info with new architecture
                         }
                     },
                     onClearData = {
                         scope.launch {
                             importMessage = null
-                            val result = dataImportService.clearAllData()
+                            val result = dataSyncOrchestrator.clearAllData()
                             importMessage = when (result) {
-                                is ImportResult.Cleared -> "Database cleared successfully"
-                                is ImportResult.Error -> "Clear failed: ${result.message}"
+                                is SyncResult.Cleared -> "Database cleared successfully"
+                                is SyncResult.Error -> "Clear failed: ${result.message}"
                                 else -> "Clear completed"
                             }
-                        }
-                    },
-                    onDeleteCache = {
-                        scope.launch {
-                            importMessage = null
-                            val success = dataImportService.deleteCachedDataFile()
-                            importMessage = if (success) {
-                                "Cached data file deleted successfully"
-                            } else {
-                                "Failed to delete cached data file"
-                            }
-                            // Update cache info
-                            cachedFileInfo = dataImportService.getCachedDataFileInfo()
                         }
                     }
                 )
@@ -213,13 +192,11 @@ private fun ThemeSelector(
  */
 @Composable
 private fun DatabaseManagement(
-    importProgress: ImportProgress,
+    importProgress: SyncProgress,
     importMessage: String?,
-    cachedFileInfo: DataImportService.CachedFileInfo?,
     onImportData: () -> Unit,
     onRefreshData: () -> Unit,
     onClearData: () -> Unit,
-    onDeleteCache: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -228,10 +205,10 @@ private fun DatabaseManagement(
     ) {
         // Progress indicator
         when (importProgress) {
-            is ImportProgress.Idle -> {
+            is SyncProgress.Idle -> {
                 // No progress indicator when idle
             }
-            is ImportProgress.Downloading -> {
+            is SyncProgress.Downloading -> {
                 LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
                 Text(
                     text = "Downloading data...",
@@ -239,7 +216,7 @@ private fun DatabaseManagement(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-            is ImportProgress.Extracting -> {
+            is SyncProgress.Extracting -> {
                 LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
                 Text(
                     text = "Extracting files...",
@@ -247,32 +224,21 @@ private fun DatabaseManagement(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-            is ImportProgress.Parsing -> {
-                LinearProgressIndicator(
-                    progress = { if (importProgress.total > 0) importProgress.current.toFloat() / importProgress.total else 0f },
-                    modifier = Modifier.fillMaxWidth()
-                )
+            SyncProgress.Clearing -> {
+                LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
                 Text(
-                    text = "Parsing files: ${importProgress.current}/${importProgress.total}",
+                    text = "Clearing database...",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-            is ImportProgress.Importing -> {
+            is SyncProgress.Importing -> {
                 LinearProgressIndicator(
                     progress = { if (importProgress.total > 0) importProgress.current.toFloat() / importProgress.total else 0f },
                     modifier = Modifier.fillMaxWidth()
                 )
                 Text(
                     text = "Importing shows: ${importProgress.current}/${importProgress.total}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-            is ImportProgress.Clearing -> {
-                LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-                Text(
-                    text = "Clearing database...",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -295,43 +261,9 @@ private fun DatabaseManagement(
             }
         }
 
-        // Cache information
-        cachedFileInfo?.let { cacheInfo ->
-            Card(
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.secondaryContainer
-                ),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(
-                    modifier = Modifier.padding(12.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    Text(
-                        text = "Cached Data File",
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.Medium
-                    )
-                    Text(
-                        text = "File: ${cacheInfo.fileName}",
-                        style = MaterialTheme.typography.bodySmall
-                    )
-                    Text(
-                        text = "Size: ${formatFileSize(cacheInfo.sizeBytes)}",
-                        style = MaterialTheme.typography.bodySmall
-                    )
-                    if (cacheInfo.lastModified > 0) {
-                        Text(
-                            text = "Last imported: ${formatTimestamp(cacheInfo.lastModified)}",
-                            style = MaterialTheme.typography.bodySmall
-                        )
-                    }
-                }
-            }
-        }
 
         // Action buttons
-        val isOperationInProgress = importProgress !is ImportProgress.Idle
+        val isOperationInProgress = importProgress !is SyncProgress.Idle
 
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -369,13 +301,6 @@ private fun DatabaseManagement(
                 Text("Clear Database")
             }
 
-            OutlinedButton(
-                onClick = onDeleteCache,
-                enabled = !isOperationInProgress && cachedFileInfo != null,
-                modifier = Modifier.weight(1f)
-            ) {
-                Text("Delete Cache")
-            }
         }
 
         // Help text

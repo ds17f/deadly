@@ -6,8 +6,16 @@ import com.grateful.deadly.feature.search.SearchViewModel
 import com.grateful.deadly.services.search.SearchServiceImpl
 import com.grateful.deadly.data.search.SearchRepository
 import com.grateful.deadly.data.search.SearchRepositoryImpl
-import com.grateful.deadly.services.data.DataImportService
-import com.grateful.deadly.services.data.ZipExtractor
+// New architecture imports
+import com.grateful.deadly.services.data.DataSyncOrchestrator
+import com.grateful.deadly.services.data.FileExtractionService
+import com.grateful.deadly.services.data.DataImportService as NewDataImportService
+import com.grateful.deadly.services.data.DownloadService
+import com.grateful.deadly.services.data.FileDiscoveryService
+import com.grateful.deadly.services.data.platform.ZipExtractor
+import com.grateful.deadly.services.data.platform.ShowRepository
+
+// Old services (will be removed after migration)
 import com.grateful.deadly.services.data.ZipExtractionService
 import com.grateful.deadly.core.design.theme.ThemeManager
 import okio.FileSystem
@@ -41,15 +49,60 @@ val commonModule = module {
         FileSystem.SYSTEM
     }
 
-    // ZIP Extraction
+    // New Architecture - Platform Tools
     single<ZipExtractor> {
-        Logger.d("CommonModule", "Creating ZipExtractor instance")
-        ZipExtractor(get())
+        Logger.d("CommonModule", "Creating ZipExtractor platform tool")
+        ZipExtractor()
     }
 
-    single<ZipExtractionService> {
-        Logger.d("CommonModule", "Creating ZipExtractionService instance")
-        ZipExtractionService(get(), get())
+    single<ShowRepository> {
+        Logger.d("CommonModule", "Creating ShowRepository platform tool")
+        ShowRepository(get()) // Gets Database
+    }
+
+    // New Architecture - Universal Services
+    single<FileExtractionService> {
+        Logger.d("CommonModule", "Creating FileExtractionService")
+        FileExtractionService(
+            zipExtractor = get(),
+            fileSystem = get()
+        )
+    }
+
+    single<NewDataImportService> {
+        Logger.d("CommonModule", "Creating DataImportService (new architecture)")
+        NewDataImportService(
+            showRepository = get(),
+            fileSystem = get()
+        )
+    }
+
+    single<DownloadService> {
+        Logger.d("CommonModule", "Creating DownloadService")
+        DownloadService(
+            httpClient = get(),
+            fileSystem = get()
+        )
+    }
+
+    single<FileDiscoveryService> {
+        Logger.d("CommonModule", "Creating FileDiscoveryService")
+        FileDiscoveryService(
+            httpClient = get(),
+            fileSystem = get()
+        )
+    }
+
+    // New Architecture - Orchestrator
+    single<DataSyncOrchestrator> {
+        Logger.d("CommonModule", "Creating DataSyncOrchestrator")
+        DataSyncOrchestrator(
+            downloadService = get(),
+            fileDiscoveryService = get(),
+            fileExtractionService = get(),
+            dataImportService = get(),
+            getAppFilesDir = get() // Platform-specific files directory provider
+        )
     }
 
     // Data Layer
@@ -58,16 +111,10 @@ val commonModule = module {
         SearchRepositoryImpl(get())
     }
 
-    single {
-        Logger.d("CommonModule", "Creating DataImportService instance")
-        DataImportService(
-            database = get(),
-            httpClient = get(),
-            settings = get(),
-            fileSystem = get(),
-            getAppFilesDir = get(), // Platform-specific files directory provider
-            zipExtractionService = get()
-        )
+    // OLD SERVICES - Keep for backward compatibility during migration
+    single<ZipExtractionService> {
+        Logger.d("CommonModule", "Creating OLD ZipExtractionService (will be removed)")
+        ZipExtractionService(get(), com.grateful.deadly.services.data.ZipExtractor(get()))
     }
 
     // Services

@@ -15,7 +15,7 @@ import com.grateful.deadly.navigation.rememberNavigationController
 import com.grateful.deadly.core.design.scaffold.AppScaffold
 import com.grateful.deadly.core.design.theme.DeadlyTheme
 import com.grateful.deadly.core.design.theme.ThemeManager
-import com.grateful.deadly.services.data.DataImportService
+import com.grateful.deadly.services.data.DataSyncOrchestrator
 import kotlinx.coroutines.launch
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.get
@@ -54,14 +54,14 @@ fun App() {
         val navigationController = rememberNavigationController()
         // Manual injection using KoinComponent for Koin 4.1.0 - cached to survive recomposition
         val searchViewModel: SearchViewModel = remember { DIHelper.get() }
-        val dataImportService: DataImportService = remember { DIHelper.get() }
+        val dataSyncOrchestrator: DataSyncOrchestrator = remember { DIHelper.get() }
         val coroutineScope = rememberCoroutineScope()
 
         // Initialize data if needed on app startup
         LaunchedEffect(Unit) {
             Logger.i("App", "🗄️  Initializing data on app startup...")
-            val result = dataImportService.initializeDataIfNeeded()
-            Logger.i("App", "🗄️  Data initialization result: $result")
+            val result = dataSyncOrchestrator.syncData()
+            Logger.i("App", "🗄️  Data synchronization result: $result")
         }
 
         // Collect navigation events from ViewModels
