@@ -23,9 +23,10 @@ This document tracks known issues, missing features, and improvements needed in 
 - [ ] Set up resource handling for cross-platform image assets
 
 ### Service Implementation
-- [ ] Replace `SearchServiceStub` with real `SearchServiceImpl` when ready
-- [ ] Implement actual search backend integration
-- [ ] Add proper error handling and loading states
+- [ ] Replace hardcoded suggestions in SearchService with real database queries
+- [ ] Parse setlist/lineup JSON fields in SearchRepository (currently returns null)
+- [ ] Implement KMM-compatible date formatting (currently shows "Recent")
+- [ ] Add cache management UI for settings (show file size, date, manual delete)
 
 ## ✅ Recently Completed
 
@@ -45,8 +46,19 @@ This document tracks known issues, missing features, and improvements needed in 
 - ✅ **Remote iOS Builds**: `make run-ios-remotesim` (Linux→Mac)
 - ✅ **Remote Android Builds**: `make run-android-remote-emu` (Linux→Mac)
 - ✅ **Cross-platform Remote Testing**: `make run-remote-all` (both platforms)
+- ✅ **Local Cross-platform Testing**: `make build-all`, `make run-all` (macOS)
 
-## Phase 3 & 4 (Future)
-- [ ] SQLDelight data layer integration
-- [ ] Data import service from Archive.org
-- [ ] Real search backend implementation
+### Data Architecture (Completed)
+- ✅ **Universal Service + Platform Tool Pattern**: Clean architecture with maximum code sharing
+- ✅ **SQLDelight Integration**: Cross-platform database with show data storage
+- ✅ **Data Import System**: GitHub releases → ZIP extraction → JSON parsing → Database
+- ✅ **Real Show Data**: 2313 Grateful Dead shows imported successfully on both platforms
+- ✅ **Native ZIP Extraction**: Android (java.util.zip) + iOS (POSIX unzip) implementations
+
+## 🚀 Next Major Features
+
+### Recordings Import & Player
+- [ ] **Recording Data Import**: Extend data import to handle recording files (~10k files)
+- [ ] **Recording Schema**: Design RecordingJsonSchema and database entities
+- [ ] **Player Architecture**: Audio streaming and playback using Universal Service + Platform Tool pattern
+- [ ] **PlayerScreen**: Media player interface with show/recording selection
