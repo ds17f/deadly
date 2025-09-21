@@ -5,15 +5,16 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.cinterop.*
 import platform.Foundation.*
+import platform.posix.*
 
 /**
- * iOS implementation of ZIP extraction using Foundation APIs with proper file extraction.
+ * iOS implementation of ZIP extraction using native system unzip command.
  *
- * This replaces the broken iOS implementation that was writing the entire ZIP as a single file.
- * Uses Foundation's NSData and basic ZIP reading for compatibility across iOS versions.
+ * This is the platform tool that handles only iOS-specific ZIP operations.
+ * All universal logic (progress, error handling, workflow) is in FileExtractionService.
  *
- * NOTE: This is a temporary implementation that creates a dummy file to verify the architecture works.
- * A proper ZIP extraction implementation using libz or similar would be added here for production use.
+ * Uses the system's built-in `/usr/bin/unzip` command, then enumerates extracted
+ * files using NSFileManager - same pattern as Android using java.util.zip.
  */
 actual class ZipExtractor actual constructor() {
 
@@ -36,27 +37,18 @@ actual class ZipExtractor actual constructor() {
                 error = null
             )
 
-            // For now, use a simple approach that mimics successful extraction
-            // This is a temporary implementation until proper ZIP parsing is added
             progressCallback?.invoke(0, 1)
 
-            // Create a dummy extracted file to verify the architecture works
-            val dummyFilePath = "$outputDir/extraction_test.txt"
-            val dummyContent = "iOS ZIP extraction architecture test - Universal Service + Platform Tool pattern working".encodeToByteArray()
-            val dummyData = dummyContent.usePinned { pinned ->
-                NSData.create(bytes = pinned.addressOf(0), length = dummyContent.size.toULong())
+            // Use native system unzip command via POSIX popen - same approach as Android using java.util.zip
+            val command = "cd \"$outputDir\" && /usr/bin/unzip -o -q \"$zipPath\" 2>&1"
+            val result = executeUnzipCommand(command)
+
+            if (result.exitCode != 0) {
+                throw Exception("Native unzip command failed with status ${result.exitCode}: ${result.output}")
             }
 
-            dummyData.writeToFile(dummyFilePath, atomically = true)
-
-            extractedFiles.add(
-                ExtractedFile(
-                    path = dummyFilePath,
-                    relativePath = "extraction_test.txt",
-                    isDirectory = false,
-                    sizeBytes = dummyContent.size.toLong()
-                )
-            )
+            // Enumerate all extracted files using NSFileManager
+            extractedFiles.addAll(enumerateExtractedFiles(outputDir, outputDir, fileManager))
 
             progressCallback?.invoke(1, 1)
 
@@ -66,4 +58,79 @@ actual class ZipExtractor actual constructor() {
 
         extractedFiles
     }
+
+    @OptIn(ExperimentalForeignApi::class)
+    private fun enumerateExtractedFiles(
+        rootDir: String,
+        currentDir: String,
+        fileManager: NSFileManager
+    ): List<ExtractedFile> {
+        val files = mutableListOf<ExtractedFile>()
+
+        val contents = fileManager.contentsOfDirectoryAtPath(currentDir, error = null) as? List<String>
+        contents?.forEach { fileName ->
+            val filePath = "$currentDir/$fileName"
+
+            val isDirectory = memScoped {
+                val isDir = alloc<BooleanVar>()
+                fileManager.fileExistsAtPath(filePath, isDirectory = isDir.ptr)
+                isDir.value
+            }
+
+            val fileSize = if (!isDirectory) {
+                val attributes = fileManager.attributesOfItemAtPath(filePath, error = null) as? Map<String, Any>
+                (attributes?.get(NSFileSize) as? NSNumber)?.longValue ?: 0L
+            } else {
+                0L
+            }
+
+            // Calculate relative path from root extraction directory
+            val relativePath = if (currentDir == rootDir) {
+                fileName
+            } else {
+                val relativeDir = currentDir.removePrefix("$rootDir/")
+                "$relativeDir/$fileName"
+            }
+
+            files.add(
+                ExtractedFile(
+                    path = filePath,
+                    relativePath = relativePath,
+                    isDirectory = isDirectory,
+                    sizeBytes = fileSize
+                )
+            )
+
+            // Recursively process subdirectories
+            if (isDirectory) {
+                files.addAll(enumerateExtractedFiles(rootDir, filePath, fileManager))
+            }
+        }
+
+        return files
+    }
+
+    /**
+     * Execute unzip command using POSIX popen() for Kotlin Native iOS.
+     */
+    @OptIn(ExperimentalForeignApi::class)
+    private fun executeUnzipCommand(command: String): CommandResult {
+        val fp = popen(command, "r") ?: throw Exception("Failed to execute command: $command")
+
+        val output = buildString {
+            val buffer = ByteArray(4096)
+            while (true) {
+                val input = fgets(buffer.refTo(0), buffer.size, fp) ?: break
+                append(input.toKString())
+            }
+        }
+
+        val exitCode = pclose(fp)
+        return CommandResult(exitCode, output.trim())
+    }
+
+    private data class CommandResult(
+        val exitCode: Int,
+        val output: String
+    )
 }
