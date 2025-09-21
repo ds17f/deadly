@@ -15,8 +15,6 @@ import com.grateful.deadly.services.data.FileDiscoveryService
 import com.grateful.deadly.services.data.platform.ZipExtractor
 import com.grateful.deadly.services.data.platform.ShowRepository
 
-// Old services (will be removed after migration)
-import com.grateful.deadly.services.data.ZipExtractionService
 import com.grateful.deadly.core.design.theme.ThemeManager
 import okio.FileSystem
 import io.ktor.client.HttpClient
@@ -111,11 +109,6 @@ val commonModule = module {
         SearchRepositoryImpl(get())
     }
 
-    // OLD SERVICES - Keep for backward compatibility during migration
-    single<ZipExtractionService> {
-        Logger.d("CommonModule", "Creating OLD ZipExtractionService (will be removed)")
-        ZipExtractionService(get(), com.grateful.deadly.services.data.ZipExtractor(get()))
-    }
 
     // Services
     single<SearchService> {

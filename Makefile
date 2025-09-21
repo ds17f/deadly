@@ -46,14 +46,18 @@ endif
 	@echo "RUN COMMANDS:"
 	@echo "  run-android-emulator    - Build, install, and run on Android emulator"
 	@echo "  run-android-device      - Build, install, and run on Android device"
-	@echo "  run-android-remote-emu  - [Linux only] Build and run on remote Android emulator"
-	@echo "  run-remote-all          - [Linux only] Build and run on both remote iOS and Android"
 ifeq ($(UNAME_S),Darwin)
 	@echo "  run-ios-simulator       - Build, install, and run on iOS simulator"
+	@echo "  build-all               - Build both Android and iOS debug builds"
+	@echo "  run-all                 - Build, install, and run on both Android emulator and iOS simulator"
 else
 	@echo "  run-ios-simulator       - [macOS only] Build, install, and run on iOS simulator"
-	@echo "  run-ios-remotesim       - [Linux only] Build and run on remote iOS simulator"
+	@echo "  build-all               - [macOS only] Build both Android and iOS debug builds"
+	@echo "  run-all                 - [macOS only] Build, install, and run on both platforms"
 endif
+	@echo "  run-android-remote-emu  - [Linux only] Build and run on remote Android emulator"
+	@echo "  run-remote-all          - [Linux only] Build and run on both remote iOS and Android"
+	@echo "  run-ios-remotesim       - [Linux only] Build and run on remote iOS simulator"
 	@echo ""
 	@echo "LOG COMMANDS:"
 	@echo "  logs-help               - Show detailed log reading help"
@@ -256,6 +260,47 @@ run-remote-all:
 	$(MAKE) run-android-remote-emu
 	@echo ""
 	@echo "✅ App successfully launched on both remote iOS and Android platforms!"
+endif
+
+# =============================================================================
+# LOCAL BUILD ALL / RUN ALL COMMANDS (macOS only)
+# =============================================================================
+
+ifeq ($(UNAME_S),Darwin)
+.PHONY: build-all
+build-all:
+	@echo "🔨 Building both Android and iOS debug builds..."
+	@echo ""
+	@echo "🤖 Step 1/2: Building Android debug APK..."
+	$(MAKE) build-debug-android
+	@echo ""
+	@echo "🍎 Step 2/2: Building iOS debug framework..."
+	$(MAKE) build-debug-ios
+	@echo ""
+	@echo "✅ Both Android and iOS debug builds completed successfully!"
+
+.PHONY: run-all
+run-all:
+	@echo "🚀 Building and running app on both Android emulator and iOS simulator..."
+	@echo ""
+	@echo "🤖 Step 1/2: Running Android emulator..."
+	$(MAKE) run-android-emulator
+	@echo ""
+	@echo "🍎 Step 2/2: Running iOS simulator..."
+	$(MAKE) run-ios-simulator
+	@echo ""
+	@echo "✅ App successfully launched on both Android emulator and iOS simulator!"
+else
+.PHONY: build-all
+build-all:
+	@echo "❌ build-all requires macOS for iOS builds"
+	@echo "💡 Use 'make build-debug-android' for Android-only builds"
+
+.PHONY: run-all
+run-all:
+	@echo "❌ run-all requires macOS for iOS builds"
+	@echo "💡 Use 'make run-android-emulator' for Android-only testing"
+	@echo "💡 Use 'make run-remote-all' for remote iOS testing from Linux"
 endif
 
 # =============================================================================
