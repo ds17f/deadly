@@ -70,6 +70,8 @@ data class ShowEntity(
     val lineupStatus: String?,
     val lineupRaw: String?,
     val memberList: String?,
+    val showSequence: Int,
+    val recordingsRaw: String?,
     val recordingCount: Int,
     val bestRecordingId: String?,
     val averageRating: Double?,

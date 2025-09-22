@@ -145,6 +145,24 @@ class DataImportService(
     }
 
     /**
+     * Delete the entire database file to resolve schema mismatches.
+     */
+    suspend fun deleteDatabaseFile(): Boolean {
+        return try {
+            val success = showRepository.deleteDatabaseFile()
+            if (success) {
+                Logger.d(TAG, "Database file deleted and recreated")
+            } else {
+                Logger.w(TAG, "Failed to delete database file")
+            }
+            success
+        } catch (e: Exception) {
+            Logger.e(TAG, "Failed to delete database file", e)
+            false
+        }
+    }
+
+    /**
      * Universal file filtering - identify show JSON files.
      */
     private fun filterShowFiles(extractedFiles: List<ExtractedFile>): List<ExtractedFile> {
@@ -191,6 +209,11 @@ class DataImportService(
 
         // Process recording data
         val recordingCount = json.recordings?.size ?: 0
+        val recordingsRaw = if (!json.recordings.isNullOrEmpty()) {
+            json.recordings.joinToString(",", "[", "]") { "\"$it\"" }
+        } else {
+            null
+        }
 
         val now = Clock.System.now().toEpochMilliseconds()
 
@@ -213,6 +236,8 @@ class DataImportService(
             lineupStatus = lineupStatus,
             lineupRaw = lineupRaw,
             memberList = memberList,
+            showSequence = 1, // Default to 1, will be updated if needed
+            recordingsRaw = recordingsRaw,
             recordingCount = recordingCount,
             bestRecordingId = json.recordings?.firstOrNull(),
             averageRating = json.averageRating,

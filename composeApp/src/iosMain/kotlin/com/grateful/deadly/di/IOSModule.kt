@@ -4,6 +4,7 @@ import com.grateful.deadly.database.Database
 import com.russhwolf.settings.NSUserDefaultsSettings
 import com.russhwolf.settings.Settings
 import app.cash.sqldelight.driver.native.NativeSqliteDriver
+import kotlinx.cinterop.ExperimentalForeignApi
 import org.koin.dsl.module
 import platform.Foundation.NSUserDefaults
 import platform.Foundation.NSDocumentDirectory

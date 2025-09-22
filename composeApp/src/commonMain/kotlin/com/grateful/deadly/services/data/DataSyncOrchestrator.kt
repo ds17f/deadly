@@ -54,17 +54,26 @@ class DataSyncOrchestrator(
             // Phase 1: Download data.zip
             _progress.value = SyncProgress.Downloading
             val dataZipPath = downloadDataZip(appFilesDir)
-                ?: return SyncResult.Error("Failed to download data.zip")
+                ?: run {
+                    _progress.value = SyncProgress.Idle
+                    return SyncResult.Error("Failed to download data.zip")
+                }
 
             // Phase 2: Extract all files
             _progress.value = SyncProgress.Extracting
             val extractedFiles = extractDataZip(dataZipPath, appFilesDir)
-                ?: return SyncResult.Error("Failed to extract data.zip")
+                ?: run {
+                    _progress.value = SyncProgress.Idle
+                    return SyncResult.Error("Failed to extract data.zip")
+                }
 
             // Phase 3: Import show data
             _progress.value = SyncProgress.Importing(0, extractedFiles.size)
             val importedCount = importShowData(extractedFiles)
-                ?: return SyncResult.Error("Failed to import show data")
+                ?: run {
+                    _progress.value = SyncProgress.Idle
+                    return SyncResult.Error("Failed to import show data")
+                }
 
             // Phase 4: Cleanup
             cleanupExtractionDirectory("$appFilesDir/extracted_data")
@@ -109,13 +118,18 @@ class DataSyncOrchestrator(
      */
     suspend fun clearAllData(): SyncResult {
         return try {
-            Logger.d(TAG, "Clearing all data")
+            Logger.d(TAG, "Clearing all data and resetting database schema")
             _progress.value = SyncProgress.Clearing
 
-            dataImportService.clearAllShows()
+            // Use deleteDatabaseFile to handle schema mismatches
+            val success = dataImportService.deleteDatabaseFile()
+            if (!success) {
+                _progress.value = SyncProgress.Idle
+                return SyncResult.Error("Failed to reset database")
+            }
 
             _progress.value = SyncProgress.Idle
-            Logger.d(TAG, "All data cleared")
+            Logger.d(TAG, "All data cleared and database schema reset")
             SyncResult.Cleared
 
         } catch (e: Exception) {

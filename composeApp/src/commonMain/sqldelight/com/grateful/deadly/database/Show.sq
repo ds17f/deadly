@@ -32,7 +32,11 @@ CREATE TABLE Show (
     lineupRaw TEXT,                        -- JSON string for UI display
     memberList TEXT,                       -- "Jerry Garcia,Bob Weir,Phil Lesh" (comma-separated for search)
 
+    -- Multiple shows same date/venue (rare but happens)
+    showSequence INTEGER NOT NULL DEFAULT 1,
+
     -- Recording data
+    recordingsRaw TEXT,                        -- JSON array string of recording IDs ["rec1", "rec2"]
     recordingCount INTEGER NOT NULL DEFAULT 0,
     bestRecordingId TEXT,
     averageRating REAL,
@@ -84,6 +88,54 @@ ORDER BY
   averageRating DESC,
   date DESC;
 
+-- Flexible show query with optional filters
+getShows:
+SELECT * FROM Show
+WHERE (:year IS NULL OR year = :year)
+  AND (:startYear IS NULL OR year >= :startYear)
+  AND (:endYear IS NULL OR year <= :endYear)
+  AND (:yearMonth IS NULL OR yearMonth = :yearMonth)
+  AND (:startDate IS NULL OR date >= :startDate)
+  AND (:endDate IS NULL OR date <= :endDate)
+  AND (:venueName IS NULL OR venueName LIKE '%' || :venueName || '%')
+  AND (:city IS NULL OR city LIKE '%' || :city || '%')
+  AND (:state IS NULL OR state = :state)
+  AND (:hasSetlist IS NULL OR (CASE WHEN :hasSetlist = 1 THEN setlistStatus = 'found' AND setlistRaw IS NOT NULL ELSE 1 END))
+  AND (:songName IS NULL OR songList LIKE '%' || :songName || '%')
+  AND (:hasLineup IS NULL OR (CASE WHEN :hasLineup = 1 THEN lineupStatus = 'found' AND lineupRaw IS NOT NULL ELSE 1 END))
+  AND (:memberName IS NULL OR memberList LIKE '%' || :memberName || '%')
+  AND (:hasRecordings IS NULL OR (CASE WHEN :hasRecordings = 1 THEN recordingCount > 0 ELSE 1 END))
+  AND (:minRating IS NULL OR averageRating >= :minRating)
+  AND (:minReviews IS NULL OR totalReviews >= :minReviews)
+  AND (:isInLibrary IS NULL OR isInLibrary = :isInLibrary)
+ORDER BY
+  CASE WHEN :orderBy = 'rating' THEN averageRating END DESC,
+  CASE WHEN :orderBy = 'library' THEN libraryAddedAt END DESC,
+  date DESC
+LIMIT CASE WHEN :limit IS NULL THEN -1 ELSE :limit END;
+
+-- Statistical queries
+getShowCountByYear:
+SELECT year, COUNT(*) AS count
+FROM Show
+GROUP BY year
+ORDER BY year;
+
+getShowCountByVenue:
+SELECT venueName, COUNT(*) AS count
+FROM Show
+GROUP BY venueName
+ORDER BY count DESC;
+
+getAverageRatingStats:
+SELECT
+    COUNT(*) AS totalShows,
+    COUNT(averageRating) AS ratedShows,
+    AVG(averageRating) AS avgRating,
+    MIN(averageRating) AS minRating,
+    MAX(averageRating) AS maxRating
+FROM Show;
+
 -- Data management queries
 insertShow:
 INSERT OR REPLACE INTO Show (
@@ -91,9 +143,14 @@ INSERT OR REPLACE INTO Show (
     venueName, city, state, country, locationRaw,
     setlistStatus, setlistRaw, songList,
     lineupStatus, lineupRaw, memberList,
-    recordingCount, bestRecordingId, averageRating, totalReviews,
+    showSequence, recordingsRaw, recordingCount, bestRecordingId, averageRating, totalReviews,
     isInLibrary, libraryAddedAt, createdAt, updatedAt
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+updateShowLibraryStatus:
+UPDATE Show
+SET isInLibrary = ?, libraryAddedAt = ?, updatedAt = ?
+WHERE showId = ?;
 
 deleteAllShows:
 DELETE FROM Show;
