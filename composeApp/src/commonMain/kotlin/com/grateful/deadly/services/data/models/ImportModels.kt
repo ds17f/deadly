@@ -100,3 +100,48 @@ sealed class ImportResult {
     data class Success(val importedCount: Int) : ImportResult()
     data class Error(val message: String) : ImportResult()
 }
+
+/**
+ * JSON schema for recording data from GitHub releases.
+ * Matches the structure of recording JSON files in the data.zip.
+ */
+@Serializable
+data class RecordingJsonSchema(
+    @SerialName("identifier") val identifier: String,
+    @SerialName("title") val title: String? = null,
+    @SerialName("date") val date: String,
+    @SerialName("venue") val venue: String? = null,
+    @SerialName("location") val location: String? = null,
+    @SerialName("source_type") val sourceType: String? = null,
+    @SerialName("lineage") val lineage: String? = null,
+    @SerialName("taper") val taper: String? = null,
+    @SerialName("source") val source: String? = null,
+    @SerialName("runtime") val runtime: String? = null,
+    @SerialName("rating") val rating: Double = 0.0,
+    @SerialName("review_count") val reviewCount: Int = 0,
+    @SerialName("confidence") val confidence: Double = 0.0,
+    @SerialName("raw_rating") val rawRating: Double = 0.0,
+    @SerialName("high_ratings") val highRatings: Int = 0,
+    @SerialName("low_ratings") val lowRatings: Int = 0
+)
+
+/**
+ * Database entity for Recording table.
+ * Maps directly to SQLDelight Recording table structure.
+ */
+data class RecordingEntity(
+    val identifier: String,
+    val showId: String,
+    val sourceType: String?,
+    val taper: String?,
+    val source: String?,
+    val lineage: String?,
+    val sourceTypeString: String?,
+    val rating: Double,
+    val rawRating: Double,
+    val reviewCount: Int,
+    val confidence: Double,
+    val highRatings: Int,
+    val lowRatings: Int,
+    val collectionTimestamp: Long
+)

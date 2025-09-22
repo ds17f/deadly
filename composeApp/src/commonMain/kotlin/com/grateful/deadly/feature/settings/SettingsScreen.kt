@@ -51,8 +51,8 @@ fun SettingsScreen() {
                             importMessage = null
                             val result = dataSyncOrchestrator.syncData()
                             importMessage = when (result) {
-                                is SyncResult.Success -> "Successfully imported ${result.showCount} shows"
-                                is SyncResult.AlreadyExists -> "Database already contains ${result.showCount} shows"
+                                is SyncResult.Success -> "Successfully imported ${result.showCount} shows, ${result.recordingCount} recordings"
+                                is SyncResult.AlreadyExists -> "Database already contains ${result.showCount} shows, ${result.recordingCount} recordings"
                                 is SyncResult.Error -> "Import failed: ${result.message}"
                                 is SyncResult.Cleared -> "Database cleared"
                             }
@@ -63,7 +63,7 @@ fun SettingsScreen() {
                             importMessage = null
                             val result = dataSyncOrchestrator.forceRefreshData()
                             importMessage = when (result) {
-                                is SyncResult.Success -> "Successfully refreshed ${result.showCount} shows"
+                                is SyncResult.Success -> "Successfully refreshed ${result.showCount} shows, ${result.recordingCount} recordings"
                                 is SyncResult.Error -> "Refresh failed: ${result.message}"
                                 else -> "Refresh completed"
                             }
@@ -231,13 +231,24 @@ private fun DatabaseManagement(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-            is SyncProgress.Importing -> {
+            is SyncProgress.ImportingShows -> {
                 LinearProgressIndicator(
                     progress = { if (importProgress.total > 0) importProgress.current.toFloat() / importProgress.total else 0f },
                     modifier = Modifier.fillMaxWidth()
                 )
                 Text(
                     text = "Importing shows: ${importProgress.current}/${importProgress.total}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            is SyncProgress.ImportingRecordings -> {
+                LinearProgressIndicator(
+                    progress = { if (importProgress.total > 0) importProgress.current.toFloat() / importProgress.total else 0f },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Text(
+                    text = "Importing recordings: ${importProgress.current}/${importProgress.total}",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

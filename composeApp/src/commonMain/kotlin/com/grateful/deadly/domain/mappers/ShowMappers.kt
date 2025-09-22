@@ -2,6 +2,7 @@ package com.grateful.deadly.domain.mappers
 
 import com.grateful.deadly.core.logging.Logger
 import com.grateful.deadly.domain.models.*
+import com.grateful.deadly.services.data.models.RecordingEntity
 import com.grateful.deadly.services.data.models.ShowEntity
 import kotlinx.serialization.json.Json
 
@@ -57,7 +58,7 @@ class ShowMappers(
         entities.map(::entityToDomain)
 
     /**
-     * Convert Recording entity to Recording domain model (for future use)
+     * Convert RecordingEntity to Recording domain model
      */
     fun recordingEntityToDomain(entity: RecordingEntity): Recording {
         return Recording(
@@ -74,7 +75,7 @@ class ShowMappers(
     }
 
     /**
-     * Convert list of Recording entities to domain models (for future use)
+     * Convert list of RecordingEntity to Recording domain models
      */
     fun recordingEntitiesToDomain(entities: List<RecordingEntity>): List<Recording> =
         entities.map(::recordingEntityToDomain)
@@ -116,18 +117,3 @@ class ShowMappers(
         }
     }
 }
-
-/**
- * Placeholder for RecordingEntity - will be implemented when we add recordings
- */
-data class RecordingEntity(
-    val identifier: String,
-    val showId: String,
-    val sourceType: String?,
-    val rating: Double,
-    val reviewCount: Int,
-    val taper: String?,
-    val source: String?,
-    val lineage: String?,
-    val sourceTypeString: String?
-)

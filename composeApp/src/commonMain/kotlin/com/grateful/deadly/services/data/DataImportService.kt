@@ -35,6 +35,7 @@ class DataImportService(
     companion object {
         private const val TAG = "DataImportService"
         private const val BATCH_SIZE = 50 // Process shows in batches for performance
+        private const val RECORDING_BATCH_SIZE = 100 // Larger batch size for recordings
     }
 
     /**
@@ -124,10 +125,140 @@ class DataImportService(
     }
 
     /**
+     * Import recording data from extracted JSON files.
+     *
+     * Uses the correct approach:
+     * 1. Parse all show JSON files to build a showsMap with their recording lists
+     * 2. For each recording, find which show(s) reference it
+     * 3. Create RecordingEntity using the referencing show's showId
+     * 4. Only import recordings that are referenced by at least one show
+     */
+    suspend fun importRecordingData(
+        extractedFiles: List<ExtractedFile>,
+        progressCallback: ((ImportProgress) -> Unit)? = null
+    ): ImportResult = withContext(Dispatchers.IO) {
+        try {
+            Logger.d(TAG, "Starting recording import from ${extractedFiles.size} files")
+
+            // Step 1: Build showsMap from show JSON files
+            val showFiles = filterShowFiles(extractedFiles)
+            val showsMap = mutableMapOf<String, ShowJsonSchema>()
+
+            Logger.d(TAG, "Building show map from ${showFiles.size} show files...")
+            showFiles.forEach { file ->
+                try {
+                    val jsonContent = readFileContent(file.path)
+                    val showData = json.decodeFromString<ShowJsonSchema>(jsonContent)
+                    showsMap[showData.showId] = showData
+                } catch (e: Exception) {
+                    Logger.e(TAG, "Failed to parse show file for recording mapping: ${file.relativePath}", e)
+                }
+            }
+
+            // Step 2: Build recordingsMap from recording JSON files
+            val recordingFiles = filterRecordingFiles(extractedFiles)
+            val recordingsMap = mutableMapOf<String, RecordingJsonSchema>()
+
+            Logger.d(TAG, "Building recordings map from ${recordingFiles.size} recording files...")
+            recordingFiles.forEach { file ->
+                try {
+                    val jsonContent = readFileContent(file.path)
+                    val recordingData = json.decodeFromString<RecordingJsonSchema>(jsonContent)
+                    // Use filename without extension as recording ID
+                    val recordingId = file.relativePath.substringAfterLast("/").substringBeforeLast(".")
+                    recordingsMap[recordingId] = recordingData
+                } catch (e: Exception) {
+                    Logger.e(TAG, "Failed to parse recording file: ${file.relativePath}", e)
+                }
+            }
+
+            if (recordingsMap.isEmpty()) {
+                return@withContext ImportResult.Error("No valid recording files found to import")
+            }
+
+            Logger.d(TAG, "Found ${showsMap.size} shows and ${recordingsMap.size} recordings")
+
+            // Step 3: Import recordings (only those referenced by shows)
+            progressCallback?.invoke(ImportProgress.Started)
+
+            var importedCount = 0
+            var recordingsNotInShows = 0
+            val recordingEntities = mutableListOf<RecordingEntity>()
+
+            recordingsMap.entries.forEachIndexed { index, (recordingId, recordingData) ->
+                progressCallback?.invoke(
+                    ImportProgress.Processing(
+                        current = index + 1,
+                        total = recordingsMap.size,
+                        currentFile = recordingId
+                    )
+                )
+
+                // Step 4: Find which show(s) reference this recording
+                val referencingShows = showsMap.values.filter { show ->
+                    show.recordings?.contains(recordingId) == true
+                }
+
+                if (referencingShows.isNotEmpty()) {
+                    // Recording is referenced by at least one show, import it
+                    referencingShows.forEach { show ->
+                        try {
+                            val recordingEntity = createRecordingEntity(recordingId, recordingData, show.showId)
+                            recordingEntities.add(recordingEntity)
+                            importedCount++
+
+                            // Process in batches to avoid memory issues
+                            if (recordingEntities.size >= RECORDING_BATCH_SIZE) {
+                                showRepository.insertRecordings(recordingEntities)
+                                Logger.d(TAG, "Inserted recording batch: ${recordingEntities.size} recordings")
+                                recordingEntities.clear()
+                            }
+
+                        } catch (e: Exception) {
+                            Logger.e(TAG, "Failed to create recording entity: $recordingId for show: ${show.showId}", e)
+                        }
+                    }
+                } else {
+                    // Recording not referenced by any show
+                    recordingsNotInShows++
+                    Logger.w(TAG, "Recording $recordingId not referenced by any show, skipping")
+                }
+            }
+
+            // Insert final batch
+            if (recordingEntities.isNotEmpty()) {
+                showRepository.insertRecordings(recordingEntities)
+                Logger.d(TAG, "Inserted final recording batch: ${recordingEntities.size} recordings")
+            }
+
+            progressCallback?.invoke(ImportProgress.Completed)
+
+            Logger.d(TAG, "Recording import completed: $importedCount recordings imported, $recordingsNotInShows not referenced by shows")
+
+            if (recordingsNotInShows > 0) {
+                Logger.w(TAG, "Found $recordingsNotInShows recordings not referenced by any show - this may indicate data inconsistency")
+            }
+
+            ImportResult.Success(importedCount)
+
+        } catch (e: Exception) {
+            Logger.e(TAG, "Recording import failed", e)
+            ImportResult.Error("Recording import failed: ${e.message}")
+        }
+    }
+
+    /**
      * Get the current show count from the database.
      */
     suspend fun getShowCount(): Long {
         return showRepository.getShowCount()
+    }
+
+    /**
+     * Get the current recording count from the database.
+     */
+    suspend fun getRecordingCount(): Long {
+        return showRepository.getRecordingCount()
     }
 
     /**
@@ -140,6 +271,20 @@ class DataImportService(
             true
         } catch (e: Exception) {
             Logger.e(TAG, "Failed to clear shows", e)
+            false
+        }
+    }
+
+    /**
+     * Clear all recording data from the database.
+     */
+    suspend fun clearAllRecordings(): Boolean {
+        return try {
+            showRepository.deleteAllRecordings()
+            Logger.d(TAG, "All recordings cleared from database")
+            true
+        } catch (e: Exception) {
+            Logger.e(TAG, "Failed to clear recordings", e)
             false
         }
     }
@@ -169,6 +314,17 @@ class DataImportService(
         return extractedFiles.filter { file ->
             !file.isDirectory &&
             file.relativePath.contains("shows/") &&
+            file.relativePath.endsWith(".json", ignoreCase = true)
+        }
+    }
+
+    /**
+     * Universal file filtering - identify recording JSON files.
+     */
+    private fun filterRecordingFiles(extractedFiles: List<ExtractedFile>): List<ExtractedFile> {
+        return extractedFiles.filter { file ->
+            !file.isDirectory &&
+            file.relativePath.contains("recordings/") &&
             file.relativePath.endsWith(".json", ignoreCase = true)
         }
     }
@@ -359,5 +515,28 @@ class DataImportService(
                show.date.isNotBlank() &&
                show.year > 1960 &&
                show.year < 2030
+    }
+
+    /**
+     * Create RecordingEntity from recording data and show ID.
+     * This follows the correct pattern where the showId comes from the referencing show.
+     */
+    private fun createRecordingEntity(recordingId: String, recordingData: RecordingJsonSchema, showId: String): RecordingEntity {
+        return RecordingEntity(
+            identifier = recordingId,
+            showId = showId,
+            sourceType = recordingData.sourceType,
+            rating = recordingData.rating,
+            rawRating = recordingData.rawRating,
+            reviewCount = recordingData.reviewCount,
+            confidence = recordingData.confidence,
+            highRatings = recordingData.highRatings,
+            lowRatings = recordingData.lowRatings,
+            taper = recordingData.taper,
+            source = recordingData.source,
+            lineage = recordingData.lineage,
+            sourceTypeString = recordingData.sourceType,
+            collectionTimestamp = Clock.System.now().toEpochMilliseconds()
+        )
     }
 }

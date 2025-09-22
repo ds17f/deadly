@@ -2,8 +2,10 @@ package com.grateful.deadly.services.data.platform
 
 import com.grateful.deadly.database.Database
 import com.grateful.deadly.domain.mappers.ShowMappers
+import com.grateful.deadly.domain.models.Recording
 import com.grateful.deadly.domain.models.Show
 import com.grateful.deadly.domain.models.ShowFilters
+import com.grateful.deadly.services.data.models.RecordingEntity
 import com.grateful.deadly.services.data.models.ShowEntity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -309,6 +311,127 @@ actual class ShowRepository actual constructor(
             libraryAddedAt = row.libraryAddedAt,
             createdAt = row.createdAt,
             updatedAt = row.updatedAt
+        )
+    }
+
+    // === Recording Operations (V2 Single-Repository Pattern) ===
+
+    actual suspend fun insertRecording(recording: RecordingEntity) = withContext(Dispatchers.Default) {
+        database.recordingQueries.insertRecording(
+            identifier = recording.identifier,
+            showId = recording.showId,
+            sourceType = recording.sourceType,
+            taper = recording.taper,
+            source = recording.source,
+            lineage = recording.lineage,
+            sourceTypeString = recording.sourceTypeString,
+            rating = recording.rating,
+            rawRating = recording.rawRating,
+            reviewCount = recording.reviewCount.toLong(),
+            confidence = recording.confidence,
+            highRatings = recording.highRatings.toLong(),
+            lowRatings = recording.lowRatings.toLong(),
+            collectionTimestamp = recording.collectionTimestamp
+        )
+    }
+
+    actual suspend fun insertRecordings(recordings: List<RecordingEntity>) = withContext(Dispatchers.Default) {
+        try {
+            database.transaction {
+                recordings.forEach { recording ->
+                    database.recordingQueries.insertRecording(
+                        identifier = recording.identifier,
+                        showId = recording.showId,
+                        sourceType = recording.sourceType,
+                        taper = recording.taper,
+                        source = recording.source,
+                        lineage = recording.lineage,
+                        sourceTypeString = recording.sourceTypeString,
+                        rating = recording.rating,
+                        rawRating = recording.rawRating,
+                        reviewCount = recording.reviewCount.toLong(),
+                        confidence = recording.confidence,
+                        highRatings = recording.highRatings.toLong(),
+                        lowRatings = recording.lowRatings.toLong(),
+                        collectionTimestamp = recording.collectionTimestamp
+                    )
+                }
+            }
+        } catch (e: Exception) {
+            throw Exception("Failed to insert recordings: ${e.message}", e)
+        }
+    }
+
+    actual suspend fun getRecordingById(identifier: String): Recording? = withContext(Dispatchers.Default) {
+        val recordingRow = database.recordingQueries.selectRecordingById(identifier).executeAsOneOrNull()
+        recordingRow?.let { row ->
+            val entity = mapRecordingRowToEntity(row)
+            showMappers.recordingEntityToDomain(entity)
+        }
+    }
+
+    actual suspend fun getRecordingsForShow(showId: String): List<Recording> = withContext(Dispatchers.Default) {
+        val recordingRows = database.recordingQueries.selectRecordingsForShow(showId).executeAsList()
+        val entities = recordingRows.map { row -> mapRecordingRowToEntity(row) }
+        showMappers.recordingEntitiesToDomain(entities)
+    }
+
+    actual suspend fun getBestRecordingForShow(showId: String): Recording? = withContext(Dispatchers.Default) {
+        val recordingRow = database.recordingQueries.selectBestRecordingForShow(showId).executeAsOneOrNull()
+        recordingRow?.let { row ->
+            val entity = mapRecordingRowToEntity(row)
+            showMappers.recordingEntityToDomain(entity)
+        }
+    }
+
+    actual suspend fun getRecordingsBySourceType(sourceType: String): List<Recording> = withContext(Dispatchers.Default) {
+        val recordingRows = database.recordingQueries.selectRecordingsBySourceType(sourceType).executeAsList()
+        val entities = recordingRows.map { row -> mapRecordingRowToEntity(row) }
+        showMappers.recordingEntitiesToDomain(entities)
+    }
+
+    actual suspend fun getTopRatedRecordings(minRating: Double, minReviews: Int, limit: Int): List<Recording> = withContext(Dispatchers.Default) {
+        val recordingRows = database.recordingQueries.selectTopRatedRecordings(minRating, minReviews.toLong(), limit.toLong()).executeAsList()
+        val entities = recordingRows.map { row -> mapRecordingRowToEntity(row) }
+        showMappers.recordingEntitiesToDomain(entities)
+    }
+
+    actual suspend fun getRecordingCount(): Long = withContext(Dispatchers.Default) {
+        database.recordingQueries.getRecordingCount().executeAsOne()
+    }
+
+    actual suspend fun getRecordingCountForShow(showId: String): Long = withContext(Dispatchers.Default) {
+        database.recordingQueries.getRecordingCountForShow(showId).executeAsOne()
+    }
+
+    actual suspend fun deleteAllRecordings() = withContext(Dispatchers.Default) {
+        database.recordingQueries.deleteAllRecordings()
+    }
+
+    actual suspend fun deleteRecordingsForShow(showId: String) = withContext(Dispatchers.Default) {
+        database.recordingQueries.deleteRecordingsForShow(showId)
+    }
+
+    /**
+     * Convert SQLDelight recording row to RecordingEntity.
+     * Handles platform-specific type conversions (Long ↔ Int).
+     */
+    private fun mapRecordingRowToEntity(row: com.grateful.deadly.database.Recording): RecordingEntity {
+        return RecordingEntity(
+            identifier = row.identifier,
+            showId = row.showId,
+            sourceType = row.sourceType,
+            taper = row.taper,
+            source = row.source,
+            lineage = row.lineage,
+            sourceTypeString = row.sourceTypeString,
+            rating = row.rating,
+            rawRating = row.rawRating,
+            reviewCount = row.reviewCount.toInt(),
+            confidence = row.confidence,
+            highRatings = row.highRatings.toInt(),
+            lowRatings = row.lowRatings.toInt(),
+            collectionTimestamp = row.collectionTimestamp
         )
     }
 }

@@ -84,6 +84,13 @@ val commonModule = module {
         )
     }
 
+    single<NewDataImportService> {
+        Logger.d("CommonModule", "Creating DataImportService")
+        NewDataImportService(
+            showRepository = get()
+        )
+    }
+
     // New Architecture - Orchestrator
     single<DataSyncOrchestrator> {
         Logger.d("CommonModule", "Creating DataSyncOrchestrator")

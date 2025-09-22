@@ -18,11 +18,26 @@ val androidModule = module {
     }
 
     single<Database> {
-        val driver = AndroidSqliteDriver(
-            schema = Database.Schema,
-            context = get(),
-            name = "deadly.db"
-        )
+        val context: Context = get()
+        val driver = try {
+            AndroidSqliteDriver(
+                schema = Database.Schema,
+                context = context,
+                name = "deadly.db"
+            )
+        } catch (e: Exception) {
+            // If database initialization fails (likely schema mismatch),
+            // delete the database file and recreate it with the new schema
+            val dbFile = context.getDatabasePath("deadly.db")
+            if (dbFile.exists()) {
+                dbFile.delete()
+            }
+            AndroidSqliteDriver(
+                schema = Database.Schema,
+                context = context,
+                name = "deadly.db"
+            )
+        }
         Database(driver)
     }
 

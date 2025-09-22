@@ -44,9 +44,10 @@ class DataSyncOrchestrator(
 
             // Check if import is needed
             val showCount = dataImportService.getShowCount()
-            if (showCount > 0) {
-                Logger.d(TAG, "Data already exists ($showCount shows), skipping sync")
-                return SyncResult.AlreadyExists(showCount.toInt())
+            val recordingCount = dataImportService.getRecordingCount()
+            if (showCount > 0 && recordingCount > 0) {
+                Logger.d(TAG, "Data already exists ($showCount shows, $recordingCount recordings), skipping sync")
+                return SyncResult.AlreadyExists(showCount.toInt(), recordingCount.toInt())
             }
 
             val appFilesDir = getAppFilesDir()
@@ -68,19 +69,27 @@ class DataSyncOrchestrator(
                 }
 
             // Phase 3: Import show data
-            _progress.value = SyncProgress.Importing(0, extractedFiles.size)
-            val importedCount = importShowData(extractedFiles)
+            _progress.value = SyncProgress.ImportingShows(0, extractedFiles.size)
+            val importedShowCount = importShowData(extractedFiles)
                 ?: run {
                     _progress.value = SyncProgress.Idle
                     return SyncResult.Error("Failed to import show data")
                 }
 
-            // Phase 4: Cleanup
+            // Phase 4: Import recording data
+            _progress.value = SyncProgress.ImportingRecordings(0, extractedFiles.size)
+            val importedRecordingCount = importRecordingData(extractedFiles)
+                ?: run {
+                    _progress.value = SyncProgress.Idle
+                    return SyncResult.Error("Failed to import recording data")
+                }
+
+            // Phase 5: Cleanup
             cleanupExtractionDirectory("$appFilesDir/extracted_data")
 
             _progress.value = SyncProgress.Idle
-            Logger.d(TAG, "Data synchronization completed: $importedCount shows imported")
-            SyncResult.Success(importedCount)
+            Logger.d(TAG, "Data synchronization completed: $importedShowCount shows, $importedRecordingCount recordings imported")
+            SyncResult.Success(importedShowCount, importedRecordingCount)
 
         } catch (e: Exception) {
             Logger.e(TAG, "Data synchronization failed", e)
@@ -99,6 +108,7 @@ class DataSyncOrchestrator(
             // Clear existing data
             _progress.value = SyncProgress.Clearing
             dataImportService.clearAllShows()
+            dataImportService.clearAllRecordings()
 
             // Delete cached data.zip to force re-download
             deleteCachedDataFile()
@@ -215,7 +225,7 @@ class DataSyncOrchestrator(
             val importResult = dataImportService.importShowData(extractedFiles) { progress ->
                 when (progress) {
                     is ImportProgress.Processing -> {
-                        _progress.value = SyncProgress.Importing(progress.current, progress.total)
+                        _progress.value = SyncProgress.ImportingShows(progress.current, progress.total)
                     }
                     else -> { /* Handle other progress states if needed */ }
                 }
@@ -236,7 +246,35 @@ class DataSyncOrchestrator(
     }
 
     /**
-     * Phase 4: Cleanup extraction directory.
+     * Phase 4: Import recording data from extracted files.
+     */
+    private suspend fun importRecordingData(extractedFiles: List<com.grateful.deadly.services.data.models.ExtractedFile>): Int? {
+        return try {
+            val importResult = dataImportService.importRecordingData(extractedFiles) { progress ->
+                when (progress) {
+                    is ImportProgress.Processing -> {
+                        _progress.value = SyncProgress.ImportingRecordings(progress.current, progress.total)
+                    }
+                    else -> { /* Handle other progress states if needed */ }
+                }
+            }
+
+            when (importResult) {
+                is ImportResult.Success -> importResult.importedCount
+                is ImportResult.Error -> {
+                    Logger.e(TAG, "Recording import failed: ${importResult.message}")
+                    null
+                }
+            }
+
+        } catch (e: Exception) {
+            Logger.e(TAG, "Recording import phase failed", e)
+            null
+        }
+    }
+
+    /**
+     * Phase 5: Cleanup extraction directory.
      */
     private suspend fun cleanupExtractionDirectory(extractionDir: String) {
         try {
@@ -276,7 +314,10 @@ sealed class SyncProgress {
     object Downloading : SyncProgress()
     object Extracting : SyncProgress()
     object Clearing : SyncProgress()
-    data class Importing(val current: Int, val total: Int) : SyncProgress() {
+    data class ImportingShows(val current: Int, val total: Int) : SyncProgress() {
+        val percent: Float get() = if (total > 0) current.toFloat() / total else 0f
+    }
+    data class ImportingRecordings(val current: Int, val total: Int) : SyncProgress() {
         val percent: Float get() = if (total > 0) current.toFloat() / total else 0f
     }
 }
@@ -285,8 +326,8 @@ sealed class SyncProgress {
  * Result of the complete synchronization workflow.
  */
 sealed class SyncResult {
-    data class Success(val showCount: Int) : SyncResult()
-    data class AlreadyExists(val showCount: Int) : SyncResult()
+    data class Success(val showCount: Int, val recordingCount: Int) : SyncResult()
+    data class AlreadyExists(val showCount: Int, val recordingCount: Int) : SyncResult()
     data class Error(val message: String) : SyncResult()
     object Cleared : SyncResult()
 }

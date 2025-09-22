@@ -1,7 +1,9 @@
 package com.grateful.deadly.services.data.platform
 
+import com.grateful.deadly.domain.models.Recording
 import com.grateful.deadly.domain.models.Show
 import com.grateful.deadly.domain.models.ShowFilters
+import com.grateful.deadly.services.data.models.RecordingEntity
 import com.grateful.deadly.services.data.models.ShowEntity
 
 /**
@@ -139,6 +141,64 @@ expect class ShowRepository(database: com.grateful.deadly.database.Database) {
      * Full-text search across all show fields.
      */
     suspend fun searchShows(query: String): List<Show>
+
+    // === Recording Operations (V2 Single-Repository Pattern) ===
+
+    /**
+     * Insert a recording entity into the database.
+     * Uses INSERT OR REPLACE to handle duplicates.
+     */
+    suspend fun insertRecording(recording: RecordingEntity)
+
+    /**
+     * Insert multiple recordings in a transaction for performance.
+     */
+    suspend fun insertRecordings(recordings: List<RecordingEntity>)
+
+    /**
+     * Get a recording by its identifier.
+     */
+    suspend fun getRecordingById(identifier: String): Recording?
+
+    /**
+     * Get all recordings for a specific show, ordered by rating (best first).
+     */
+    suspend fun getRecordingsForShow(showId: String): List<Recording>
+
+    /**
+     * Get the best (highest rated) recording for a show.
+     */
+    suspend fun getBestRecordingForShow(showId: String): Recording?
+
+    /**
+     * Get recordings by source type (SBD, AUD, etc).
+     */
+    suspend fun getRecordingsBySourceType(sourceType: String): List<Recording>
+
+    /**
+     * Get top-rated recordings with minimum review threshold.
+     */
+    suspend fun getTopRatedRecordings(minRating: Double, minReviews: Int, limit: Int): List<Recording>
+
+    /**
+     * Get the total count of recordings in the database.
+     */
+    suspend fun getRecordingCount(): Long
+
+    /**
+     * Get count of recordings for a specific show.
+     */
+    suspend fun getRecordingCountForShow(showId: String): Long
+
+    /**
+     * Delete all recordings from the database.
+     */
+    suspend fun deleteAllRecordings()
+
+    /**
+     * Delete all recordings for a specific show.
+     */
+    suspend fun deleteRecordingsForShow(showId: String)
 
     // === Statistics ===
 

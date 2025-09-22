@@ -1,0 +1,109 @@
+-- SQLDelight schema for Recording table
+-- Following V2's proven architecture with foreign key relationship to Show
+
+-- Main recordings table with relationship to shows
+CREATE TABLE Recording (
+    identifier TEXT PRIMARY KEY NOT NULL,  -- Archive.org identifier (e.g. "gd1977-05-08.sbd.hicks.4982.sbeok.shnf")
+    showId TEXT NOT NULL,                   -- Foreign key to Show.showId
+
+    -- Source information
+    sourceType TEXT,                        -- "SBD", "AUD", "FM", "MATRIX", "REMASTER"
+    taper TEXT,                            -- Person who recorded (e.g. "Betty Cantor")
+    source TEXT,                           -- Equipment info (e.g. "Betty Soundboard")
+    lineage TEXT,                          -- Digital transfer chain
+    sourceTypeString TEXT,                 -- Raw source string from data
+
+    -- Quality metrics
+    rating REAL NOT NULL DEFAULT 0.0,      -- Weighted rating (0.0-5.0)
+    rawRating REAL NOT NULL DEFAULT 0.0,   -- Simple average (0.0-5.0)
+    reviewCount INTEGER NOT NULL DEFAULT 0,
+    confidence REAL NOT NULL DEFAULT 0.0,  -- Rating confidence (0.0-1.0)
+    highRatings INTEGER NOT NULL DEFAULT 0, -- Count of 4-5★ reviews
+    lowRatings INTEGER NOT NULL DEFAULT 0,  -- Count of 1-2★ reviews
+
+    -- Metadata
+    collectionTimestamp INTEGER NOT NULL DEFAULT 0,
+
+    -- Foreign key constraint
+    FOREIGN KEY(showId) REFERENCES Show(showId) ON DELETE CASCADE
+);
+
+-- Performance indexes for common queries
+CREATE INDEX idx_recording_show_id ON Recording(showId);
+CREATE INDEX idx_recording_source_type ON Recording(sourceType);
+CREATE INDEX idx_recording_rating ON Recording(rating);
+CREATE INDEX idx_recording_show_rating ON Recording(showId, rating);
+
+-- === QUERIES ===
+
+-- Basic CRUD operations
+selectRecordingById:
+SELECT * FROM Recording WHERE identifier = ?;
+
+selectRecordingsForShow:
+SELECT * FROM Recording WHERE showId = ? ORDER BY rating DESC;
+
+selectBestRecordingForShow:
+SELECT * FROM Recording WHERE showId = ? ORDER BY rating DESC LIMIT 1;
+
+selectRecordingsBySourceType:
+SELECT * FROM Recording WHERE sourceType = ? ORDER BY rating DESC;
+
+selectTopRatedRecordings:
+SELECT * FROM Recording
+WHERE rating > ? AND reviewCount >= ?
+ORDER BY rating DESC, reviewCount DESC
+LIMIT ?;
+
+getRecordingCount:
+SELECT COUNT(*) FROM Recording;
+
+getRecordingCountForShow:
+SELECT COUNT(*) FROM Recording WHERE showId = ?;
+
+-- Data management
+insertRecording:
+INSERT OR REPLACE INTO Recording (
+    identifier, showId, sourceType, taper, source, lineage, sourceTypeString,
+    rating, rawRating, reviewCount, confidence, highRatings, lowRatings,
+    collectionTimestamp
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+deleteAllRecordings:
+DELETE FROM Recording;
+
+deleteRecordingsForShow:
+DELETE FROM Recording WHERE showId = ?;
+
+-- Advanced queries for future features
+selectRecordingsByRatingRange:
+SELECT * FROM Recording
+WHERE rating >= ? AND rating <= ?
+ORDER BY rating DESC, reviewCount DESC;
+
+selectRecordingsByReviewCount:
+SELECT * FROM Recording
+WHERE reviewCount >= ?
+ORDER BY reviewCount DESC, rating DESC;
+
+selectRecordingsByTaper:
+SELECT * FROM Recording
+WHERE taper LIKE '%' || ? || '%'
+ORDER BY rating DESC;
+
+-- Statistics queries
+getAverageRatingBySourceType:
+SELECT sourceType, AVG(rating) AS average_rating, COUNT(*) AS count
+FROM Recording
+WHERE reviewCount > 0
+GROUP BY sourceType
+ORDER BY average_rating DESC;
+
+getRecordingStats:
+SELECT
+    COUNT(*) AS totalRecordings,
+    COUNT(CASE WHEN rating > 0 THEN 1 END) AS ratedRecordings,
+    AVG(rating) AS average_rating,
+    MIN(rating) AS min_rating,
+    MAX(rating) AS max_rating
+FROM Recording;

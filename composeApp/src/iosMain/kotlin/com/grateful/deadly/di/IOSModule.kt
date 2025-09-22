@@ -10,6 +10,8 @@ import platform.Foundation.NSUserDefaults
 import platform.Foundation.NSDocumentDirectory
 import platform.Foundation.NSUserDomainMask
 import platform.Foundation.NSSearchPathForDirectoriesInDomains
+import platform.Foundation.NSApplicationSupportDirectory
+import platform.Foundation.NSFileManager
 
 /**
  * iOS-specific Koin DI module.
@@ -20,10 +22,20 @@ val iosModule = module {
     }
 
     single<Database> {
-        val driver = NativeSqliteDriver(
-            schema = Database.Schema,
-            name = "deadly.db"
-        )
+        val driver = try {
+            NativeSqliteDriver(
+                schema = Database.Schema,
+                name = "deadly.db"
+            )
+        } catch (e: Exception) {
+            // If database initialization fails (likely schema mismatch),
+            // delete the database file and recreate it with the new schema
+            deleteIOSDatabaseFile()
+            NativeSqliteDriver(
+                schema = Database.Schema,
+                name = "deadly.db"
+            )
+        }
         Database(driver)
     }
 
@@ -36,5 +48,43 @@ val iosModule = module {
             )
             documentDirectories.firstOrNull() as? String ?: ""
         }
+    }
+}
+
+/**
+ * Helper function to delete the iOS database file when schema changes occur.
+ */
+@OptIn(ExperimentalForeignApi::class)
+private fun deleteIOSDatabaseFile() {
+    try {
+        // Get Application Support directory where NativeSqliteDriver actually creates the database
+        val supportDirectories = NSSearchPathForDirectoriesInDomains(
+            NSApplicationSupportDirectory,
+            NSUserDomainMask,
+            true
+        )
+        val supportPath = supportDirectories.firstOrNull() as? String ?: return
+        val dbDir = "$supportPath/databases"
+        val dbPath = "$dbDir/deadly.db"
+
+        val fileManager = NSFileManager.defaultManager
+
+        // Delete main database file
+        if (fileManager.fileExistsAtPath(dbPath)) {
+            fileManager.removeItemAtPath(dbPath, null)
+        }
+
+        // Delete SQLite WAL (Write-Ahead Logging) files that persist schema
+        val shmPath = "$dbDir/deadly.db-shm"
+        if (fileManager.fileExistsAtPath(shmPath)) {
+            fileManager.removeItemAtPath(shmPath, null)
+        }
+
+        val walPath = "$dbDir/deadly.db-wal"
+        if (fileManager.fileExistsAtPath(walPath)) {
+            fileManager.removeItemAtPath(walPath, null)
+        }
+    } catch (e: Exception) {
+        // Ignore deletion errors - database will be recreated anyway
     }
 }
