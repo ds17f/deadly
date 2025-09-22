@@ -67,7 +67,6 @@ fun SettingsScreen() {
                                 is SyncResult.Error -> "Refresh failed: ${result.message}"
                                 else -> "Refresh completed"
                             }
-                            // TODO: Update cache info with new architecture
                         }
                     },
                     onClearData = {

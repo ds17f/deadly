@@ -67,13 +67,6 @@ val commonModule = module {
         )
     }
 
-    single<NewDataImportService> {
-        Logger.d("CommonModule", "Creating DataImportService (new architecture)")
-        NewDataImportService(
-            showRepository = get(),
-            fileSystem = get()
-        )
-    }
 
     single<DownloadService> {
         Logger.d("CommonModule", "Creating DownloadService")
