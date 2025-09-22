@@ -79,6 +79,10 @@ else
 	@echo "  logs-remote-data        - [Linux only] Check data import logs on both platforms"
 endif
 	@echo ""
+	@echo "DATABASE COMMANDS:"
+	@echo "  db-android              - Extract Android database and open in DB Browser"
+	@echo "  db-ios                  - Extract iOS database and open in DB Browser"
+	@echo ""
 	@echo "UTILITY COMMANDS:"
 	@echo "  clean                   - Clean all build outputs"
 	@echo "  clean-android          - Clean Android build outputs only"
@@ -406,3 +410,17 @@ dependencies:
 gradle-version:
 	@echo "📋 Gradle version information:"
 	$(GRADLEW) --version
+
+# =============================================================================
+# DATABASE COMMANDS
+# =============================================================================
+
+.PHONY: db-android
+db-android:
+	@echo "🗄️ Extracting Android database..."
+	./scripts/get-db.sh android
+
+.PHONY: db-ios
+db-ios:
+	@echo "🗄️ Extracting iOS database..."
+	./scripts/get-db.sh ios

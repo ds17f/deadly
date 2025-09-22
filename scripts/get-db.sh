@@ -12,11 +12,17 @@ DB_NAME="deadly.db"
 DEFAULT_OUTPUT="./sqliteDbs"
 
 # Parse arguments
-PLATFORM="${1:-android}"
+if [ $# -eq 0 ]; then
+    echo "❌ Platform required"
+    echo "Usage: ./scripts/get-db.sh <android|ios>"
+    exit 1
+fi
+
+PLATFORM="$1"
 
 if [ "$PLATFORM" != "android" ] && [ "$PLATFORM" != "ios" ]; then
     echo "❌ Invalid platform: $PLATFORM"
-    echo "Usage: ./scripts/get-db.sh [android|ios]"
+    echo "Usage: ./scripts/get-db.sh <android|ios>"
     exit 1
 fi
 
