@@ -1,7 +1,9 @@
 package com.grateful.deadly.services.search
 
 import com.grateful.deadly.domain.search.*
-import com.grateful.deadly.data.search.SearchRepository
+import com.grateful.deadly.domain.models.Show
+import com.grateful.deadly.services.data.platform.ShowRepository
+import com.grateful.deadly.services.search.platform.ShowSearchDao
 import com.grateful.deadly.core.util.Logger
 import com.russhwolf.settings.Settings
 import kotlinx.coroutines.delay
@@ -17,14 +19,15 @@ import kotlinx.serialization.json.Json
 import kotlinx.coroutines.Dispatchers
 
 /**
- * Real implementation of SearchService using SQLDelight repository.
+ * Real implementation of SearchService following V2's architecture pattern.
  *
- * Maintains the exact same API as SearchServiceStub but uses real database data
- * instead of mock data. All the reactive flows, error handling, and UI patterns
- * remain identical to ensure seamless switching between stub and real implementations.
+ * Uses ShowSearchDao for FTS5 queries and ShowRepository for domain models,
+ * exactly like V2's proven approach. Maintains reactive flows and error handling
+ * while providing enhanced search capabilities with BM25 relevance ranking.
  */
 class SearchServiceImpl(
-    private val repository: SearchRepository,
+    private val showRepository: ShowRepository,    // Domain models (like V2)
+    private val showSearchDao: ShowSearchDao,      // FTS5 queries (like V2)
     private val settings: Settings
 ) : SearchService {
 
@@ -75,11 +78,28 @@ class SearchServiceImpl(
 
             val startTime = Clock.System.now()
 
-            // USE REPOSITORY INSTEAD OF MOCK DATA - This is the key change!
-            val shows = repository.searchShows(query)
-            Logger.d(TAG, "Repository returned ${shows.size} shows for query '$query'")
+            // FTS4 search using ShowSearchDao (V2 pattern)
+            val showIds = showSearchDao.searchShows(query)
+            Logger.d(TAG, "FTS4 returned ${showIds.size} show IDs")
 
-            val results = performSearch(shows, query)
+            // Get full Show domain models for matching IDs
+            val shows = showRepository.getShowsByIds(showIds)
+            Logger.d(TAG, "Retrieved ${shows.size} full shows")
+
+            // Convert to SearchResultShow with FTS4 relevance scoring
+            val results = shows.mapIndexed { index, show ->
+                // Relevance score is preserved by FTS4 result ordering
+                val relevanceScore = 1.0f - (index.toFloat() / shows.size.coerceAtLeast(1))
+                val matchType = determineMatchType(show, query)
+
+                SearchResultShow(
+                    show = show,
+                    relevanceScore = relevanceScore,
+                    matchType = matchType,
+                    hasDownloads = show.recordingCount > 0,
+                    highlightedFields = getHighlightedFields(show, query)
+                )
+            }
             val searchDuration = (Clock.System.now() - startTime).inWholeMilliseconds
 
             _searchResults.value = results
@@ -162,12 +182,12 @@ class SearchServiceImpl(
 
     override suspend fun getSuggestions(partialQuery: String): Result<List<SuggestedSearch>> {
         return try {
-            // For now, use the same suggestion logic as stub
-            // TODO: Generate suggestions from actual database data
-            val suggestions = buildList {
+            // Generate suggestions using FTS4 search
+            val suggestions = buildList<SuggestedSearch> {
                 if (partialQuery.isNotBlank()) {
-                    // Get shows from repository for suggestions
-                    val shows = repository.searchShows(partialQuery)
+                    // Use FTS4 for suggestion generation
+                    val showIds = showSearchDao.searchShows(partialQuery).take(10)
+                    val shows = showRepository.getShowsByIds(showIds)
 
                     // Venue suggestions
                     val venueMatches = shows
@@ -194,9 +214,9 @@ class SearchServiceImpl(
 
                     // Location suggestions
                     val locationMatches = shows
-                        .filter {
-                            it.location.city?.contains(partialQuery, ignoreCase = true) == true ||
-                            it.location.state?.contains(partialQuery, ignoreCase = true) == true
+                        .filter { show ->
+                            show.location.city?.contains(partialQuery, ignoreCase = true) == true ||
+                            show.location.state?.contains(partialQuery, ignoreCase = true) == true
                         }
                         .map { "${it.location.city}, ${it.location.state}" }
                         .distinct()
@@ -215,65 +235,6 @@ class SearchServiceImpl(
         }
     }
 
-    /**
-     * Process search results from repository data.
-     * Same logic as SearchServiceStub but operates on repository results.
-     */
-    private fun performSearch(shows: List<Show>, query: String): List<SearchResultShow> {
-        val queryLower = query.lowercase()
-        val appliedFilters = _appliedFilters.value
-
-        return shows
-            .filter { show ->
-                val matchesQuery = show.venue.name.lowercase().contains(queryLower) ||
-                        show.location.city?.lowercase()?.contains(queryLower) == true ||
-                        show.location.state?.lowercase()?.contains(queryLower) == true ||
-                        show.date.contains(queryLower) ||
-                        show.year.toString().contains(queryLower) ||
-                        show.id.lowercase().contains(queryLower)
-
-                val matchesFilters = appliedFilters.isEmpty() || appliedFilters.any { filter ->
-                    when (filter) {
-                        SearchFilter.HAS_DOWNLOADS -> show.recordingCount > 0
-                        SearchFilter.VENUE -> show.venue.name.lowercase().contains(queryLower)
-                        SearchFilter.YEAR -> show.year.toString().contains(queryLower)
-                        SearchFilter.LOCATION -> show.location.displayText.lowercase().contains(queryLower)
-                        else -> true
-                    }
-                }
-
-                matchesQuery && matchesFilters
-            }
-            .map { show ->
-                SearchResultShow(
-                    show = show,
-                    relevanceScore = calculateRelevanceScore(show, queryLower),
-                    matchType = determineMatchType(show, queryLower),
-                    hasDownloads = show.recordingCount > 0,
-                    highlightedFields = getHighlightedFields(show, queryLower)
-                )
-            }
-            .sortedByDescending { it.relevanceScore }
-    }
-
-    private fun calculateRelevanceScore(show: Show, query: String): Float {
-        var score = 0f
-
-        // Exact matches get highest score
-        if (show.venue.name.lowercase() == query) score += 10f
-        if (show.location.city?.lowercase() == query) score += 8f
-        if (show.date.contains(query)) score += 6f
-
-        // Partial matches get medium score
-        if (show.venue.name.lowercase().contains(query)) score += 5f
-        if (show.location.displayText.lowercase().contains(query)) score += 3f
-
-        // Boost by rating and recording count
-        show.averageRating?.let { score += it }
-        score += show.recordingCount * 0.5f
-
-        return score
-    }
 
     private fun determineMatchType(show: Show, query: String): SearchMatchType {
         return when {

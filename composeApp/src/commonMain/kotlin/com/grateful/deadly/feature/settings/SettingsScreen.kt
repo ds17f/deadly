@@ -325,22 +325,3 @@ private fun DatabaseManagement(
     }
 }
 
-/**
- * Format file size in bytes to human readable format
- */
-private fun formatFileSize(bytes: Long): String {
-    return when {
-        bytes < 1024 -> "$bytes B"
-        bytes < 1024 * 1024 -> "${bytes / 1024} KB"
-        bytes < 1024 * 1024 * 1024 -> "${bytes / (1024 * 1024)} MB"
-        else -> "${bytes / (1024 * 1024 * 1024)} GB"
-    }
-}
-
-/**
- * Format timestamp to human readable format
- */
-private fun formatTimestamp(timestamp: Long): String {
-    // Simple format - could be enhanced with proper date formatting
-    return "Recent" // TODO: Implement proper date formatting for KMM
-}

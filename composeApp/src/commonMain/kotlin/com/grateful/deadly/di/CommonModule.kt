@@ -14,6 +14,7 @@ import com.grateful.deadly.services.data.DownloadService
 import com.grateful.deadly.services.data.FileDiscoveryService
 import com.grateful.deadly.services.data.platform.ZipExtractor
 import com.grateful.deadly.services.data.platform.ShowRepository
+import com.grateful.deadly.services.search.platform.ShowSearchDao
 
 import com.grateful.deadly.core.design.theme.ThemeManager
 import okio.FileSystem
@@ -58,6 +59,11 @@ val commonModule = module {
         ShowRepository(get()) // Gets Database
     }
 
+    single<ShowSearchDao> {
+        Logger.d("CommonModule", "Creating ShowSearchDao platform tool")
+        ShowSearchDao(get()) // Gets Database
+    }
+
     // New Architecture - Universal Services
     single<FileExtractionService> {
         Logger.d("CommonModule", "Creating FileExtractionService")
@@ -87,7 +93,8 @@ val commonModule = module {
     single<NewDataImportService> {
         Logger.d("CommonModule", "Creating DataImportService")
         NewDataImportService(
-            showRepository = get()
+            showRepository = get(),
+            showSearchDao = get()
         )
     }
 
@@ -112,9 +119,10 @@ val commonModule = module {
 
     // Services
     single<SearchService> {
-        Logger.d("CommonModule", "Creating SearchService (using real implementation)")
+        Logger.d("CommonModule", "Creating SearchService (using V2 pattern)")
         SearchServiceImpl(
-            repository = get(),
+            showRepository = get(),
+            showSearchDao = get(),
             settings = get()
         )
     }

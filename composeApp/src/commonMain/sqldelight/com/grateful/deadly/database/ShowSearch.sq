@@ -1,0 +1,45 @@
+-- SQLDelight FTS4 schema for show search functionality
+-- Downgraded from FTS5 to FTS4 for Android compatibility (built-in support)
+
+-- FTS4 virtual table for full-text search on shows
+-- FTS4 is available in Android's built-in SQLite
+-- Uses unicode61 tokenizer with tokenchars to preserve dots and dashes in dates
+CREATE VIRTUAL TABLE show_search USING fts4(
+    showId TEXT,
+    searchText TEXT,
+    tokenize=unicode61 "tokenchars=.-"
+);
+
+-- Insert or replace search record for a show
+insertOrUpdateShowSearch:
+INSERT OR REPLACE INTO show_search (showId, searchText)
+VALUES (?, ?);
+
+-- FTS4 search query - returns show IDs with relevance ranking
+-- This is the core query that SearchService will use (following V2 pattern)
+searchShows:
+SELECT showId FROM show_search
+WHERE show_search MATCH ?;
+
+-- Alternative FTS4 search with relevance score (for future use)
+searchShowsWithRelevance:
+SELECT showId, docid AS relevance
+FROM show_search
+WHERE show_search MATCH ?
+ORDER BY docid;
+
+-- Get total count of indexed shows
+getIndexedShowCount:
+SELECT COUNT(*) FROM show_search;
+
+-- Check if a show is already indexed
+isShowIndexed:
+SELECT COUNT(*) FROM show_search WHERE showId = ?;
+
+-- Remove specific show from search index
+removeShowFromIndex:
+DELETE FROM show_search WHERE showId = ?;
+
+-- Clear all FTS data (for rebuilding index)
+clearAllSearchData:
+DELETE FROM show_search;

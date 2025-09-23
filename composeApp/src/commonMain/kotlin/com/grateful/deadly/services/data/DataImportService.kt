@@ -3,6 +3,7 @@ package com.grateful.deadly.services.data
 import com.grateful.deadly.core.logging.Logger
 import com.grateful.deadly.services.data.models.*
 import com.grateful.deadly.services.data.platform.ShowRepository
+import com.grateful.deadly.services.search.platform.ShowSearchDao
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
 import kotlinx.coroutines.withContext
@@ -25,6 +26,7 @@ import okio.Path.Companion.toPath
  */
 class DataImportService(
     private val showRepository: ShowRepository,
+    private val showSearchDao: ShowSearchDao,
     private val fileSystem: FileSystem = FileSystem.SYSTEM,
     private val json: Json = Json {
         ignoreUnknownKeys = true
@@ -36,6 +38,78 @@ class DataImportService(
         private const val TAG = "DataImportService"
         private const val BATCH_SIZE = 50 // Process shows in batches for performance
         private const val RECORDING_BATCH_SIZE = 100 // Larger batch size for recordings
+    }
+
+    /**
+     * Create enhanced search text for FTS5 indexing.
+     *
+     * Implements V2's comprehensive search text generation with:
+     * - 13+ date format variants (5.16.93, 5-16-93, 5/16/93, etc.)
+     * - Venue and location data
+     * - Setlist song extraction
+     * - Band member extraction
+     * - Decade support for searches like "1970s"
+     */
+    private fun createEnhancedSearchText(showEntity: ShowEntity): String {
+        return buildList<String> {
+            // Enhanced date indexing for comprehensive search support
+            add(showEntity.date) // Original: "1977-05-08"
+
+            // Parse date components for alternative formats
+            val dateParts = showEntity.date.split("-")
+            if (dateParts.size == 3) {
+                val year = dateParts[0]      // "1977"
+                val month = dateParts[1]     // "05"
+                val day = dateParts[2]       // "08"
+
+                // Core date components
+                add(year)                    // "1977"
+                add(year.takeLast(2))        // "77"
+
+                // Multiple delimiter support: -, /, .
+                val delimiters = listOf("-", "/", ".")
+
+                // Day / month / year formats
+                delimiters.forEach { delim ->
+                    add("${month.toInt()}$delim${day.toInt()}$delim${year.takeLast(2)}")  // 5.8.77, 5-8-77, 5/8/77
+                    add("${month}$delim${day}$delim${year}")                               // 05.08.1977, 05-08-1977, 05/08/1977
+                    add("${year}$delim${month.toInt()}$delim${day.toInt()}")               // 1977.5.8, 1977-5-8, 1977/5/8
+                }
+
+                // Month / year formats
+                delimiters.forEach { delim ->
+                    add("${month.toInt()}$delim${year.takeLast(2)}")  // 5.77, 5-77, 5/77
+                    add("${year}$delim${month}")                      // 1977.05, 1977-05, 1977/05
+                    add("${year}$delim${month.toInt()}")             // 1977.5, 1977-5, 1977/5
+                    add("${year.takeLast(2)}$delim${month.toInt()}") // 77.5, 77-5, 77/5
+                }
+
+                // Century prefix for decade searches
+                add(year.take(3))            // "197" (enables 1970s searches)
+            }
+
+            // Venue information
+            add(showEntity.venueName)
+
+            // Location data
+            showEntity.city?.let { add(it) }
+            showEntity.state?.let { add(it) }
+            showEntity.locationRaw?.let { add(it) }
+
+            // Band member names (extracted from lineup JSON)
+            showEntity.memberList?.let { memberList ->
+                if (memberList.isNotBlank()) {
+                    add(memberList.replace(",", " ")) // "Jerry Garcia Bob Weir Phil Lesh"
+                }
+            }
+
+            // Song list for setlist searches (extracted from setlist JSON)
+            showEntity.songList?.let { songList ->
+                if (songList.isNotBlank()) {
+                    add(songList.replace(",", " ")) // "Scarlet Begonias Fire On The Mountain"
+                }
+            }
+        }.joinToString(" ")
     }
 
     /**
@@ -107,8 +181,16 @@ class DataImportService(
                 // Delegate batch database operations to platform tool
                 if (showEntities.isNotEmpty()) {
                     showRepository.insertShows(showEntities)
+
+                    // Generate and insert FTS search data for each show
+                    val searchRecords = showEntities.map { showEntity ->
+                        val searchText = createEnhancedSearchText(showEntity)
+                        Pair(showEntity.showId, searchText)
+                    }
+                    showSearchDao.insertShowSearchBatch(searchRecords)
+
                     importedCount += showEntities.size
-                    Logger.d(TAG, "Imported batch ${batchIndex + 1}: ${showEntities.size} shows")
+                    Logger.d(TAG, "Imported batch ${batchIndex + 1}: ${showEntities.size} shows with FTS index")
                 }
             }
 

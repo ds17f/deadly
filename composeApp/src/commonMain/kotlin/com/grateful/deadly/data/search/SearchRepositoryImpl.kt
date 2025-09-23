@@ -2,9 +2,9 @@ package com.grateful.deadly.data.search
 
 import com.grateful.deadly.database.Database
 import com.grateful.deadly.database.Show as ShowRow
-import com.grateful.deadly.domain.search.Show
-import com.grateful.deadly.domain.search.Venue
-import com.grateful.deadly.domain.search.Location
+import com.grateful.deadly.domain.models.Show
+import com.grateful.deadly.domain.models.Venue
+import com.grateful.deadly.domain.models.Location
 import com.grateful.deadly.core.util.Logger
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO

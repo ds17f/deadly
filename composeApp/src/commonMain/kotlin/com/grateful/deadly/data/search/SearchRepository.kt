@@ -1,6 +1,6 @@
 package com.grateful.deadly.data.search
 
-import com.grateful.deadly.domain.search.Show
+import com.grateful.deadly.domain.models.Show
 import kotlinx.coroutines.flow.Flow
 
 /**

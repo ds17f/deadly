@@ -9,7 +9,7 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 data class SearchResultShow(
-    val show: Show,
+    val show: com.grateful.deadly.domain.models.Show,
     val relevanceScore: Float = 1.0f,
     val matchType: SearchMatchType = SearchMatchType.TITLE,
     val hasDownloads: Boolean = false,
@@ -31,7 +31,7 @@ data class SuggestedSearch(
 
 enum class SearchMatchType(val displayName: String) {
     TITLE("Title"),
-    VENUE("Venue"), 
+    VENUE("Venue"),
     YEAR("Year"),
     SETLIST("Setlist"),
     LOCATION("Location"),
@@ -63,7 +63,7 @@ data class SearchStats(
 
 /**
  * UI State for SearchScreen
- * 
+ *
  * Comprehensive state model discovered through UI-first development
  * and coordinated with SearchService reactive flows.
  */
@@ -79,133 +79,8 @@ data class SearchUiState(
 )
 
 /**
- * KMM Show domain model
- * 
- * Represents a Grateful Dead concert as a pure domain entity.
- * Contains show-level metadata and references to recordings,
- * but not the full recording objects themselves.
+ * Search filter types for refining results
  */
-@Serializable
-data class Show(
-    val id: String,
-    val date: String,
-    val year: Int,
-    val band: String,
-    val venue: Venue,
-    val location: Location,
-    val setlist: Setlist?,
-    val lineup: Lineup?,
-    
-    // Recording references
-    val recordingIds: List<String>,
-    val bestRecordingId: String?,
-    
-    // Show-level stats (precomputed from recordings)
-    val recordingCount: Int,
-    val averageRating: Float?,
-    val totalReviews: Int,
-    
-    // User state  
-    val isInLibrary: Boolean,
-    val libraryAddedAt: Long?
-) {
-    /**
-     * Display title for the show
-     */
-    val displayTitle: String
-        get() = "${venue.name} - $date"
-    
-    /**
-     * Whether this show has ratings
-     */
-    val hasRating: Boolean
-        get() = averageRating != null && averageRating > 0f
-    
-    /**
-     * Formatted rating display
-     */
-    val displayRating: String
-        get() = averageRating?.let { 
-            val rounded = kotlin.math.round(it * 10) / 10.0
-            "$rounded★"
-        } ?: "Not Rated"
-    
-    /**
-     * Whether this show has multiple recordings
-     */
-    val hasMultipleRecordings: Boolean
-        get() = recordingCount > 1
-}
-
-@Serializable
-data class Venue(
-    val name: String,
-    val city: String?,
-    val state: String?,
-    val country: String
-) {
-    val displayLocation: String
-        get() = listOfNotNull(city, state, country.takeIf { it != "USA" })
-            .joinToString(", ")
-}
-
-@Serializable
-data class Location(
-    val displayText: String,
-    val city: String?,
-    val state: String?
-) {
-    companion object {
-        fun fromRaw(raw: String?, city: String?, state: String?): Location {
-            val display = raw ?: listOfNotNull(city, state).joinToString(", ").ifEmpty { "Unknown Location" }
-            return Location(display, city, state)
-        }
-    }
-}
-
-@Serializable
-data class Setlist(
-    val status: String,
-    val sets: List<SetlistSet>,
-    val raw: String?,
-    val date: String? = null,
-    val venue: String? = null
-)
-
-@Serializable
-data class SetlistSet(
-    val name: String,
-    val songs: List<SetlistSong>
-)
-
-@Serializable
-data class SetlistSong(
-    val name: String,
-    val position: Int,
-    val hasSegue: Boolean = false,
-    val segueSymbol: String? = null
-) {
-    val displayName: String
-        get() = if (hasSegue && segueSymbol != null) {
-            "$name $segueSymbol"
-        } else {
-            name
-        }
-}
-
-@Serializable
-data class Lineup(
-    val status: String,
-    val members: List<LineupMember>,
-    val raw: String?
-)
-
-@Serializable
-data class LineupMember(
-    val name: String,
-    val instruments: String
-)
-
 enum class SearchFilter(val displayName: String) {
     VENUE("Venue"),
     YEAR("Year"),
