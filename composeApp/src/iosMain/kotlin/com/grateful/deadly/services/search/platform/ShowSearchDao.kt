@@ -5,6 +5,11 @@ import com.grateful.deadly.database.Database
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
+// iOS: Use Dispatchers.Default instead of Dispatchers.IO for historical compatibility.
+// While Dispatchers.IO is available on Kotlin/Native since kotlinx-coroutines 1.7.0,
+// we maintain Dispatchers.Default to avoid potential compatibility issues.
+// Current version: 1.8.1, Latest: 1.10.2
+
 /**
  * iOS implementation of ShowSearchDao using SQLDelight FTS4 queries.
  *

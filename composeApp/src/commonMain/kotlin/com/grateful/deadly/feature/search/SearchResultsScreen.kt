@@ -9,7 +9,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.grateful.deadly.feature.search.components.SearchResultsTopBar
 import com.grateful.deadly.feature.search.components.RecentSearchesSection
-import com.grateful.deadly.feature.search.components.SuggestedSearchesSection
 import com.grateful.deadly.feature.search.components.SearchResultsSection
 
 /**
@@ -61,16 +60,7 @@ fun SearchResultsScreen(
                     )
                 }
             } else {
-                // Show suggestions and results when typing
-                item {
-                    SuggestedSearchesSection(
-                        suggestedSearches = uiState.suggestedSearches,
-                        onSuggestionSelected = { suggestion ->
-                            viewModel.onSuggestionSelected(suggestion)
-                        }
-                    )
-                }
-
+                // Show results when typing (suggestions removed for cleaner UI)
                 item {
                     SearchResultsSection(
                         searchResults = uiState.searchResults,

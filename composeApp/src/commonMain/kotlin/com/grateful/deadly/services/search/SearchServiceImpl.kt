@@ -21,20 +21,20 @@ import kotlinx.coroutines.Dispatchers
 /**
  * Real implementation of SearchService following V2's architecture pattern.
  *
- * Uses ShowSearchDao for FTS5 queries and ShowRepository for domain models,
+ * Uses ShowSearchDao for FTS4 queries and ShowRepository for domain models,
  * exactly like V2's proven approach. Maintains reactive flows and error handling
  * while providing enhanced search capabilities with BM25 relevance ranking.
  */
 class SearchServiceImpl(
     private val showRepository: ShowRepository,    // Domain models (like V2)
-    private val showSearchDao: ShowSearchDao,      // FTS5 queries (like V2)
+    private val showSearchDao: ShowSearchDao,      // FTS4 queries (like V2)
     private val settings: Settings
 ) : SearchService {
 
     companion object {
         private const val TAG = "SearchServiceImpl"
         private const val RECENT_SEARCHES_KEY = "recent_searches"
-        private const val MAX_RECENT_SEARCHES = 10
+        private const val MAX_RECENT_SEARCHES = 3
     }
 
     // Reactive state management (same as SearchServiceStub)
@@ -258,7 +258,13 @@ class SearchServiceImpl(
             val json = settings.getStringOrNull(RECENT_SEARCHES_KEY)
             if (json != null) {
                 val searches = Json.decodeFromString<List<RecentSearch>>(json)
-                _recentSearches.value = searches
+                // Trim to current max limit in case we reduced it
+                val trimmedSearches = searches.take(MAX_RECENT_SEARCHES)
+                _recentSearches.value = trimmedSearches
+                // Save back the trimmed list
+                if (trimmedSearches.size < searches.size) {
+                    saveRecentSearches(trimmedSearches)
+                }
             }
         } catch (e: Exception) {
             Logger.e(TAG, "Failed to load recent searches", e)

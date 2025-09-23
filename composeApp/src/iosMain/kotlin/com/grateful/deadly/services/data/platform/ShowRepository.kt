@@ -115,7 +115,7 @@ actual class ShowRepository actual constructor(
     actual suspend fun getShowsByIds(showIds: List<String>): List<Show> = withContext(Dispatchers.Default) {
         if (showIds.isEmpty()) return@withContext emptyList()
 
-        // Preserve the order of showIds for FTS5 relevance ranking
+        // Preserve the order of showIds for FTS4 relevance ranking
         val shows = showIds.mapNotNull { showId ->
             getShowById(showId)
         }

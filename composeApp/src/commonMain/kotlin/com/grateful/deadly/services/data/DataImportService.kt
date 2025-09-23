@@ -41,7 +41,7 @@ class DataImportService(
     }
 
     /**
-     * Create enhanced search text for FTS5 indexing.
+     * Create enhanced search text for FTS4 indexing.
      *
      * Implements V2's comprehensive search text generation with:
      * - 13+ date format variants (5.16.93, 5-16-93, 5/16/93, etc.)

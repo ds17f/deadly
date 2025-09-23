@@ -28,6 +28,12 @@ This document tracks known issues, missing features, and improvements needed in 
 - [ ] Implement KMM-compatible date formatting (currently shows "Recent")
 - [ ] Add cache management UI for settings (show file size, date, manual delete)
 
+### UI Polish (Low Priority - After Core Features)
+- [ ] **Polish Recent/Suggested Search UI**: Improve styling and UX in SearchResultsScreen - enhance visual design, spacing, and interaction patterns once core functionality is stable
+
+### Dependencies & Updates (Low Priority)
+- [ ] **Update kotlinx-coroutines**: Upgrade from current 1.8.1 to latest 1.10.2 for latest features and bug fixes
+
 ## ✅ Recently Completed
 
 ### Search Feature (Completed)

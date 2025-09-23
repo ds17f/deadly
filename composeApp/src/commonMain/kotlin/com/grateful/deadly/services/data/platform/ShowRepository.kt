@@ -34,7 +34,7 @@ expect class ShowRepository(database: com.grateful.deadly.database.Database) {
     suspend fun getShowById(showId: String): Show?
 
     /**
-     * Get shows by list of IDs (for FTS5 search results).
+     * Get shows by list of IDs (for FTS4 search results).
      * Maintains the order of the input IDs list for relevance ranking.
      */
     suspend fun getShowsByIds(showIds: List<String>): List<Show>
