@@ -159,13 +159,51 @@ fun App() {
             // Show detail routes with parameters using cross-platform argument handling
             composable("showDetail/{showId}") { args ->
                 val showId = args["showId"] ?: ""
-                Text("Show Detail Screen: $showId")
+                val showDetailViewModel = remember { com.grateful.deadly.feature.showdetail.ShowDetailViewModel() }
+
+                // Collect navigation events from ShowDetailViewModel
+                LaunchedEffect(showDetailViewModel) {
+                    showDetailViewModel.navigation.collect { event ->
+                        navigationController.navigate(event.screen)
+                    }
+                }
+
+                com.grateful.deadly.feature.showdetail.ShowDetailScreen(
+                    showId = showId,
+                    recordingId = null,
+                    onNavigateBack = { navigationController.navigateUp() },
+                    onNavigateToPlayer = {
+                        coroutineScope.launch {
+                            showDetailViewModel.onNavigateToPlayer(1)
+                        }
+                    },
+                    viewModel = showDetailViewModel
+                )
             }
-            
+
             composable("showDetail/{showId}/{recordingId}") { args ->
                 val showId = args["showId"] ?: ""
                 val recordingId = args["recordingId"] ?: ""
-                Text("Show Detail Screen: $showId, Recording: $recordingId")
+                val showDetailViewModel = remember { com.grateful.deadly.feature.showdetail.ShowDetailViewModel() }
+
+                // Collect navigation events from ShowDetailViewModel
+                LaunchedEffect(showDetailViewModel) {
+                    showDetailViewModel.navigation.collect { event ->
+                        navigationController.navigate(event.screen)
+                    }
+                }
+
+                com.grateful.deadly.feature.showdetail.ShowDetailScreen(
+                    showId = showId,
+                    recordingId = recordingId,
+                    onNavigateBack = { navigationController.navigateUp() },
+                    onNavigateToPlayer = {
+                        coroutineScope.launch {
+                            showDetailViewModel.onNavigateToPlayer(1)
+                        }
+                    },
+                    viewModel = showDetailViewModel
+                )
             }
             }
         }
