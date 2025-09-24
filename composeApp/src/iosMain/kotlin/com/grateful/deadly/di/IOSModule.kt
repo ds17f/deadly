@@ -6,6 +6,10 @@ import com.russhwolf.settings.Settings
 import app.cash.sqldelight.driver.native.NativeSqliteDriver
 import kotlinx.cinterop.ExperimentalForeignApi
 import org.koin.dsl.module
+// Phase 3: Platform Tools for iOS
+import com.grateful.deadly.services.archive.platform.NetworkClient
+import com.grateful.deadly.services.archive.platform.CacheManager
+import com.grateful.deadly.services.media.platform.PlatformMediaPlayer
 import platform.Foundation.NSUserDefaults
 import platform.Foundation.NSDocumentDirectory
 import platform.Foundation.NSUserDomainMask
@@ -48,6 +52,19 @@ val iosModule = module {
             )
             documentDirectories.firstOrNull() as? String ?: ""
         }
+    }
+
+    // Phase 3: Platform Tools (iOS implementations)
+    single<NetworkClient> {
+        NetworkClient()
+    }
+
+    single<CacheManager> {
+        CacheManager()
+    }
+
+    single<PlatformMediaPlayer> {
+        PlatformMediaPlayer()
     }
 }
 

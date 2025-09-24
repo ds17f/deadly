@@ -5,6 +5,10 @@ import com.grateful.deadly.database.Database
 import com.russhwolf.settings.Settings
 import com.russhwolf.settings.SharedPreferencesSettings
 import app.cash.sqldelight.driver.android.AndroidSqliteDriver
+// Phase 3: Platform Tools for Android
+import com.grateful.deadly.services.archive.platform.NetworkClient
+import com.grateful.deadly.services.archive.platform.CacheManager
+import com.grateful.deadly.services.media.platform.PlatformMediaPlayer
 import org.koin.dsl.module
 
 /**
@@ -44,5 +48,18 @@ val androidModule = module {
     single<() -> String> {
         val context: Context = get()
         return@single { context.filesDir.absolutePath }
+    }
+
+    // Phase 3: Platform Tools (Android implementations)
+    single<NetworkClient> {
+        NetworkClient()
+    }
+
+    single<CacheManager> {
+        CacheManager(get<Context>())
+    }
+
+    single<PlatformMediaPlayer> {
+        PlatformMediaPlayer(get<Context>())
     }
 }

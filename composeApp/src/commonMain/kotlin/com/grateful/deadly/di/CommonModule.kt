@@ -15,6 +15,12 @@ import com.grateful.deadly.services.data.FileDiscoveryService
 import com.grateful.deadly.services.data.platform.ZipExtractor
 import com.grateful.deadly.services.data.platform.ShowRepository
 import com.grateful.deadly.services.search.platform.ShowSearchDao
+// Phase 3: Universal Services + Platform Tools
+import com.grateful.deadly.services.archive.platform.NetworkClient
+import com.grateful.deadly.services.archive.platform.CacheManager
+import com.grateful.deadly.services.media.platform.PlatformMediaPlayer
+import com.grateful.deadly.services.archive.ArchiveService
+import com.grateful.deadly.services.media.MediaService
 
 import com.grateful.deadly.core.design.theme.ThemeManager
 import okio.FileSystem
@@ -107,6 +113,22 @@ val commonModule = module {
             fileExtractionService = get(),
             dataImportService = get(),
             getAppFilesDir = get() // Platform-specific files directory provider
+        )
+    }
+
+    // Phase 3: Universal Services (Platform-agnostic business logic)
+    single<ArchiveService> {
+        Logger.d("CommonModule", "Creating ArchiveService")
+        ArchiveService(
+            networkClient = get(),
+            cacheManager = get()
+        )
+    }
+
+    single<MediaService> {
+        Logger.d("CommonModule", "Creating MediaService")
+        MediaService(
+            platformMediaPlayer = get()
         )
     }
 
