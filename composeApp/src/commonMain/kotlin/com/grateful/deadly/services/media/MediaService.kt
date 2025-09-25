@@ -2,7 +2,7 @@ package com.grateful.deadly.services.media
 
 import com.grateful.deadly.services.media.platform.PlatformMediaPlayer
 import com.grateful.deadly.services.media.platform.PlatformPlaybackState
-import com.grateful.deadly.services.archive.ShowTrack
+import com.grateful.deadly.services.archive.Track
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
@@ -41,9 +41,10 @@ class MediaService(
     }
 
     // Current playback context - Archive.org business knowledge
-    private var currentTrack: ShowTrack? = null
-    private var currentPlaylist: List<ShowTrack> = emptyList()
+    private var currentTrack: Track? = null
+    private var currentPlaylist: List<Track> = emptyList()
     private var currentTrackIndex: Int = -1
+    private var currentRecordingId: String? = null
 
     /**
      * Show-aware playback state combining platform state with Archive.org context.
@@ -72,12 +73,13 @@ class MediaService(
      * Handles Archive.org URL construction and track context setup.
      * Clears any existing playlist context for single-track playback.
      */
-    suspend fun playTrack(track: ShowTrack): Result<Unit> {
+    suspend fun playTrack(track: Track, recordingId: String): Result<Unit> {
         return try {
             // Set single-track context
             currentTrack = track
             currentPlaylist = listOf(track)
             currentTrackIndex = 0
+            currentRecordingId = recordingId
 
             // Build Archive.org streaming URL
             val streamUrl = buildArchiveStreamUrl(track)
@@ -85,7 +87,7 @@ class MediaService(
             // Delegate to platform player
             platformMediaPlayer.loadAndPlay(streamUrl)
         } catch (e: Exception) {
-            Result.failure(Exception("Failed to play track ${track.fileName}", e))
+            Result.failure(Exception("Failed to play track ${track.name}", e))
         }
     }
 
@@ -95,7 +97,7 @@ class MediaService(
      * Sets up playlist context and starts with the specified track.
      * Enables track navigation and auto-advance functionality.
      */
-    suspend fun playPlaylist(tracks: List<ShowTrack>, startIndex: Int = 0): Result<Unit> {
+    suspend fun playPlaylist(tracks: List<Track>, recordingId: String, startIndex: Int = 0): Result<Unit> {
         return try {
             if (tracks.isEmpty()) {
                 return Result.failure(Exception("Cannot play empty playlist"))
@@ -109,6 +111,7 @@ class MediaService(
             currentPlaylist = tracks
             currentTrackIndex = startIndex
             currentTrack = tracks[startIndex]
+            currentRecordingId = recordingId
 
             // Build Archive.org streaming URL for starting track
             val streamUrl = buildArchiveStreamUrl(currentTrack!!)
@@ -239,9 +242,9 @@ class MediaService(
 
     // Private helper methods for Archive.org business logic
 
-    private fun buildArchiveStreamUrl(track: ShowTrack): String {
+    private fun buildArchiveStreamUrl(track: Track): String {
         // Archive.org streaming URL format: https://archive.org/download/{identifier}/{filename}
-        return "$ARCHIVE_STREAM_BASE/${track.recordingId}/${track.fileName}"
+        return "$ARCHIVE_STREAM_BASE/${currentRecordingId}/${track.name}"
     }
 
     private fun hasNextTrack(): Boolean {
@@ -261,7 +264,7 @@ class MediaService(
  */
 data class MediaPlaybackState(
     // Archive.org track context
-    val currentTrack: ShowTrack?,
+    val currentTrack: Track?,
 
     // Platform playback state (mapped from PlatformPlaybackState)
     val isPlaying: Boolean,
