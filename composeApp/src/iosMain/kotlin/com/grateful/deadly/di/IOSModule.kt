@@ -8,7 +8,6 @@ import kotlinx.cinterop.ExperimentalForeignApi
 import org.koin.dsl.module
 // Phase 3: Platform Tools for iOS
 import com.grateful.deadly.services.archive.platform.NetworkClient
-import com.grateful.deadly.services.archive.platform.CacheManager
 import com.grateful.deadly.services.media.platform.PlatformMediaPlayer
 import platform.Foundation.NSUserDefaults
 import platform.Foundation.NSDocumentDirectory
@@ -59,9 +58,6 @@ val iosModule = module {
         NetworkClient()
     }
 
-    single<CacheManager> {
-        CacheManager()
-    }
 
     single<PlatformMediaPlayer> {
         PlatformMediaPlayer()

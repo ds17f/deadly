@@ -1,5 +1,11 @@
 package com.grateful.deadly.services.archive.platform
 
+import okio.FileSystem
+import okio.Path.Companion.toPath
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.Dispatchers
+import kotlinx.datetime.Clock
+
 /**
  * Cache types for domain model storage.
  *
@@ -13,24 +19,40 @@ enum class CacheType {
 }
 
 /**
- * Platform-specific cache manager for file I/O operations.
+ * Cross-platform cache manager using Okio FileSystem.
  *
- * This is a minimal platform tool in the Universal Service + Platform Tool pattern.
- * It handles ONLY generic file operations with no business logic or Archive.org knowledge.
+ * This is a Universal Service that uses Okio FileSystem (platform tool) for file operations.
+ * Follows the Universal Service + Platform Tool pattern properly by delegating to Okio.
  *
- * Universal services will handle:
+ * Universal services handle:
  * - Cache key generation (recordingId)
  * - Domain model serialization/deserialization
  * - Cache-first logic and expiry strategies
  * - Cache invalidation policies
  *
- * Platform tools handle:
- * - Generic file read/write operations
- * - Platform-specific filesystem access
- * - Directory management
- * - File existence and timestamp checks
+ * Platform tool (Okio FileSystem) handles:
+ * - Cross-platform file read/write operations
+ * - Directory management and path handling
+ * - File existence and metadata checks
  */
-expect class CacheManager {
+class CacheManager(
+    private val fileSystem: okio.FileSystem,
+    private val getAppFilesDir: () -> String
+) {
+
+    companion object {
+        private const val CACHE_DIR_NAME = "archive"
+        private const val EXPIRY_HOURS = 168L // 1 week like V2
+    }
+
+    private fun getCacheDir(): okio.Path {
+        val appFilesDir = getAppFilesDir()
+        return (appFilesDir.toPath() / CACHE_DIR_NAME)
+    }
+
+    private fun getCacheFilePath(key: String, type: CacheType): okio.Path {
+        return getCacheDir() / "${key}.${type.name.lowercase()}.json"
+    }
 
     /**
      * Read cached data for a key and type.
@@ -42,7 +64,27 @@ expect class CacheManager {
      * @param type Cache type (metadata, tracks, reviews)
      * @return Cached JSON string or null if not found/expired
      */
-    suspend fun get(key: String, type: CacheType): String?
+    suspend fun get(key: String, type: CacheType): String? = withContext(Dispatchers.Default) {
+        try {
+            val filePath = getCacheFilePath(key, type)
+
+            if (!fileSystem.exists(filePath)) {
+                return@withContext null
+            }
+
+            // Check expiry before reading
+            if (isExpired(key, type)) {
+                fileSystem.delete(filePath) // Clean up expired file
+                return@withContext null
+            }
+
+            fileSystem.read(filePath) {
+                readUtf8()
+            }
+        } catch (e: Exception) {
+            null
+        }
+    }
 
     /**
      * Write data to cache for a key and type.
@@ -54,7 +96,24 @@ expect class CacheManager {
      * @param type Cache type (metadata, tracks, reviews)
      * @param data JSON string to cache
      */
-    suspend fun put(key: String, type: CacheType, data: String)
+    suspend fun put(key: String, type: CacheType, data: String): Unit = withContext(Dispatchers.Default) {
+        try {
+            val cacheDir = getCacheDir()
+            val filePath = getCacheFilePath(key, type)
+
+            // Create cache directory if needed
+            if (!fileSystem.exists(cacheDir)) {
+                fileSystem.createDirectories(cacheDir)
+            }
+
+            // Write data to file
+            fileSystem.write(filePath) {
+                writeUtf8(data)
+            }
+        } catch (e: Exception) {
+            // Silently fail - cache is not critical
+        }
+    }
 
     /**
      * Check if cached data is expired.
@@ -65,7 +124,24 @@ expect class CacheManager {
      * @param type Cache type (metadata, tracks, reviews)
      * @return true if expired or doesn't exist, false if still valid
      */
-    suspend fun isExpired(key: String, type: CacheType): Boolean
+    suspend fun isExpired(key: String, type: CacheType): Boolean = withContext(Dispatchers.Default) {
+        try {
+            val filePath = getCacheFilePath(key, type)
+
+            if (!fileSystem.exists(filePath)) {
+                return@withContext true
+            }
+
+            val metadata = fileSystem.metadata(filePath)
+            val lastModified = metadata.lastModifiedAtMillis ?: return@withContext true
+            val currentTimeMillis = Clock.System.now().toEpochMilliseconds()
+            val ageHours = (currentTimeMillis - lastModified) / (1000 * 60 * 60)
+
+            ageHours > EXPIRY_HOURS
+        } catch (e: Exception) {
+            true // Assume expired if we can't check
+        }
+    }
 
     /**
      * Clear cache entries.
@@ -73,5 +149,36 @@ expect class CacheManager {
      * @param key If provided, clear only this key's cache. If null, clear all.
      * @param type If provided, clear only this type. If null, clear all types for key.
      */
-    suspend fun clear(key: String?, type: CacheType?)
+    suspend fun clear(key: String?, type: CacheType?): Unit = withContext(Dispatchers.Default) {
+        try {
+            val cacheDir = getCacheDir()
+
+            if (!fileSystem.exists(cacheDir)) {
+                return@withContext // Nothing to clear
+            }
+
+            if (key != null && type != null) {
+                // Clear specific key-type combination
+                val filePath = getCacheFilePath(key, type)
+                if (fileSystem.exists(filePath)) {
+                    fileSystem.delete(filePath)
+                }
+            } else if (key != null) {
+                // Clear all types for specific key
+                val pattern = "${key}."
+                fileSystem.list(cacheDir).forEach { path ->
+                    if (path.name.startsWith(pattern) && path.name.endsWith(".json")) {
+                        fileSystem.delete(path)
+                    }
+                }
+            } else {
+                // Clear entire cache directory
+                fileSystem.list(cacheDir).forEach { path ->
+                    fileSystem.delete(path)
+                }
+            }
+        } catch (e: Exception) {
+            // Silently fail - cache clearing is not critical
+        }
+    }
 }

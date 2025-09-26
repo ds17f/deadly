@@ -7,7 +7,6 @@ import com.russhwolf.settings.SharedPreferencesSettings
 import app.cash.sqldelight.driver.android.AndroidSqliteDriver
 // Phase 3: Platform Tools for Android
 import com.grateful.deadly.services.archive.platform.NetworkClient
-import com.grateful.deadly.services.archive.platform.CacheManager
 import com.grateful.deadly.services.media.platform.PlatformMediaPlayer
 import org.koin.dsl.module
 
@@ -55,9 +54,6 @@ val androidModule = module {
         NetworkClient()
     }
 
-    single<CacheManager> {
-        CacheManager(get<Context>())
-    }
 
     single<PlatformMediaPlayer> {
         PlatformMediaPlayer(get<Context>())

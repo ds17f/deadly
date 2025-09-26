@@ -117,6 +117,14 @@ val commonModule = module {
     }
 
     // Phase 3: Universal Services (Platform-agnostic business logic)
+    single<CacheManager> {
+        Logger.d("CommonModule", "Creating CacheManager using Okio FileSystem")
+        CacheManager(
+            fileSystem = get(),
+            getAppFilesDir = get()
+        )
+    }
+
     single<ArchiveService> {
         Logger.d("CommonModule", "Creating ArchiveService")
         ArchiveService(
