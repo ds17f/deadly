@@ -68,7 +68,7 @@ object NavigationBarConfig {
         )
         
         is AppScreen.ShowDetail -> BarConfiguration(
-            topBar = TopBarConfig(title = "Show Detail", showBackButton = true),
+            topBar = null, // No TopBar for ShowDetail - uses its own header overlay
             bottomBar = BottomBarConfig(visible = true)
         )
         

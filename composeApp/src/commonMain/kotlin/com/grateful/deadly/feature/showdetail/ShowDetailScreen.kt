@@ -10,8 +10,10 @@ import androidx.compose.ui.unit.dp
 import com.grateful.deadly.core.logging.Logger
 import com.grateful.deadly.feature.showdetail.components.ShowDetailAlbumArt
 import com.grateful.deadly.feature.showdetail.components.ShowDetailShowInfo
+import com.grateful.deadly.feature.showdetail.components.ShowDetailInteractiveRating
 import com.grateful.deadly.feature.showdetail.components.ShowDetailActionRow
 import com.grateful.deadly.feature.showdetail.components.ShowDetailTrackList
+import com.grateful.deadly.feature.showdetail.components.ShowDetailHeader
 
 /**
  * ShowDetailScreen - V2-level rich UI implementation
@@ -47,17 +49,12 @@ fun ShowDetailScreen(
     Box(modifier = modifier.fillMaxSize()) {
 
         // Back arrow overlay at the top (V2 pattern)
-        FloatingActionButton(
-            onClick = onNavigateBack,
+        ShowDetailHeader(
+            onNavigateBack = onNavigateBack,
             modifier = Modifier
                 .align(Alignment.TopStart)
                 .padding(16.dp)
-                .size(48.dp),
-            containerColor = MaterialTheme.colorScheme.surfaceContainer,
-            contentColor = MaterialTheme.colorScheme.onSurface
-        ) {
-            Text("←", style = MaterialTheme.typography.headlineSmall)
-        }
+        )
 
         // Main content - V2's Spotify-style LazyColumn
         LazyColumn(
@@ -127,6 +124,18 @@ fun ShowDetailScreen(
                             )
                         }
 
+                        // Interactive rating display (V2 pattern - between ShowInfo and ActionRow)
+                        item {
+                            ShowDetailInteractiveRating(
+                                showData = showData,
+                                onShowReviews = {
+                                    // TODO Phase 5: Show reviews modal
+                                    Logger.d("ShowDetailScreen", "Show reviews")
+                                },
+                                modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)
+                            )
+                        }
+
                         // Action buttons row (V2 pattern)
                         item {
                             ShowDetailActionRow(
@@ -142,6 +151,10 @@ fun ShowDetailScreen(
                                 onShowSetlist = {
                                     // TODO Phase 5: Show setlist modal
                                     Logger.d("ShowDetailScreen", "Show setlist")
+                                },
+                                onShowCollections = {
+                                    // TODO Phase 5: Show collections modal
+                                    Logger.d("ShowDetailScreen", "Show collections")
                                 },
                                 onShowMenu = {
                                     // TODO Phase 5: Show menu modal

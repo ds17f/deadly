@@ -43,6 +43,12 @@ actual fun AppIcon.Render(size: Dp, tint: Color?) {
         AppIcon.ArrowLeft -> "\uE314"      // keyboard_arrow_left
         AppIcon.ArrowRight -> "\uE315"     // keyboard_arrow_right
         AppIcon.Star -> "\uE838"           // star
+        AppIcon.StarHalf -> "\uE839"       // star_half
+        AppIcon.StarBorder -> "\uE83A"     // star_border
+        AppIcon.ChevronRight -> "\uE5CC"   // chevron_right
+        AppIcon.LibraryAdd -> "\uE02E"     // library_add
+        AppIcon.LibraryAddCheck -> "\uE02F" // library_add_check
+        AppIcon.PauseCircleFilled -> "\uE035" // pause_circle_filled
     }
 
     // Create FontFamily using the new Compose Multiplatform resource system

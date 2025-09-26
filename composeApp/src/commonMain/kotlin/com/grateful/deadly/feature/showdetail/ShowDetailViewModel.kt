@@ -124,9 +124,10 @@ class ShowDetailViewModel(
 
     /**
      * Navigate to previous show chronologically.
+     * Loads new show data in place without affecting navigation back stack.
      */
     fun navigateToPreviousShow() {
-        Logger.d(TAG, "Navigating to previous show")
+        Logger.d(TAG, "Browsing to previous show")
 
         viewModelScope.launch {
             try {
@@ -134,27 +135,26 @@ class ShowDetailViewModel(
                 val previousShow = adjacentShows.previousShow
 
                 if (previousShow != null) {
-                    Logger.d(TAG, "Navigating to previous show: ${previousShow.displayTitle}")
+                    Logger.d(TAG, "Loading previous show: ${previousShow.displayTitle}")
 
-                    // Emit navigation event
-                    _navigation.emit(NavigationEvent(
-                        AppScreen.ShowDetail(previousShow.id, previousShow.bestRecordingId)
-                    ))
+                    // Load new show data in place (doesn't add to back stack)
+                    loadShow(previousShow.id, previousShow.bestRecordingId)
                 } else {
                     Logger.d(TAG, "No previous show available")
                 }
 
             } catch (e: Exception) {
-                Logger.e(TAG, "Error navigating to previous show", e)
+                Logger.e(TAG, "Error browsing to previous show", e)
             }
         }
     }
 
     /**
      * Navigate to next show chronologically.
+     * Loads new show data in place without affecting navigation back stack.
      */
     fun navigateToNextShow() {
-        Logger.d(TAG, "Navigating to next show")
+        Logger.d(TAG, "Browsing to next show")
 
         viewModelScope.launch {
             try {
@@ -162,18 +162,16 @@ class ShowDetailViewModel(
                 val nextShow = adjacentShows.nextShow
 
                 if (nextShow != null) {
-                    Logger.d(TAG, "Navigating to next show: ${nextShow.displayTitle}")
+                    Logger.d(TAG, "Loading next show: ${nextShow.displayTitle}")
 
-                    // Emit navigation event
-                    _navigation.emit(NavigationEvent(
-                        AppScreen.ShowDetail(nextShow.id, nextShow.bestRecordingId)
-                    ))
+                    // Load new show data in place (doesn't add to back stack)
+                    loadShow(nextShow.id, nextShow.bestRecordingId)
                 } else {
                     Logger.d(TAG, "No next show available")
                 }
 
             } catch (e: Exception) {
-                Logger.e(TAG, "Error navigating to next show", e)
+                Logger.e(TAG, "Error browsing to next show", e)
             }
         }
     }

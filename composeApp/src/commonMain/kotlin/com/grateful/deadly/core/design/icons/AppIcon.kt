@@ -35,6 +35,12 @@ enum class AppIcon {
     ArrowLeft,
     ArrowRight,
     Star,
+    StarHalf,
+    StarBorder,
+    ChevronRight,
+    LibraryAdd,
+    LibraryAddCheck,
+    PauseCircleFilled,
 
     // Add more icons as needed for the search feature and beyond
 }

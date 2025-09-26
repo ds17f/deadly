@@ -19,7 +19,7 @@ import com.grateful.deadly.core.design.icons.Render
  * - Left: Show date, venue, location
  * - Right: Previous/Next navigation arrows
  * - Proper typography and spacing
- * - Navigation arrows disabled when no adjacent shows
+ * - Navigation arrows for browsing through shows (doesn't affect back stack)
  */
 @Composable
 fun ShowDetailShowInfo(
@@ -31,7 +31,7 @@ fun ShowDetailShowInfo(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 24.dp, vertical = 16.dp),
+            .padding(horizontal = 24.dp),
         verticalAlignment = Alignment.Top
     ) {
         // Left side: Show info
