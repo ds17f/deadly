@@ -32,6 +32,14 @@ class ShowDetailServiceImpl(
 
     companion object {
         private const val TAG = "ShowDetailService"
+
+        // V2's Default format priority for smart selection with fallback
+        // Note: FLAC excluded due to ExoPlayer compatibility issues
+        private val DEFAULT_FORMAT_PRIORITY = listOf(
+            "VBR MP3",      // Best balance for streaming
+            "MP3",          // Universal fallback
+            "Ogg Vorbis"    // Good quality, efficient
+        )
     }
 
     // Service scope for background operations
@@ -247,9 +255,23 @@ class ShowDetailServiceImpl(
                 val tracksResult = archiveService.getRecordingTracks(recordingId)
 
                 tracksResult.fold(
-                    onSuccess = { tracks ->
-                        Logger.d(TAG, "Loaded ${tracks.size} tracks from Archive.org")
-                        _currentTracks.value = tracks
+                    onSuccess = { allTracks ->
+                        Logger.d(TAG, "Loaded ${allTracks.size} tracks from Archive.org")
+
+                        // V2's Smart format selection with fallback
+                        val selectedFormat = selectBestAvailableFormat(allTracks)
+
+                        if (selectedFormat == null) {
+                            Logger.w(TAG, "No compatible format found in loaded tracks")
+                            _error.value = "No compatible audio format found"
+                            return@fold
+                        }
+
+                        // Filter to selected format only (V2 pattern)
+                        val filteredTracks = filterTracksToFormat(allTracks, selectedFormat)
+                        Logger.d(TAG, "Using ${filteredTracks.size} tracks in format: $selectedFormat")
+
+                        _currentTracks.value = filteredTracks
                     },
                     onFailure = { error ->
                         Logger.e(TAG, "Failed to load tracks from Archive.org: ${error.message}", error)
@@ -264,5 +286,46 @@ class ShowDetailServiceImpl(
                 _isTracksLoading.value = false
             }
         }
+    }
+
+    /**
+     * V2's Smart format selection with fallback logic
+     *
+     * Tries formats in priority order until tracks are found.
+     */
+    private fun selectBestAvailableFormat(
+        allTracks: List<Track>,
+        formatPriorities: List<String> = DEFAULT_FORMAT_PRIORITY
+    ): String? {
+        Logger.d(TAG, "Selecting best format from ${allTracks.size} tracks")
+        Logger.d(TAG, "Available formats: ${allTracks.map { it.format }.distinct()}")
+
+        // Try each format in priority order
+        for (preferredFormat in formatPriorities) {
+            val tracksInFormat = allTracks.filter {
+                it.format.equals(preferredFormat, ignoreCase = true)
+            }
+
+            if (tracksInFormat.isNotEmpty()) {
+                Logger.d(TAG, "Selected format '$preferredFormat' (${tracksInFormat.size} tracks)")
+                return preferredFormat
+            }
+
+            Logger.d(TAG, "Format '$preferredFormat' not available, trying next...")
+        }
+
+        // If no format from priority list found, return null
+        Logger.w(TAG, "No tracks found in any preferred format")
+        return null
+    }
+
+    /**
+     * V2's Filter tracks to selected format only
+     * Used after format selection to get tracks for UI display
+     */
+    private fun filterTracksToFormat(tracks: List<Track>, selectedFormat: String): List<Track> {
+        return tracks.filter { track ->
+            track.format.equals(selectedFormat, ignoreCase = true)
+        }.sortedBy { it.trackNumber }
     }
 }

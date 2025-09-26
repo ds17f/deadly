@@ -46,7 +46,7 @@ val androidModule = module {
 
     single<() -> String> {
         val context: Context = get()
-        return@single { context.filesDir.absolutePath }
+        return@single { context.cacheDir.absolutePath }  // V2 pattern: use cache directory
     }
 
     // Phase 3: Platform Tools (Android implementations)
