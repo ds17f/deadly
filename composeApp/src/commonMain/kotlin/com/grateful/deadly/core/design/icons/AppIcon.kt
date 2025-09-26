@@ -25,6 +25,17 @@ enum class AppIcon {
     CheckCircle,
     LibraryMusic,
     Collections,
+
+    // ShowDetail UI icons
+    FileDownload,
+    FormatListBulleted,
+    MoreVertical,
+    PlayCircleFilled,
+    PlayArrow,
+    ArrowLeft,
+    ArrowRight,
+    Star,
+
     // Add more icons as needed for the search feature and beyond
 }
 

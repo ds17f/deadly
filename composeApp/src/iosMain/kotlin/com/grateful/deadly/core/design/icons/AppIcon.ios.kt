@@ -33,6 +33,16 @@ actual fun AppIcon.Render(size: Dp, tint: Color?) {
         AppIcon.CheckCircle -> "\uE86C"    // check_circle
         AppIcon.LibraryMusic -> "\uE030"   // library_music
         AppIcon.Collections -> "\uE0E9"    // collections
+
+        // ShowDetail UI icons
+        AppIcon.FileDownload -> "\uE2C4"   // file_download
+        AppIcon.FormatListBulleted -> "\uE241" // format_list_bulleted
+        AppIcon.MoreVertical -> "\uE5D4"   // more_vert
+        AppIcon.PlayCircleFilled -> "\uE037" // play_circle_filled
+        AppIcon.PlayArrow -> "\uE037"      // play_arrow
+        AppIcon.ArrowLeft -> "\uE314"      // keyboard_arrow_left
+        AppIcon.ArrowRight -> "\uE315"     // keyboard_arrow_right
+        AppIcon.Star -> "\uE838"           // star
     }
 
     // Create FontFamily using the new Compose Multiplatform resource system

@@ -8,17 +8,23 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.grateful.deadly.core.logging.Logger
+import com.grateful.deadly.feature.showdetail.components.ShowDetailAlbumArt
+import com.grateful.deadly.feature.showdetail.components.ShowDetailShowInfo
+import com.grateful.deadly.feature.showdetail.components.ShowDetailActionRow
+import com.grateful.deadly.feature.showdetail.components.ShowDetailTrackList
 
 /**
- * ShowDetail Screen - Main screen for showing Grateful Dead show details and tracks
+ * ShowDetailScreen - V2-level rich UI implementation
  *
- * Following V2's playlist screen architecture with LazyColumn layout,
- * floating back button, and progressive loading pattern.
- *
- * Supports dual route navigation:
- * - showdetail/{showId} - Load show with best recording
- * - showdetail/{showId}/{recordingId} - Load specific recording
+ * Matches V2's PlaylistScreen architecture with:
+ * - Album art at top
+ * - Rich show info with navigation
+ * - Action buttons row (library, download, setlist, menu, play)
+ * - Professional track list
+ * - Progressive loading (show immediate, tracks async)
+ * - Modal sheets for rich interactions
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ShowDetailScreen(
     showId: String?,
@@ -28,166 +34,170 @@ fun ShowDetailScreen(
     viewModel: ShowDetailViewModel,
     modifier: Modifier = Modifier
 ) {
-    Logger.d("ShowDetailScreen", "Loading show: $showId, recording: $recordingId")
+    Logger.d("ShowDetailScreen", "=== SHOW DETAIL SCREEN LOADED === showId: $showId, recordingId: $recordingId")
 
-    // Collect UI state from ViewModel
     val uiState by viewModel.uiState.collectAsState()
 
-    // Track loading with LaunchedEffect for parameter changes (V2 pattern)
+    // Load show data when screen opens
     LaunchedEffect(showId, recordingId) {
         Logger.d("ShowDetailScreen", "Parameters changed - showId: $showId, recordingId: $recordingId")
         viewModel.loadShow(showId, recordingId)
     }
 
     Box(modifier = modifier.fillMaxSize()) {
-        // Main content - LazyColumn matching V2's playlist layout
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            item {
-                // Show header with actual data
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
-                ) {
-                    Column(
-                        modifier = Modifier.padding(16.dp)
-                    ) {
-                        if (uiState.isLoading) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(12.dp)
-                            ) {
-                                CircularProgressIndicator(
-                                    modifier = Modifier.size(20.dp)
-                                )
-                                Text(
-                                    text = "Loading show...",
-                                    style = MaterialTheme.typography.bodyMedium
-                                )
-                            }
-                        } else if (uiState.error != null) {
-                            Text(
-                                text = "Error: ${uiState.error}",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.error
-                            )
-                        } else {
-                            uiState.showData?.let { showData ->
-                                Text(
-                                    text = showData.displayTitle,
-                                    style = MaterialTheme.typography.headlineMedium
-                                )
-                                Text(
-                                    text = "${showData.location.city}, ${showData.location.state}",
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
-                                    modifier = Modifier.padding(top = 4.dp)
-                                )
-                                if (showData.averageRating != null) {
-                                    Text(
-                                        text = "★ ${showData.averageRating} (${showData.totalReviews} reviews)",
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        color = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.padding(top = 4.dp)
-                                    )
-                                }
-                                uiState.currentRecordingId?.let { recordingId ->
-                                    Text(
-                                        text = "Recording: $recordingId",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-                                        modifier = Modifier.padding(top = 8.dp)
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-            }
 
-            item {
-                // Track list section
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-                ) {
-                    Column(
-                        modifier = Modifier.padding(16.dp)
-                    ) {
-                        Text(
-                            text = "Tracks",
-                            style = MaterialTheme.typography.headlineSmall,
-                            modifier = Modifier.padding(bottom = 12.dp)
-                        )
-
-                        if (uiState.isTracksLoading) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(12.dp)
-                            ) {
-                                CircularProgressIndicator(
-                                    modifier = Modifier.size(20.dp)
-                                )
-                                Text(
-                                    text = "Loading tracks...",
-                                    style = MaterialTheme.typography.bodyMedium
-                                )
-                            }
-                        } else if (uiState.tracks.isNotEmpty()) {
-                            uiState.tracks.forEach { track ->
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(vertical = 4.dp),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Column(
-                                        modifier = Modifier.weight(1f)
-                                    ) {
-                                        Text(
-                                            text = "${track.trackNumber ?: "#"}. ${track.title ?: track.name}",
-                                            style = MaterialTheme.typography.bodyMedium
-                                        )
-                                        Text(
-                                            text = "${track.duration} • ${track.format}",
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                                        )
-                                    }
-                                    Button(
-                                        onClick = { onNavigateToPlayer() },
-                                        modifier = Modifier.padding(start = 8.dp)
-                                    ) {
-                                        Text("Play")
-                                    }
-                                }
-                            }
-                        } else {
-                            Text(
-                                text = "No tracks available",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                            )
-                        }
-                    }
-                }
-            }
-        }
-
-        // Floating back button (V2 pattern)
+        // Back arrow overlay at the top (V2 pattern)
         FloatingActionButton(
             onClick = onNavigateBack,
             modifier = Modifier
                 .align(Alignment.TopStart)
-                .padding(16.dp),
-            containerColor = MaterialTheme.colorScheme.primaryContainer,
-            contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                .padding(16.dp)
+                .size(48.dp),
+            containerColor = MaterialTheme.colorScheme.surfaceContainer,
+            contentColor = MaterialTheme.colorScheme.onSurface
         ) {
-            Text("←", style = MaterialTheme.typography.headlineMedium)
+            Text("←", style = MaterialTheme.typography.headlineSmall)
+        }
+
+        // Main content - V2's Spotify-style LazyColumn
+        LazyColumn(
+            modifier = Modifier.fillMaxSize()
+        ) {
+            when {
+                uiState.isLoading -> {
+                    item {
+                        Box(
+                            modifier = Modifier.fillParentMaxSize(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(16.dp)
+                            ) {
+                                CircularProgressIndicator()
+                                Text(
+                                    text = "Loading show...",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
+                }
+
+                uiState.error != null -> {
+                    item {
+                        Box(
+                            modifier = Modifier.fillParentMaxSize(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(16.dp)
+                            ) {
+                                Text(
+                                    text = "Error: ${uiState.error}",
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    color = MaterialTheme.colorScheme.error
+                                )
+                                Button(onClick = {
+                                    viewModel.clearError()
+                                    viewModel.loadShow(showId, recordingId)
+                                }) {
+                                    Text("Retry")
+                                }
+                            }
+                        }
+                    }
+                }
+
+                else -> {
+                    // Album cover art - fixed size at top (V2 pattern)
+                    item {
+                        ShowDetailAlbumArt()
+                    }
+
+                    // Show info section with navigation buttons (V2 pattern)
+                    uiState.showData?.let { showData ->
+                        item {
+                            ShowDetailShowInfo(
+                                showData = showData,
+                                onPreviousShow = viewModel::navigateToPreviousShow,
+                                onNextShow = viewModel::navigateToNextShow
+                            )
+                        }
+
+                        // Action buttons row (V2 pattern)
+                        item {
+                            ShowDetailActionRow(
+                                showData = showData,
+                                onLibraryAction = {
+                                    // TODO Phase 5: Implement library actions
+                                    Logger.d("ShowDetailScreen", "Library action")
+                                },
+                                onDownload = {
+                                    // TODO Phase 5: Implement download
+                                    Logger.d("ShowDetailScreen", "Download show")
+                                },
+                                onShowSetlist = {
+                                    // TODO Phase 5: Show setlist modal
+                                    Logger.d("ShowDetailScreen", "Show setlist")
+                                },
+                                onShowMenu = {
+                                    // TODO Phase 5: Show menu modal
+                                    Logger.d("ShowDetailScreen", "Show menu")
+                                },
+                                onTogglePlayback = {
+                                    // TODO Phase 5: Toggle playback
+                                    Logger.d("ShowDetailScreen", "Toggle playback")
+                                }
+                            )
+                        }
+                    }
+
+                    // Track list with progressive loading (V2 pattern)
+                    if (uiState.isTracksLoading) {
+                        item {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(24.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Column(
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    CircularProgressIndicator()
+                                    Text(
+                                        text = "Loading tracks...",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                        }
+                    } else {
+                        ShowDetailTrackList(
+                            tracks = uiState.tracks,
+                            onPlayClick = { track ->
+                                Logger.d("ShowDetailScreen", "Play track: ${track.title ?: track.name}")
+                                viewModel.playTrack(track)
+                            },
+                            onDownloadClick = { track ->
+                                // TODO Phase 5: Implement individual track download
+                                Logger.d("ShowDetailScreen", "Download track: ${track.title ?: track.name}")
+                            }
+                        )
+                    }
+                }
+            }
         }
     }
+
+    // TODO Phase 5: Add modal sheets
+    // - Reviews modal
+    // - Menu modal
+    // - Recording selection modal
+    // - Setlist modal
 }
