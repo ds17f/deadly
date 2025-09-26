@@ -12,6 +12,7 @@ import androidx.compose.ui.unit.dp
 import com.grateful.deadly.domain.models.Show
 import com.grateful.deadly.core.design.icons.AppIcon
 import com.grateful.deadly.core.design.icons.Render
+import com.grateful.deadly.core.ui.iconAlignment
 
 /**
  * ShowDetailInteractiveRating - Interactive rating display card
@@ -54,7 +55,8 @@ fun ShowDetailInteractiveRating(
                 CompactStarRating(
                     rating = if (showData.averageRating != null && showData.averageRating!! > 0) {
                         showData.averageRating!!.toFloat()
-                    } else null
+                    } else null,
+                    modifier = Modifier.iconAlignment()
                 )
 
                 // Numerical rating

@@ -15,6 +15,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.grateful.deadly.core.design.icons.AppIcon
 import com.grateful.deadly.core.design.icons.Render
+import com.grateful.deadly.core.ui.checkIconSpacing
 import com.grateful.deadly.domain.search.SearchResultShow
 import com.grateful.deadly.domain.search.SearchMatchType
 
@@ -70,7 +71,9 @@ fun SearchResultCard(
 
                     // Download indicator (if available)
                     if (searchResult.hasDownloads) {
-                        AppIcon.CheckCircle.Render(size = 12.dp)
+                        Box(modifier = Modifier.checkIconSpacing()) {
+                            AppIcon.CheckCircle.Render(size = 12.dp)
+                        }
                         Spacer(modifier = Modifier.width(4.dp))
                     }
 
