@@ -4,203 +4,235 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.grateful.deadly.core.logging.Logger
 import com.grateful.deadly.domain.models.Show
+import com.grateful.deadly.domain.models.Recording
+import com.grateful.deadly.services.archive.Track
 import com.grateful.deadly.navigation.AppScreen
 import com.grateful.deadly.navigation.NavigationEvent
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
 /**
- * ShowDetailViewModel - State coordination for ShowDetail screen
+ * ShowDetailViewModel - Real implementation with ShowDetailService integration
  *
  * Following V2's PlaylistViewModel architecture pattern:
- * 1. Reactive state management with StateFlow
+ * 1. Reactive state management combining service StateFlows
  * 2. Progressive loading (show immediate, tracks async)
  * 3. Navigation events via SharedFlow
  * 4. Clean separation between UI state and business logic
  *
- * This is a placeholder implementation for Phase 1 navigation testing.
- * Full implementation will come in Phase 5 with universal services.
+ * Uses ShowDetailService for V2's database-first loading patterns.
  */
-class ShowDetailViewModel : ViewModel() {
+class ShowDetailViewModel(
+    private val showDetailService: ShowDetailService
+) : ViewModel() {
 
     companion object {
         private const val TAG = "ShowDetailViewModel"
     }
 
-    // UI State
-    private val _uiState = MutableStateFlow(ShowDetailUiState())
-    val uiState: StateFlow<ShowDetailUiState> = _uiState.asStateFlow()
+    // UI State - combines service state flows into single reactive UI state
+    val uiState: StateFlow<ShowDetailUiState> = combine(
+        showDetailService.currentShow,
+        showDetailService.currentRecording,
+        showDetailService.currentTracks,
+        showDetailService.isTracksLoading,
+        showDetailService.error
+    ) { show, recording, tracks, isTracksLoading, error ->
+        Logger.d(TAG, "UI state update: show=${show?.displayTitle}, recording=${recording?.identifier}, tracks=${tracks.size}, loading=$isTracksLoading, error=$error")
+
+        ShowDetailUiState(
+            showData = show,
+            currentRecordingId = recording?.identifier,
+            tracks = tracks,
+            isLoading = show == null && error == null, // Loading if no show and no error
+            isTracksLoading = isTracksLoading,
+            error = error
+        )
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = ShowDetailUiState(isLoading = true)
+    )
 
     // Navigation event flow for reactive navigation
     private val _navigation = MutableSharedFlow<NavigationEvent>()
     val navigation: SharedFlow<NavigationEvent> = _navigation
 
     /**
-     * Load show data for the given showId and optional recordingId
-     * Following V2's dual route pattern
+     * Load show data using ShowDetailService with V2's database-first approach.
+     * Database data loads immediately, Archive.org tracks load asynchronously.
      */
     fun loadShow(showId: String?, recordingId: String?) {
+        if (showId == null) {
+            Logger.w(TAG, "Cannot load show: showId is null")
+            return
+        }
+
         Logger.d(TAG, "Loading show: $showId, recording: $recordingId")
 
         viewModelScope.launch {
             try {
-                _uiState.value = _uiState.value.copy(
-                    isLoading = true,
-                    error = null
-                )
+                // Clear any previous error state
+                showDetailService.clearError()
 
-                // TODO Phase 3: Load from ShowDetailService
-                // For now, create placeholder data to test navigation
-                val placeholderShow = Show(
-                    id = showId ?: "unknown",
-                    date = "1977-05-08", // Cornell '77 as default
-                    year = 1977,
-                    band = "Grateful Dead",
-                    venue = com.grateful.deadly.domain.models.Venue(
-                        name = "Barton Hall",
-                        city = "Ithaca",
-                        state = "NY",
-                        country = "USA"
-                    ),
-                    location = com.grateful.deadly.domain.models.Location(
-                        displayText = "Ithaca, NY",
-                        city = "Ithaca",
-                        state = "NY"
-                    ),
-                    setlist = null,
-                    lineup = null,
-                    recordingIds = listOf(recordingId ?: "gd1977-05-08.sbd.example"),
-                    bestRecordingId = recordingId ?: "gd1977-05-08.sbd.example",
-                    recordingCount = 1,
-                    averageRating = 4.8f,
-                    totalReviews = 150,
-                    isInLibrary = false,
-                    libraryAddedAt = null
-                )
+                // Load show with V2's database-first pattern
+                showDetailService.loadShow(showId, recordingId)
 
-                _uiState.value = _uiState.value.copy(
-                    isLoading = false,
-                    showData = placeholderShow,
-                    currentRecordingId = recordingId ?: placeholderShow.bestRecordingId,
-                    isTrackListLoading = true // Start loading tracks async
-                )
-
-                // Simulate async track loading
-                loadTrackListAsync()
+                Logger.d(TAG, "Show loading initiated successfully")
 
             } catch (e: Exception) {
                 Logger.e(TAG, "Error loading show: $showId", e)
-                _uiState.value = _uiState.value.copy(
-                    isLoading = false,
-                    error = e.message ?: "Failed to load show"
-                )
             }
         }
     }
 
-    private fun loadTrackListAsync() {
+    /**
+     * Select a different recording for the current show.
+     * Triggers track reload from Archive.org.
+     */
+    fun selectRecording(recordingId: String) {
+        Logger.d(TAG, "Selecting recording: $recordingId")
+
         viewModelScope.launch {
             try {
-                // TODO Phase 3: Load from ArchiveService
-                // Simulate network delay
-                kotlinx.coroutines.delay(2000)
-
-                val placeholderTracks = listOf(
-                    TrackInfo(
-                        number = 1,
-                        title = "Sugar Magnolia",
-                        duration = "3:45",
-                        format = "VBR MP3"
-                    ),
-                    TrackInfo(
-                        number = 2,
-                        title = "Fire on the Mountain",
-                        duration = "12:30",
-                        format = "VBR MP3"
-                    ),
-                    TrackInfo(
-                        number = 3,
-                        title = "Scarlet Begonias",
-                        duration = "8:15",
-                        format = "VBR MP3"
-                    )
-                )
-
-                _uiState.value = _uiState.value.copy(
-                    isTrackListLoading = false,
-                    tracks = placeholderTracks
-                )
+                showDetailService.selectRecording(recordingId)
+                Logger.d(TAG, "Recording selection successful")
 
             } catch (e: Exception) {
-                Logger.e(TAG, "Error loading tracks", e)
-                _uiState.value = _uiState.value.copy(
-                    isTrackListLoading = false,
-                    error = e.message ?: "Failed to load tracks"
-                )
+                Logger.e(TAG, "Error selecting recording: $recordingId", e)
             }
         }
     }
 
     /**
-     * Navigate to player with track context
-     */
-    fun onNavigateToPlayer(trackNumber: Int) {
-        viewModelScope.launch {
-            Logger.d(TAG, "Navigating to player for track: $trackNumber")
-            _navigation.emit(NavigationEvent(AppScreen.Player))
-        }
-    }
-
-    /**
-     * Navigate back from show detail
-     */
-    fun onNavigateBack() {
-        viewModelScope.launch {
-            Logger.d(TAG, "Navigating back from show detail")
-            _navigation.emit(NavigationEvent(AppScreen.Search))
-        }
-    }
-
-    /**
-     * Refresh current show data
+     * Refresh current show data.
+     * Clears Archive.org cache and reloads tracks.
      */
     fun refreshShow() {
-        val currentShow = _uiState.value.showData
-        val currentRecording = _uiState.value.currentRecordingId
-        if (currentShow != null) {
-            loadShow(currentShow.id, currentRecording)
+        Logger.d(TAG, "Refreshing current show")
+
+        viewModelScope.launch {
+            try {
+                showDetailService.refreshCurrentShow()
+                Logger.d(TAG, "Show refresh successful")
+
+            } catch (e: Exception) {
+                Logger.e(TAG, "Error refreshing show", e)
+            }
+        }
+    }
+
+    /**
+     * Navigate to previous show chronologically.
+     */
+    fun navigateToPreviousShow() {
+        Logger.d(TAG, "Navigating to previous show")
+
+        viewModelScope.launch {
+            try {
+                val adjacentShows = showDetailService.getAdjacentShows()
+                val previousShow = adjacentShows.previousShow
+
+                if (previousShow != null) {
+                    Logger.d(TAG, "Navigating to previous show: ${previousShow.displayTitle}")
+
+                    // Emit navigation event
+                    _navigation.emit(NavigationEvent(
+                        AppScreen.ShowDetail(previousShow.id, previousShow.bestRecordingId)
+                    ))
+                } else {
+                    Logger.d(TAG, "No previous show available")
+                }
+
+            } catch (e: Exception) {
+                Logger.e(TAG, "Error navigating to previous show", e)
+            }
+        }
+    }
+
+    /**
+     * Navigate to next show chronologically.
+     */
+    fun navigateToNextShow() {
+        Logger.d(TAG, "Navigating to next show")
+
+        viewModelScope.launch {
+            try {
+                val adjacentShows = showDetailService.getAdjacentShows()
+                val nextShow = adjacentShows.nextShow
+
+                if (nextShow != null) {
+                    Logger.d(TAG, "Navigating to next show: ${nextShow.displayTitle}")
+
+                    // Emit navigation event
+                    _navigation.emit(NavigationEvent(
+                        AppScreen.ShowDetail(nextShow.id, nextShow.bestRecordingId)
+                    ))
+                } else {
+                    Logger.d(TAG, "No next show available")
+                }
+
+            } catch (e: Exception) {
+                Logger.e(TAG, "Error navigating to next show", e)
+            }
+        }
+    }
+
+    /**
+     * Clear error state.
+     */
+    fun clearError() {
+        Logger.d(TAG, "Clearing error state")
+        showDetailService.clearError()
+    }
+
+    /**
+     * Play a track (placeholder for Phase 5 media integration).
+     */
+    fun playTrack(track: Track) {
+        Logger.d(TAG, "Playing track: ${track.title ?: track.name}")
+
+        viewModelScope.launch {
+            // TODO Phase 5: Integrate with MediaService
+            Logger.d(TAG, "Track playback not yet implemented - needs MediaService integration")
         }
     }
 }
 
 /**
- * UI state for ShowDetail screen
- * Based on V2's PlaylistUiState with progressive loading support
+ * UI state for ShowDetail screen combining all service state.
+ * Follows V2's pattern of cohesive UI state objects.
  */
 data class ShowDetailUiState(
-    val isLoading: Boolean = false,
-    val isTrackListLoading: Boolean = false,
-    val error: String? = null,
     val showData: Show? = null,
     val currentRecordingId: String? = null,
-    val tracks: List<TrackInfo> = emptyList(),
-    val isPlaying: Boolean = false,
-    val showReviewSheet: Boolean = false,
-    val showMenuSheet: Boolean = false,
-    val showSetlistSheet: Boolean = false
-)
+    val tracks: List<Track> = emptyList(),
+    val isLoading: Boolean = false,
+    val isTracksLoading: Boolean = false,
+    val error: String? = null
+) {
+    /**
+     * Whether we have show data loaded.
+     */
+    val hasShow: Boolean get() = showData != null
 
-/**
- * Track information for UI display
- * Simplified model for Phase 1, will expand in Phase 3
- */
-data class TrackInfo(
-    val number: Int,
-    val title: String,
-    val duration: String,
-    val format: String
-)
+    /**
+     * Whether we have tracks loaded.
+     */
+    val hasTracks: Boolean get() = tracks.isNotEmpty()
+
+    /**
+     * Whether we're in any loading state.
+     */
+    val isAnyLoading: Boolean get() = isLoading || isTracksLoading
+
+    /**
+     * Whether we have an error to display.
+     */
+    val hasError: Boolean get() = error != null
+
+    /**
+     * Display title for the current show.
+     */
+    val displayTitle: String get() = showData?.displayTitle ?: "Loading..."
+}

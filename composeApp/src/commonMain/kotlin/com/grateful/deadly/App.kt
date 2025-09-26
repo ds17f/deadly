@@ -159,7 +159,11 @@ fun App() {
             // Show detail routes with parameters using cross-platform argument handling
             composable("showDetail/{showId}") { args ->
                 val showId = args["showId"] ?: ""
-                val showDetailViewModel = remember { com.grateful.deadly.feature.showdetail.ShowDetailViewModel() }
+                val showDetailViewModel = remember {
+                    com.grateful.deadly.feature.showdetail.ShowDetailViewModel(
+                        showDetailService = DIHelper.get()
+                    )
+                }
 
                 // Collect navigation events from ShowDetailViewModel
                 LaunchedEffect(showDetailViewModel) {
@@ -173,9 +177,8 @@ fun App() {
                     recordingId = null,
                     onNavigateBack = { navigationController.navigateUp() },
                     onNavigateToPlayer = {
-                        coroutineScope.launch {
-                            showDetailViewModel.onNavigateToPlayer(1)
-                        }
+                        // TODO Phase 5: Implement player navigation with MediaService integration
+                        Logger.d("App", "Player navigation not yet implemented")
                     },
                     viewModel = showDetailViewModel
                 )
@@ -184,7 +187,11 @@ fun App() {
             composable("showDetail/{showId}/{recordingId}") { args ->
                 val showId = args["showId"] ?: ""
                 val recordingId = args["recordingId"] ?: ""
-                val showDetailViewModel = remember { com.grateful.deadly.feature.showdetail.ShowDetailViewModel() }
+                val showDetailViewModel = remember {
+                    com.grateful.deadly.feature.showdetail.ShowDetailViewModel(
+                        showDetailService = DIHelper.get()
+                    )
+                }
 
                 // Collect navigation events from ShowDetailViewModel
                 LaunchedEffect(showDetailViewModel) {
@@ -198,9 +205,8 @@ fun App() {
                     recordingId = recordingId,
                     onNavigateBack = { navigationController.navigateUp() },
                     onNavigateToPlayer = {
-                        coroutineScope.launch {
-                            showDetailViewModel.onNavigateToPlayer(1)
-                        }
+                        // TODO Phase 5: Implement player navigation with MediaService integration
+                        Logger.d("App", "Player navigation not yet implemented")
                     },
                     viewModel = showDetailViewModel
                 )

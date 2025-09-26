@@ -123,7 +123,7 @@ fun ShowDetailScreen(
                             modifier = Modifier.padding(bottom = 12.dp)
                         )
 
-                        if (uiState.isTrackListLoading) {
+                        if (uiState.isTracksLoading) {
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -149,7 +149,7 @@ fun ShowDetailScreen(
                                         modifier = Modifier.weight(1f)
                                     ) {
                                         Text(
-                                            text = "${track.number}. ${track.title}",
+                                            text = "${track.trackNumber ?: "#"}. ${track.title ?: track.name}",
                                             style = MaterialTheme.typography.bodyMedium
                                         )
                                         Text(
