@@ -21,6 +21,8 @@ import com.grateful.deadly.services.archive.platform.CacheManager
 import com.grateful.deadly.services.media.platform.PlatformMediaPlayer
 import com.grateful.deadly.services.archive.ArchiveService
 import com.grateful.deadly.services.media.MediaService
+import com.grateful.deadly.feature.showdetail.ShowDetailService
+import com.grateful.deadly.feature.showdetail.ShowDetailServiceImpl
 
 import com.grateful.deadly.core.design.theme.ThemeManager
 import okio.FileSystem
@@ -137,6 +139,14 @@ val commonModule = module {
         Logger.d("CommonModule", "Creating MediaService")
         MediaService(
             platformMediaPlayer = get()
+        )
+    }
+
+    single<ShowDetailService> {
+        Logger.d("CommonModule", "Creating ShowDetailService")
+        ShowDetailServiceImpl(
+            showRepository = get(),
+            archiveService = get()
         )
     }
 
