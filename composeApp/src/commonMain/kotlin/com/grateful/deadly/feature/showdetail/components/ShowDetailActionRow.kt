@@ -1,6 +1,7 @@
 package com.grateful.deadly.feature.showdetail.components
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -147,7 +148,7 @@ fun ShowDetailActionRow(
             }
         }
 
-        // Right side: Play/Pause button (large) with loading state
+        // Right side: Play/Pause button (large) with loading state and circle background
         IconButton(
             onClick = onTogglePlayback,
             modifier = Modifier.size(56.dp)
@@ -158,6 +159,12 @@ fun ShowDetailActionRow(
                     contentAlignment = Alignment.Center,
                     modifier = Modifier.size(56.dp)
                 ) {
+                    // Circle background for loading state
+                    Surface(
+                        modifier = Modifier.size(56.dp),
+                        shape = CircleShape,
+                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
+                    ) {}
                     CircularProgressIndicator(
                         modifier = Modifier.size(24.dp),
                         color = MaterialTheme.colorScheme.primary,
@@ -168,16 +175,29 @@ fun ShowDetailActionRow(
                 // Show pause icon only if currently playing this exact show/recording
                 val showPauseIcon = isCurrentShowAndRecording && isPlaying
 
-                val iconToUse = if (showPauseIcon) {
-                    AppIcon.PauseCircleFilled
-                } else {
-                    AppIcon.PlayCircleFilled
-                }
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier.size(56.dp)
+                ) {
+                    // Circle background matching V2
+                    Surface(
+                        modifier = Modifier.size(56.dp),
+                        shape = CircleShape,
+                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
+                    ) {}
 
-                iconToUse.Render(
-                    size = 56.dp,
-                    tint = MaterialTheme.colorScheme.primary
-                )
+                    // Play/Pause icon
+                    val iconToUse = if (showPauseIcon) {
+                        AppIcon.PauseCircleFilled
+                    } else {
+                        AppIcon.PlayCircleFilled
+                    }
+
+                    iconToUse.Render(
+                        size = 32.dp, // Smaller icon inside the circle
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                }
             }
         }
     }

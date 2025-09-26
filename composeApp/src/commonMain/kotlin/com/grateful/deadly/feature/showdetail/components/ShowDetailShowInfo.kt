@@ -39,9 +39,9 @@ fun ShowDetailShowInfo(
             modifier = Modifier.weight(1f),
             horizontalAlignment = Alignment.Start
         ) {
-            // Show Date (main title)
+            // Show Date (main title) - matches V2 exactly
             Text(
-                text = showData.displayTitle,
+                text = showData.date,
                 style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurface
@@ -49,8 +49,8 @@ fun ShowDetailShowInfo(
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Venue and Location
-            val venueLine = "${showData.venue}, ${showData.location.city}, ${showData.location.state}"
+            // Venue and Location - matches V2 format exactly
+            val venueLine = "${showData.venue.name}, ${showData.location.displayText}"
 
             Text(
                 text = venueLine,
@@ -59,25 +59,6 @@ fun ShowDetailShowInfo(
                 maxLines = 3,
                 overflow = TextOverflow.Ellipsis
             )
-
-            // Show average rating if available
-            if (showData.averageRating != null) {
-                Spacer(modifier = Modifier.height(4.dp))
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    AppIcon.Star.Render(
-                        size = 16.dp,
-                        tint = MaterialTheme.colorScheme.primary
-                    )
-                    Text(
-                        text = "${showData.averageRating} (${showData.totalReviews} reviews)",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                }
-            }
         }
 
         // Right side: Navigation buttons
