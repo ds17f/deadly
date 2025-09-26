@@ -14,6 +14,7 @@ import platform.Foundation.NSDocumentDirectory
 import platform.Foundation.NSUserDomainMask
 import platform.Foundation.NSSearchPathForDirectoriesInDomains
 import platform.Foundation.NSApplicationSupportDirectory
+import platform.Foundation.NSCachesDirectory
 import platform.Foundation.NSFileManager
 
 /**
@@ -44,12 +45,13 @@ val iosModule = module {
 
     single<() -> String> {
         return@single {
-            val documentDirectories = NSSearchPathForDirectoriesInDomains(
-                NSDocumentDirectory,
+            // V2 pattern: use NSCachesDirectory for cache files
+            val cacheDirectories = NSSearchPathForDirectoriesInDomains(
+                NSCachesDirectory,
                 NSUserDomainMask,
                 true
             )
-            documentDirectories.firstOrNull() as? String ?: ""
+            cacheDirectories.firstOrNull() as? String ?: ""
         }
     }
 
