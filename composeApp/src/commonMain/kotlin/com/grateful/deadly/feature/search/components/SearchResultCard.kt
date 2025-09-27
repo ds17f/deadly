@@ -15,9 +15,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.grateful.deadly.core.design.icons.AppIcon
 import com.grateful.deadly.core.design.icons.Render
-import com.grateful.deadly.core.ui.checkIconSpacing
 import com.grateful.deadly.domain.search.SearchResultShow
-import com.grateful.deadly.domain.search.SearchMatchType
 
 /**
  * Search result card component following LibraryV2 patterns
@@ -61,31 +59,14 @@ fun SearchResultCard(
                 modifier = Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(2.dp)
             ) {
-                // Status indicators row (following LibraryV2 pattern)
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    // Pin indicator
-                    SearchMatchPin(matchType = searchResult.matchType)
-
-                    // Download indicator (if available)
-                    if (searchResult.hasDownloads) {
-                        Box(modifier = Modifier.checkIconSpacing()) {
-                            AppIcon.CheckCircle.Render(size = 12.dp)
-                        }
-                        Spacer(modifier = Modifier.width(4.dp))
-                    }
-
-                    // Date and location line
-                    Text(
-                        text = "${searchResult.show.date} • ${searchResult.show.location.displayText}",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
+                // Date and location line
+                Text(
+                    text = "${searchResult.show.date} • ${searchResult.show.location.displayText}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
 
                 // Venue line
                 Text(
@@ -100,25 +81,3 @@ fun SearchResultCard(
     }
 }
 
-/**
- * Pin indicator for search match types
- */
-@Composable
-fun SearchMatchPin(matchType: SearchMatchType) {
-    val pinColor = when (matchType) {
-        SearchMatchType.TITLE -> MaterialTheme.colorScheme.primary
-        SearchMatchType.VENUE -> MaterialTheme.colorScheme.secondary
-        SearchMatchType.YEAR -> MaterialTheme.colorScheme.tertiary
-        SearchMatchType.SETLIST -> MaterialTheme.colorScheme.error
-        SearchMatchType.LOCATION -> MaterialTheme.colorScheme.secondary
-        SearchMatchType.GENERAL -> MaterialTheme.colorScheme.onSurfaceVariant
-    }
-
-    Box(
-        modifier = Modifier
-            .size(8.dp)
-            .clip(RoundedCornerShape(50))
-            .background(pinColor)
-    )
-    Spacer(modifier = Modifier.width(4.dp))
-}
