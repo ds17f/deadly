@@ -12,6 +12,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.sp
 import com.grateful.deadly.R
+import com.grateful.deadly.core.design.universalIconAlignment
 
 private val MaterialSymbols = FontFamily(
     Font(R.font.material_symbols_outlined)
@@ -58,6 +59,8 @@ actual fun AppIcon.Render(size: Dp, tint: Color?) {
         fontSize = size.value.sp,
         color = tint ?: MaterialTheme.colorScheme.primary,
         textAlign = TextAlign.Center,
-        modifier = Modifier.size(size)
+        modifier = Modifier
+            .size(size)
+            .universalIconAlignment()
     )
 }

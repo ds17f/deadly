@@ -10,7 +10,6 @@ import androidx.compose.ui.unit.dp
 import com.grateful.deadly.domain.models.Show
 import com.grateful.deadly.core.design.icons.AppIcon
 import com.grateful.deadly.core.design.icons.Render
-import com.grateful.deadly.core.ui.playButtonAlignment
 
 /**
  * ShowDetailActionRow - Action buttons row matching V2's PlaylistActionRow exactly
@@ -154,7 +153,6 @@ fun ShowDetailActionRow(
             onClick = onTogglePlayback,
             modifier = Modifier
                 .size(56.dp)
-                .playButtonAlignment()
         ) {
             if (isLoading) {
                 // Show loading spinner when any track is loading

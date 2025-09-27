@@ -12,7 +12,9 @@ import androidx.compose.ui.unit.dp
 import com.grateful.deadly.domain.models.Show
 import com.grateful.deadly.core.design.icons.AppIcon
 import com.grateful.deadly.core.design.icons.Render
-import com.grateful.deadly.core.ui.iconAlignment
+import com.grateful.deadly.core.design.AppDimens
+import com.grateful.deadly.core.design.AppTypography
+import com.grateful.deadly.core.design.DensityDebugger
 
 /**
  * ShowDetailInteractiveRating - Interactive rating display card
@@ -28,7 +30,8 @@ import com.grateful.deadly.core.ui.iconAlignment
 fun ShowDetailInteractiveRating(
     showData: Show,
     onShowReviews: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    showDebug: Boolean = false
 ) {
     Card(
         modifier = modifier
@@ -37,26 +40,32 @@ fun ShowDetailInteractiveRating(
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
         ),
-        shape = RoundedCornerShape(8.dp)
+        shape = RoundedCornerShape(AppDimens.Card.Radius)
     ) {
+        // Add density debugging overlay if enabled
+        if (showDebug) {
+            DensityDebugger(
+                visible = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(12.dp),
+                .padding(AppDimens.Card.Padding),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
             // Left: Star rating and numerical score
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(AppDimens.S)
             ) {
                 // Star rating display
                 CompactStarRating(
                     rating = if (showData.averageRating != null && showData.averageRating!! > 0) {
                         showData.averageRating!!.toFloat()
-                    } else null,
-                    modifier = Modifier.iconAlignment()
+                    } else null
                 )
 
                 // Numerical rating
@@ -67,7 +76,7 @@ fun ShowDetailInteractiveRating(
                     } else {
                         "N/A"
                     },
-                    style = MaterialTheme.typography.titleMedium,
+                    style = AppTypography.Semantic.Rating,
                     fontWeight = FontWeight.SemiBold,
                     color = if (showData.averageRating != null && showData.averageRating!! > 0) {
                         MaterialTheme.colorScheme.onSurface
@@ -116,7 +125,7 @@ private fun CompactStarRating(
 
     Row(
         modifier = modifier,
-        horizontalArrangement = Arrangement.spacedBy(2.dp)
+        horizontalArrangement = Arrangement.spacedBy(AppDimens.XXS)
     ) {
         repeat(maxRating) { index ->
             val starRating = safeRating - index
@@ -128,7 +137,7 @@ private fun CompactStarRating(
             }
 
             iconToUse.Render(
-                size = 16.dp, // MEDIUM size matching V2
+                size = AppDimens.IconSize.Medium, // V2 uses 24dp for better baseline alignment
                 tint = if (starRating > 0f) {
                     MaterialTheme.colorScheme.primary
                 } else {
