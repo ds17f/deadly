@@ -3,6 +3,7 @@ package com.grateful.deadly.di
 import com.grateful.deadly.core.logging.Logger
 import com.grateful.deadly.domain.search.SearchService
 import com.grateful.deadly.feature.search.SearchViewModel
+import com.grateful.deadly.feature.player.PlayerViewModel
 import com.grateful.deadly.services.search.SearchServiceImpl
 import com.grateful.deadly.data.search.SearchRepository
 import com.grateful.deadly.data.search.SearchRepositoryImpl
@@ -177,5 +178,10 @@ val commonModule = module {
     factory {
         Logger.d("CommonModule", "Creating SearchViewModel instance")
         SearchViewModel(get())
+    }
+
+    factory {
+        Logger.d("CommonModule", "Creating PlayerViewModel instance")
+        PlayerViewModel(get())
     }
 }

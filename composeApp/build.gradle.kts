@@ -58,16 +58,21 @@ kotlin {
             dependencies {
                 implementation(compose.preview)
                 implementation(libs.androidx.activity.compose)
-                
+
                 // Android-specific Koin Compose helpers
                 implementation(libs.koin.androidx.compose)
-                
+
                 // Platform-specific KMM dependencies
                 implementation(libs.sqldelight.android.driver)
                 implementation(libs.ktor.client.okhttp)
-                
+
                 // Navigation - Android only
                 implementation(libs.androidx.navigation.compose)
+
+                // Media3/ExoPlayer for audio playback (following V2 proven architecture)
+                implementation("androidx.media3:media3-exoplayer:1.3.1")
+                implementation("androidx.media3:media3-session:1.3.1")
+                implementation("androidx.media3:media3-ui:1.3.1")
             }
         }
         

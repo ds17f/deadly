@@ -153,7 +153,13 @@ fun App() {
             }
             
             composable(AppScreen.Player) {
-                Text("Player Screen")
+                val playerViewModel: com.grateful.deadly.feature.player.PlayerViewModel = remember { DIHelper.get() }
+                val mediaService: com.grateful.deadly.services.media.MediaService = remember { DIHelper.get() }
+
+                com.grateful.deadly.feature.player.PlayerScreen(
+                    mediaService = mediaService,
+                    onNavigateBack = { navigationController.navigateUp() }
+                )
             }
             
             // Show detail routes with parameters using cross-platform argument handling
@@ -161,7 +167,8 @@ fun App() {
                 val showId = args["showId"] ?: ""
                 val showDetailViewModel = remember {
                     com.grateful.deadly.feature.showdetail.ShowDetailViewModel(
-                        showDetailService = DIHelper.get()
+                        showDetailService = DIHelper.get(),
+                        mediaService = DIHelper.get()
                     )
                 }
 
@@ -189,7 +196,8 @@ fun App() {
                 val recordingId = args["recordingId"] ?: ""
                 val showDetailViewModel = remember {
                     com.grateful.deadly.feature.showdetail.ShowDetailViewModel(
-                        showDetailService = DIHelper.get()
+                        showDetailService = DIHelper.get(),
+                        mediaService = DIHelper.get()
                     )
                 }
 

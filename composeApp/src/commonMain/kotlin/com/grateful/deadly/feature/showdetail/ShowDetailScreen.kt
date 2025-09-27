@@ -161,8 +161,7 @@ fun ShowDetailScreen(
                                     Logger.d("ShowDetailScreen", "Show menu")
                                 },
                                 onTogglePlayback = {
-                                    // TODO Phase 5: Toggle playback
-                                    Logger.d("ShowDetailScreen", "Toggle playback")
+                                    viewModel.togglePlayback()
                                 }
                             )
                         }

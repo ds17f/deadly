@@ -6,6 +6,7 @@ import com.grateful.deadly.core.logging.Logger
 import com.grateful.deadly.domain.models.Show
 import com.grateful.deadly.domain.models.Recording
 import com.grateful.deadly.services.archive.Track
+import com.grateful.deadly.services.media.MediaService
 import com.grateful.deadly.navigation.AppScreen
 import com.grateful.deadly.navigation.NavigationEvent
 import kotlinx.coroutines.flow.*
@@ -23,7 +24,8 @@ import kotlinx.coroutines.launch
  * Uses ShowDetailService for V2's database-first loading patterns.
  */
 class ShowDetailViewModel(
-    private val showDetailService: ShowDetailService
+    private val showDetailService: ShowDetailService,
+    private val mediaService: MediaService
 ) : ViewModel() {
 
     companion object {
@@ -185,14 +187,69 @@ class ShowDetailViewModel(
     }
 
     /**
-     * Play a track (placeholder for Phase 5 media integration).
+     * Play a track using MediaService.
      */
     fun playTrack(track: Track) {
         Logger.d(TAG, "Playing track: ${track.title ?: track.name}")
 
         viewModelScope.launch {
-            // TODO Phase 5: Integrate with MediaService
-            Logger.d(TAG, "Track playback not yet implemented - needs MediaService integration")
+            try {
+                // Use MediaService to play the track
+                val result = mediaService.playTrack(track, uiState.value.currentRecordingId ?: "")
+
+                if (result.isSuccess) {
+                    Logger.d(TAG, "Track playback started successfully")
+                    // Navigate to the player screen to show full player UI
+                    _navigation.emit(NavigationEvent(AppScreen.Player))
+                } else {
+                    Logger.e(TAG, "Failed to start track playback: ${result.exceptionOrNull()?.message}")
+                }
+            } catch (e: Exception) {
+                Logger.e(TAG, "Error playing track: ${e.message}", e)
+            }
+        }
+    }
+
+    /**
+     * Toggle playback of the current show - play first track if none playing.
+     */
+    fun togglePlayback() {
+        Logger.d(TAG, "Toggling playback for current show")
+
+        viewModelScope.launch {
+            try {
+                val currentPlaybackState = mediaService.playbackState.first()
+
+                if (currentPlaybackState.currentTrack != null && currentPlaybackState.isPlaying) {
+                    // If something is playing, pause it
+                    mediaService.pause()
+                    Logger.d(TAG, "Paused current track")
+                } else if (currentPlaybackState.currentTrack != null) {
+                    // If something is paused, resume it
+                    mediaService.resume()
+                    Logger.d(TAG, "Resumed current track")
+                } else {
+                    // If nothing is playing, play the first track of the current show
+                    val tracks = uiState.value.tracks
+                    if (tracks.isNotEmpty()) {
+                        val firstTrack = tracks.first()
+                        Logger.d(TAG, "Starting playback with first track: ${firstTrack.title ?: firstTrack.name}")
+
+                        val result = mediaService.playTrack(firstTrack, uiState.value.currentRecordingId ?: "")
+                        if (result.isSuccess) {
+                            Logger.d(TAG, "Show playback started successfully")
+                            // Navigate to the player screen
+                            _navigation.emit(NavigationEvent(AppScreen.Player))
+                        } else {
+                            Logger.e(TAG, "Failed to start show playback: ${result.exceptionOrNull()?.message}")
+                        }
+                    } else {
+                        Logger.w(TAG, "No tracks available to play")
+                    }
+                }
+            } catch (e: Exception) {
+                Logger.e(TAG, "Error toggling playback: ${e.message}", e)
+            }
         }
     }
 }
