@@ -4,14 +4,17 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.grateful.deadly.core.design.AppDimens
@@ -19,12 +22,18 @@ import com.grateful.deadly.core.design.icons.AppIcon
 import com.grateful.deadly.core.design.icons.Render
 import com.grateful.deadly.services.media.MediaPlaybackState
 import com.grateful.deadly.services.media.MediaService
+import kotlinx.coroutines.launch
 
 /**
- * Mini player component that appears at the bottom of the app when audio is playing.
+ * Mini player component following V2's card-based design with progress bar.
  *
- * Follows V2's proven mini player patterns with track info, progress, and controls.
- * Designed to be embedded in AppScaffold for global access across all screens.
+ * Features:
+ * - Card-based layout with elevation and rounded corners
+ * - Thin progress bar at top following V2 patterns
+ * - Compact track info with proper typography hierarchy
+ * - Play/pause button with loading states
+ * - Dark themed design matching V2 mini player
+ * - Proper spacing and Material 3 theming
  */
 @Composable
 fun MiniPlayer(
@@ -47,17 +56,19 @@ fun MiniPlayer(
             playlistSize = 0
         )
     )
+    val coroutineScope = rememberCoroutineScope()
 
     // Only show when there's a current track
     if (playbackState.currentTrack != null) {
         MiniPlayerContent(
             playbackState = playbackState,
             onPlayPause = {
-                // Use MediaService's reactive play/pause logic
-                if (playbackState.isPlaying) {
-                    mediaService::pause
-                } else {
-                    mediaService::resume
+                coroutineScope.launch {
+                    if (playbackState.isPlaying) {
+                        mediaService.pause()
+                    } else {
+                        mediaService.resume()
+                    }
                 }
             },
             onPlayerClick = onPlayerClick,
@@ -67,75 +78,90 @@ fun MiniPlayer(
 }
 
 /**
- * Mini player content layout following V2's design patterns.
+ * Mini player content following V2's card-based design.
  */
 @Composable
 private fun MiniPlayerContent(
     playbackState: MediaPlaybackState,
-    onPlayPause: suspend () -> Unit,
+    onPlayPause: () -> Unit,
     onPlayerClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Column(
+    Card(
         modifier = modifier
             .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.surfaceContainer)
-            .clickable { onPlayerClick() }
-    ) {
-        // Progress bar (following V2's thin progress indicator)
-        LinearProgressIndicator(
-            progress = { playbackState.progress },
-            modifier = Modifier.fillMaxWidth(),
-            color = MaterialTheme.colorScheme.primary,
-            trackColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
-            gapSize = 0.dp,
-            drawStopIndicator = {}
+            .padding(horizontal = AppDimens.S, vertical = AppDimens.XS)
+            .clickable { onPlayerClick() },
+        shape = RoundedCornerShape(AppDimens.CornerRadius.Medium),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainer
+        ),
+        elevation = CardDefaults.cardElevation(
+            defaultElevation = 2.dp
         )
+    ) {
+        Column {
+            // Thin progress bar at top (V2 style)
+            LinearProgressIndicator(
+                progress = { playbackState.progress },
+                modifier = Modifier.fillMaxWidth(),
+                color = MaterialTheme.colorScheme.primary,
+                trackColor = Color.Transparent, // Invisible track for cleaner look
+                strokeCap = StrokeCap.Round
+            )
 
-        // Main content row
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(AppDimens.S),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            // Track info (expandable)
-            Column(
-                modifier = Modifier.weight(1f)
+            // Main content row
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(AppDimens.M),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = playbackState.currentTrack?.title ?: "Unknown Track",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Text(
-                    text = "Grateful Dead", // Following V2 pattern
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                // Small cover art placeholder
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(RoundedCornerShape(AppDimens.CornerRadius.Small))
+                        .background(MaterialTheme.colorScheme.surfaceVariant),
+                    contentAlignment = Alignment.Center
+                ) {
+                    AppIcon.MusicNote.Render(
+                        size = 20.dp,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(AppDimens.M))
+
+                // Track info (expandable)
+                Column(
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text(
+                        text = playbackState.currentTrack?.title ?: "Unknown Track",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        text = "Grateful Dead • ${playbackState.formattedPosition}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(AppDimens.M))
+
+                // Play/pause button
+                MiniPlayerPlayButton(
+                    isPlaying = playbackState.isPlaying,
+                    isLoading = playbackState.isLoading,
+                    onPlayPause = onPlayPause
                 )
             }
-
-            Spacer(modifier = Modifier.width(AppDimens.S))
-
-            // Time display (current/total)
-            Text(
-                text = "${playbackState.formattedPosition} / ${playbackState.formattedDuration}",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-
-            Spacer(modifier = Modifier.width(AppDimens.S))
-
-            // Play/pause button
-            MiniPlayerPlayButton(
-                isPlaying = playbackState.isPlaying,
-                isLoading = playbackState.isLoading,
-                onPlayPause = onPlayPause
-            )
         }
     }
 }
@@ -147,44 +173,45 @@ private fun MiniPlayerContent(
 private fun MiniPlayerPlayButton(
     isPlaying: Boolean,
     isLoading: Boolean,
-    onPlayPause: suspend () -> Unit,
+    onPlayPause: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Box(
         modifier = modifier
-            .size(40.dp)
+            .size(36.dp)
             .clip(CircleShape)
             .background(
                 if (isPlaying) {
                     MaterialTheme.colorScheme.primary
                 } else {
-                    MaterialTheme.colorScheme.outline
+                    MaterialTheme.colorScheme.surfaceVariant
                 }
             )
-            .clickable {
-                // TODO: Launch coroutine for suspend function
-                // For now, using simple click handling
-            },
+            .clickable { onPlayPause() },
         contentAlignment = Alignment.Center
     ) {
         when {
             isLoading -> {
                 CircularProgressIndicator(
-                    modifier = Modifier.size(20.dp),
+                    modifier = Modifier.size(18.dp),
                     strokeWidth = 2.dp,
-                    color = MaterialTheme.colorScheme.onPrimary
+                    color = if (isPlaying) {
+                        MaterialTheme.colorScheme.onPrimary
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    }
                 )
             }
             isPlaying -> {
-                AppIcon.PauseCircleFilled.Render(
-                    size = AppDimens.IconSize.Medium,
+                AppIcon.Pause.Render(
+                    size = AppDimens.IconSize.Small,
                     tint = MaterialTheme.colorScheme.onPrimary
                 )
             }
             else -> {
-                AppIcon.PlayCircleFilled.Render(
-                    size = AppDimens.IconSize.Medium,
-                    tint = MaterialTheme.colorScheme.onPrimary
+                AppIcon.PlayArrow.Render(
+                    size = AppDimens.IconSize.Small,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }

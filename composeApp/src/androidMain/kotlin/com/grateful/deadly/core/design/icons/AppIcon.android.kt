@@ -51,6 +51,18 @@ actual fun AppIcon.Render(size: Dp, tint: Color?) {
         AppIcon.LibraryAdd -> "\uE02E"     // library_add
         AppIcon.LibraryAddCheck -> "\uE02F" // library_add_check
         AppIcon.PauseCircleFilled -> "\uE035" // pause_circle_filled
+
+        // Player UI icons
+        AppIcon.Pause -> "\uE034"          // pause
+        AppIcon.SkipPrevious -> "\uE045"   // skip_previous
+        AppIcon.SkipNext -> "\uE044"       // skip_next
+        AppIcon.MusicNote -> "\uE405"      // music_note
+        AppIcon.PlaylistAdd -> "\uE03B"    // playlist_add
+        AppIcon.Shuffle -> "\uE043"        // shuffle
+        AppIcon.Repeat -> "\uE040"         // repeat
+        AppIcon.Cast -> "\uE307"           // cast
+        AppIcon.Share -> "\uE80D"          // share
+        AppIcon.QueueMusic -> "\uE03C"     // queue_music
     }
 
     Text(

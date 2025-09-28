@@ -73,8 +73,8 @@ object NavigationBarConfig {
         )
         
         AppScreen.Player -> BarConfiguration(
-            topBar = TopBarConfig(title = "Now Playing", showBackButton = true),
-            bottomBar = BottomBarConfig(visible = false) // Hide bottom bar in player
+            topBar = null, // No TopBar for Player - using custom PlayerTopBar component
+            bottomBar = BottomBarConfig(visible = false) // Hide bottom bar for immersive experience
         )
     }
 }

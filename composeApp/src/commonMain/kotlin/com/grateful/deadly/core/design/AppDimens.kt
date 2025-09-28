@@ -50,4 +50,11 @@ object AppDimens {
         val ParagraphSpacing = L     // 16dp - Between paragraphs
         val SectionSpacing = XXL     // 24dp - Between sections
     }
+
+    // Corner radius constants
+    object CornerRadius {
+        val Small = XS      // 4dp - Small components
+        val Medium = S      // 8dp - Standard components
+        val Large = M       // 12dp - Large components like cover art
+    }
 }

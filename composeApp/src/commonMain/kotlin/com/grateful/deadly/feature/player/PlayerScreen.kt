@@ -1,42 +1,31 @@
 package com.grateful.deadly.feature.player
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.grateful.deadly.core.design.AppDimens
-import com.grateful.deadly.core.design.icons.AppIcon
-import com.grateful.deadly.core.design.icons.Render
-// BarConfiguration will be available when navigation is properly wired
+import com.grateful.deadly.feature.player.components.*
 import com.grateful.deadly.services.media.MediaPlaybackState
 import com.grateful.deadly.services.media.MediaService
-import com.grateful.deadly.services.archive.Track
+import com.grateful.deadly.core.design.AppDimens
 import kotlinx.coroutines.launch
 
 /**
- * Full-screen player following V2's proven patterns.
+ * Exact V2 full-screen player with precise LazyColumn structure.
  *
- * Features:
- * - Large track info display with show metadata
- * - Progress slider with time scrubbing
- * - Full playback controls (previous, play/pause, next)
- * - Track queue with current track highlighting
- * - Reactive state management via MediaService
+ * V2 Exact Features:
+ * - LazyColumn with scroll state for mini player detection
+ * - Full-screen immersive design (no topBar, bottomBar, miniPlayer)
+ * - Gradient background applied to main content section
+ * - Scroll-based Mini Player shows when scrolled past item index 0 with offset > 1200dp
+ * - PlayerTopBar, PlayerCoverArt (450dp), PlayerTrackInfoRow, PlayerProgressControl, PlayerEnhancedControls
+ * - PlayerSecondaryControls and PlayerMaterialPanels as separate items
+ * - Exact V2 spacing and layout structure
  */
 @Composable
 fun PlayerScreen(
@@ -60,284 +49,163 @@ fun PlayerScreen(
     )
     val coroutineScope = rememberCoroutineScope()
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-            .padding(AppDimens.M)
-    ) {
-        // Track info section
-        PlayerTrackInfo(
-            playbackState = playbackState,
-            modifier = Modifier.weight(1f)
-        )
+    // V2 Exact: LazyColumn with scroll state for mini player detection
+    val lazyListState = rememberLazyListState()
 
-        // Progress section
-        PlayerProgressSection(
-            playbackState = playbackState,
-            onSeek = { positionMs ->
-                coroutineScope.launch {
-                    mediaService.seekTo(positionMs)
-                }
-            },
-            modifier = Modifier.padding(vertical = AppDimens.L)
-        )
+    // V2 Exact: Show mini player when scrolled past item index 0 with offset > 1200dp
+    val showMiniPlayer by remember {
+        derivedStateOf {
+            lazyListState.firstVisibleItemIndex > 0 ||
+            (lazyListState.firstVisibleItemIndex == 0 && lazyListState.firstVisibleItemScrollOffset > 1200)
+        }
+    }
 
-        // Control buttons
-        PlayerControls(
-            playbackState = playbackState,
-            onPrevious = {
-                coroutineScope.launch {
-                    mediaService.previousTrack()
-                }
-            },
-            onPlayPause = {
-                coroutineScope.launch {
-                    if (playbackState.isPlaying) {
-                        mediaService.pause()
-                    } else {
-                        mediaService.resume()
+    Box(modifier = Modifier.fillMaxSize()) {
+        // V2 Exact: LazyColumn structure
+        LazyColumn(
+            state = lazyListState,
+            modifier = Modifier.fillMaxSize()
+        ) {
+            // V2 Exact: Single gradient item containing all main UI
+            item {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(createRecordingGradient(playbackState.currentTrack?.title ?: "default"))
+                ) {
+                    Column {
+                        // V2 Exact: PlayerTopBar with 8dp vertical padding
+                        PlayerTopBar(
+                            playbackState = playbackState,
+                            onNavigateBack = onNavigateBack,
+                            modifier = Modifier.padding(vertical = 8.dp)
+                        )
+
+                        // V2 Exact: PlayerCoverArt (450dp height, 24dp horizontal padding)
+                        PlayerCoverArt()
+
+                        // V2 Exact: PlayerTrackInfoRow (24dp horizontal padding)
+                        PlayerTrackInfoRow(
+                            playbackState = playbackState,
+                            onAddToPlaylist = {
+                                // TODO: Implement add to playlist
+                            }
+                        )
+
+                        // V2 Exact: PlayerProgressControl (24dp horizontal padding)
+                        PlayerProgressControl(
+                            playbackState = playbackState,
+                            onSeek = { positionMs ->
+                                coroutineScope.launch {
+                                    mediaService.seekTo(positionMs)
+                                }
+                            }
+                        )
+
+                        // V2 Exact: PlayerEnhancedControls (24dp horizontal padding)
+                        PlayerEnhancedControls(
+                            playbackState = playbackState,
+                            onPrevious = {
+                                coroutineScope.launch {
+                                    mediaService.previousTrack()
+                                }
+                            },
+                            onPlayPause = {
+                                coroutineScope.launch {
+                                    if (playbackState.isPlaying) {
+                                        mediaService.pause()
+                                    } else {
+                                        mediaService.resume()
+                                    }
+                                }
+                            },
+                            onNext = {
+                                coroutineScope.launch {
+                                    mediaService.nextTrack()
+                                }
+                            },
+                            onShuffle = {
+                                // TODO: Implement shuffle
+                            },
+                            onRepeat = {
+                                // TODO: Implement repeat
+                            }
+                        )
                     }
                 }
-            },
-            onNext = {
-                coroutineScope.launch {
-                    mediaService.nextTrack()
-                }
-            },
-            modifier = Modifier.padding(vertical = AppDimens.L)
-        )
+            }
 
-        // Queue info (simplified for now)
-        if (playbackState.playlistSize > 1) {
-            PlayerQueueInfo(
-                playbackState = playbackState,
-                modifier = Modifier.padding(top = AppDimens.M)
+            // V2 Exact: PlayerSecondaryControls (24dp horizontal, 12dp vertical)
+            item {
+                PlayerSecondaryControls(
+                    onConnect = {
+                        // TODO: Implement connect
+                    },
+                    onShare = {
+                        // TODO: Implement share
+                    },
+                    onQueue = {
+                        // TODO: Implement queue
+                    }
+                )
+            }
+
+            // V2 Exact: PlayerMaterialPanels (16dp horizontal, 6dp vertical)
+            item {
+                PlayerMaterialPanels(
+                    playbackState = playbackState,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
+                )
+            }
+
+            // V2 Exact: Bottom spacing
+            item {
+                Spacer(modifier = Modifier.height(16.dp))
+            }
+        }
+
+        // V2 Exact: Overlay Mini Player when scrolled
+        if (showMiniPlayer && playbackState.currentTrack != null) {
+            PlayerMiniPlayer(
+                mediaService = mediaService,
+                onPlayerClick = {
+                    // Scroll back to top when mini player is clicked
+                    coroutineScope.launch {
+                        lazyListState.animateScrollToItem(0)
+                    }
+                },
+                modifier = Modifier.align(Alignment.TopCenter)
             )
         }
     }
 }
 
-/**
- * Track info section with large display following V2 patterns.
- */
-@Composable
-private fun PlayerTrackInfo(
-    playbackState: MediaPlaybackState,
-    modifier: Modifier = Modifier
-) {
-    Column(
-        modifier = modifier.fillMaxWidth(),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        // Track title
-        Text(
-            text = playbackState.currentTrack?.title ?: "No Track",
-            style = MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onBackground,
-            textAlign = TextAlign.Center,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis
-        )
-
-        Spacer(modifier = Modifier.height(AppDimens.S))
-
-        // Artist (always Grateful Dead for now)
-        Text(
-            text = "Grateful Dead",
-            style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center
-        )
-
-        // TODO: Add album/show info when available
-        // This would come from MediaService context in future iterations
-    }
-}
 
 /**
- * Progress section with scrubbing support following V2 patterns.
- */
-@Composable
-private fun PlayerProgressSection(
-    playbackState: MediaPlaybackState,
-    onSeek: (Long) -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Column(
-        modifier = modifier.fillMaxWidth()
-    ) {
-        // Progress slider
-        Slider(
-            value = playbackState.progress,
-            onValueChange = { progress ->
-                val newPosition = (playbackState.durationMs * progress).toLong()
-                onSeek(newPosition)
-            },
-            valueRange = 0f..1f,
-            modifier = Modifier.fillMaxWidth(),
-            colors = SliderDefaults.colors(
-                thumbColor = MaterialTheme.colorScheme.primary,
-                activeTrackColor = MaterialTheme.colorScheme.primary,
-                inactiveTrackColor = MaterialTheme.colorScheme.outline
-            )
-        )
-
-        // Time labels
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Text(
-                text = playbackState.formattedPosition,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Text(
-                text = playbackState.formattedDuration,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-    }
-}
-
-/**
- * Main playback controls following V2's button layout.
- */
-@Composable
-private fun PlayerControls(
-    playbackState: MediaPlaybackState,
-    onPrevious: () -> Unit,
-    onPlayPause: () -> Unit,
-    onNext: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Row(
-        modifier = modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceEvenly,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        // Previous button
-        PlayerControlButton(
-            icon = AppIcon.ArrowLeft, // Using available icon
-            enabled = playbackState.hasPrevious,
-            onClick = onPrevious
-        )
-
-        // Main play/pause button (larger)
-        PlayerMainButton(
-            isPlaying = playbackState.isPlaying,
-            isLoading = playbackState.isLoading,
-            onClick = onPlayPause
-        )
-
-        // Next button
-        PlayerControlButton(
-            icon = AppIcon.ArrowRight, // Using available icon
-            enabled = playbackState.hasNext,
-            onClick = onNext
-        )
-    }
-}
-
-/**
- * Standard control button for previous/next.
- */
-@Composable
-private fun PlayerControlButton(
-    icon: AppIcon,
-    enabled: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Box(
-        modifier = modifier
-            .size(56.dp)
-            .clip(CircleShape)
-            .background(
-                if (enabled) {
-                    MaterialTheme.colorScheme.surfaceVariant
-                } else {
-                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.38f)
-                }
-            )
-            .clickable(enabled = enabled) { onClick() },
-        contentAlignment = Alignment.Center
-    ) {
-        icon.Render(
-            size = AppDimens.IconSize.Large,
-            tint = if (enabled) {
-                MaterialTheme.colorScheme.onSurfaceVariant
-            } else {
-                MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.38f)
-            }
-        )
-    }
-}
-
-/**
- * Large main play/pause button following V2 patterns.
- */
-@Composable
-private fun PlayerMainButton(
-    isPlaying: Boolean,
-    isLoading: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Box(
-        modifier = modifier
-            .size(72.dp)
-            .clip(CircleShape)
-            .background(MaterialTheme.colorScheme.primary)
-            .clickable { onClick() },
-        contentAlignment = Alignment.Center
-    ) {
-        when {
-            isLoading -> {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(32.dp),
-                    strokeWidth = 3.dp,
-                    color = MaterialTheme.colorScheme.onPrimary
-                )
-            }
-            isPlaying -> {
-                AppIcon.PauseCircleFilled.Render(
-                    size = AppDimens.IconSize.XLarge,
-                    tint = MaterialTheme.colorScheme.onPrimary
-                )
-            }
-            else -> {
-                AppIcon.PlayCircleFilled.Render(
-                    size = AppDimens.IconSize.XLarge,
-                    tint = MaterialTheme.colorScheme.onPrimary
-                )
-            }
-        }
-    }
-}
-
-/**
- * Queue information display.
+ * Queue information display following V2 patterns.
  */
 @Composable
 private fun PlayerQueueInfo(
     playbackState: MediaPlaybackState,
     modifier: Modifier = Modifier
 ) {
-    Row(
-        modifier = modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.Center
-    ) {
-        Text(
-            text = "Track ${playbackState.playlistPosition} of ${playbackState.playlistSize}",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+    Card(
+        modifier = modifier,
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.8f)
         )
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(AppDimens.M),
+            horizontalArrangement = Arrangement.Center
+        ) {
+            Text(
+                text = "Track ${playbackState.playlistPosition} of ${playbackState.playlistSize}",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+        }
     }
 }
-
-// Note: BarConfiguration will be handled by the navigation system

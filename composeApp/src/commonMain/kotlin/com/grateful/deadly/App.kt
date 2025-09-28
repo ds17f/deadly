@@ -81,7 +81,19 @@ fun App() {
             bottomBarConfig = barConfig.bottomBar,
             currentScreen = currentScreen,
             onNavigateBack = { navigationController.navigateUp() },
-            onNavigateToTab = { screen -> navigationController.navigate(screen) }
+            onNavigateToTab = { screen -> navigationController.navigate(screen) },
+            miniPlayerContent = {
+                // MiniPlayer integration - shows when audio is playing
+                val mediaService: com.grateful.deadly.services.media.MediaService = remember { DIHelper.get() }
+
+                com.grateful.deadly.feature.player.components.MiniPlayer(
+                    mediaService = mediaService,
+                    onPlayerClick = {
+                        // Navigate to full player screen
+                        navigationController.navigate(AppScreen.Player)
+                    }
+                )
+            }
         ) { paddingValues ->
             // DeadlyNavHost with cross-platform navigation abstraction
             DeadlyNavHost(

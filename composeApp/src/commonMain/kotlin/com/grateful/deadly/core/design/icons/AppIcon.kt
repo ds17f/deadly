@@ -42,6 +42,18 @@ enum class AppIcon {
     LibraryAddCheck,
     PauseCircleFilled,
 
+    // Player UI icons
+    Pause,
+    SkipPrevious,
+    SkipNext,
+    MusicNote,
+    PlaylistAdd,
+    Shuffle,
+    Repeat,
+    Cast,
+    Share,
+    QueueMusic,
+
     // Add more icons as needed for the search feature and beyond
 }
 
