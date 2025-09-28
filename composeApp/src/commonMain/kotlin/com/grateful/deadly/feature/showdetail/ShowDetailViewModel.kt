@@ -197,8 +197,17 @@ class ShowDetailViewModel(
                 // V2 pattern: Load entire show playlist and start at clicked track
                 val allTracks = uiState.value.tracks
                 val recordingId = uiState.value.currentRecordingId ?: ""
+                val showData = uiState.value.showData
 
-                val result = mediaService.playTrack(track, recordingId, allTracks)
+                // Pass show metadata to MediaService for UI display
+                val result = mediaService.playTrack(
+                    track = track,
+                    recordingId = recordingId,
+                    allTracks = allTracks,
+                    showDate = showData?.date,
+                    venue = showData?.venue?.name,
+                    location = showData?.location?.displayText
+                )
 
                 if (result.isSuccess) {
                     Logger.d(TAG, "Track playback started successfully (playlist loaded)")
@@ -238,7 +247,15 @@ class ShowDetailViewModel(
                         val firstTrack = tracks.first()
                         Logger.d(TAG, "Starting playback with first track: ${firstTrack.title ?: firstTrack.name}")
 
-                        val result = mediaService.playTrack(firstTrack, uiState.value.currentRecordingId ?: "", tracks)
+                        val showData = uiState.value.showData
+                        val result = mediaService.playTrack(
+                            track = firstTrack,
+                            recordingId = uiState.value.currentRecordingId ?: "",
+                            allTracks = tracks,
+                            showDate = showData?.date,
+                            venue = showData?.venue?.name,
+                            location = showData?.location?.displayText
+                        )
                         if (result.isSuccess) {
                             Logger.d(TAG, "Show playback started successfully (full playlist loaded)")
                             // Navigate to the player screen
