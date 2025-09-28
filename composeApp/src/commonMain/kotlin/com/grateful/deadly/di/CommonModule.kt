@@ -2,9 +2,12 @@ package com.grateful.deadly.di
 
 import com.grateful.deadly.core.logging.Logger
 import com.grateful.deadly.domain.search.SearchService
+import com.grateful.deadly.domain.home.HomeService
 import com.grateful.deadly.feature.search.SearchViewModel
 import com.grateful.deadly.feature.player.PlayerViewModel
+import com.grateful.deadly.feature.home.HomeViewModel
 import com.grateful.deadly.services.search.SearchServiceImpl
+import com.grateful.deadly.services.home.HomeServiceImpl
 import com.grateful.deadly.data.search.SearchRepository
 import com.grateful.deadly.data.search.SearchRepositoryImpl
 // New architecture imports
@@ -168,6 +171,14 @@ val commonModule = module {
         )
     }
 
+    single<HomeService> {
+        Logger.d("CommonModule", "Creating HomeService")
+        HomeServiceImpl(
+            showRepository = get(),
+            mediaService = get()
+        )
+    }
+
     // Theme
     single {
         Logger.d("CommonModule", "Creating ThemeManager instance")
@@ -178,6 +189,11 @@ val commonModule = module {
     factory {
         Logger.d("CommonModule", "Creating SearchViewModel instance")
         SearchViewModel(get())
+    }
+
+    factory {
+        Logger.d("CommonModule", "Creating HomeViewModel instance")
+        HomeViewModel(get())
     }
 
     factory {

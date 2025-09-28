@@ -2,6 +2,7 @@ package com.grateful.deadly.navigation
 
 import com.grateful.deadly.core.design.topbar.TopBarMode
 import com.grateful.deadly.feature.search.SearchBarConfiguration
+import com.grateful.deadly.feature.home.HomeBarConfiguration
 
 /**
  * Configuration for the top bar
@@ -41,16 +42,15 @@ object NavigationBarConfig {
      * Delegates to feature-specific configuration objects
      */
     fun getBarConfig(screen: AppScreen): BarConfiguration = when (screen) {
+        // Home routes - delegate to HomeBarConfiguration
+        AppScreen.Home -> HomeBarConfiguration.getHomeBarConfig()
+
         // Search routes - delegate to SearchBarConfiguration
         AppScreen.Search -> SearchBarConfiguration.getSearchBarConfig()
         is AppScreen.SearchResults -> SearchBarConfiguration.getSearchResultsBarConfig()
-        
+
         // Placeholder configurations for other features
         // TODO: Move these to feature-specific configuration objects
-        AppScreen.Home -> BarConfiguration(
-            topBar = TopBarConfig(title = "Home"),
-            bottomBar = BottomBarConfig(visible = true)
-        )
         
         AppScreen.Library -> BarConfiguration(
             topBar = TopBarConfig(title = "Library"),

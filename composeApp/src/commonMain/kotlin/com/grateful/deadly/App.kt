@@ -54,6 +54,7 @@ fun App() {
         val navigationController = rememberNavigationController()
         // Manual injection using KoinComponent for Koin 4.1.0 - cached to survive recomposition
         val searchViewModel: SearchViewModel = remember { DIHelper.get() }
+        val homeViewModel: com.grateful.deadly.feature.home.HomeViewModel = remember { DIHelper.get() }
         val dataSyncOrchestrator: DataSyncOrchestrator = remember { DIHelper.get() }
         val coroutineScope = rememberCoroutineScope()
 
@@ -70,9 +71,15 @@ fun App() {
                 navigationController.navigate(event.screen)
             }
         }
+
+        LaunchedEffect(Unit) {
+            homeViewModel.navigation.collect { event ->
+                navigationController.navigate(event.screen)
+            }
+        }
         
         // Track current screen with simple state in App composable
-        var currentScreen by remember { mutableStateOf<AppScreen>(AppScreen.Search) }
+        var currentScreen by remember { mutableStateOf<AppScreen>(AppScreen.Home) }
         val barConfig = NavigationBarConfig.getBarConfig(currentScreen)
         
         // AppScaffold wraps the navigation with consistent TopBar and BottomBar
@@ -98,13 +105,35 @@ fun App() {
             // DeadlyNavHost with cross-platform navigation abstraction
             DeadlyNavHost(
                 navigationController = navigationController,
-                startDestination = AppScreen.Search, // Start on Search for development
+                startDestination = AppScreen.Home, // Start on Home screen
                 modifier = Modifier.padding(paddingValues),
                 onScreenChanged = { screen -> currentScreen = screen }
             ) {
             // Main bottom navigation tabs
             composable(AppScreen.Home) {
-                Text("Home Screen")
+                com.grateful.deadly.feature.home.HomeScreen(
+                    viewModel = homeViewModel,
+                    onNavigateToPlayer = { recordingId ->
+                        coroutineScope.launch {
+                            homeViewModel.onNavigateToPlayer(recordingId)
+                        }
+                    },
+                    onNavigateToShow = { showId ->
+                        coroutineScope.launch {
+                            homeViewModel.onNavigateToShow(showId)
+                        }
+                    },
+                    onNavigateToSearch = {
+                        coroutineScope.launch {
+                            homeViewModel.onNavigateToSearch()
+                        }
+                    },
+                    onNavigateToCollection = { collectionId ->
+                        coroutineScope.launch {
+                            homeViewModel.onNavigateToCollection(collectionId)
+                        }
+                    }
+                )
             }
             
             composable(AppScreen.Search) {
