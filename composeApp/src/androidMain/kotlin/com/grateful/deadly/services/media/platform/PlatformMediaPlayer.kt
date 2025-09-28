@@ -2,141 +2,140 @@ package com.grateful.deadly.services.media.platform
 
 import android.content.Context
 import android.util.Log
-import androidx.media3.common.AudioAttributes
-import androidx.media3.common.C
-import androidx.media3.common.MediaItem
-import androidx.media3.common.Player
-import androidx.media3.common.util.UnstableApi
-import androidx.media3.exoplayer.ExoPlayer
+import com.grateful.deadly.services.media.MediaControllerRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 /**
- * Android implementation of PlatformMediaPlayer using ExoPlayer.
+ * Android implementation of PlatformMediaPlayer using MediaSessionService.
  *
- * Real implementation using Media3 ExoPlayer following V2's proven architecture.
- * Handles generic media operations with proper error handling and retry logic.
+ * Delegates to MediaControllerRepository which connects to DeadlyMediaSessionService.
+ * Enables Android Auto, Wear notifications, and rich media controls automatically.
  */
-@UnstableApi
 actual class PlatformMediaPlayer(
     private val context: Context
 ) {
 
     companion object {
         private const val TAG = "PlatformMediaPlayer"
-        private const val POSITION_UPDATE_INTERVAL_MS = 1000L
-        private const val MAX_RETRIES = 3
     }
 
     private val playerScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
-    private var positionUpdateJob: Job? = null
-    private var retryCount = 0
+    private var stateUpdateJob: Job? = null
 
-    // ExoPlayer instance with V2's proven configuration
-    private val exoPlayer = ExoPlayer.Builder(context)
-        .setAudioAttributes(
-            AudioAttributes.Builder()
-                .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
-                .setUsage(C.USAGE_MEDIA)
-                .build(),
-            /* handleAudioFocus = */ true
-        )
-        .setHandleAudioBecomingNoisy(true)
-        .build()
+    // MediaController repository for MediaSession integration
+    private val mediaControllerRepository = MediaControllerRepository(context)
 
     private val _playbackState = MutableStateFlow(PlatformPlaybackState())
     actual val playbackState: Flow<PlatformPlaybackState> = _playbackState.asStateFlow()
 
+    // Expose MediaController's current track index for MediaService sync
+    private val _currentTrackIndex = MutableStateFlow(-1)
+    actual val currentTrackIndex: Flow<Int> = _currentTrackIndex.asStateFlow()
+
+    // Current track metadata for MediaSession
+    private var currentTrack: com.grateful.deadly.services.archive.Track? = null
+    private var currentRecordingId: String? = null
+
     init {
-        setupPlayerListeners()
-        startPositionUpdates()
+        setupMediaControllerStateSync()
     }
 
     /**
-     * Load and play an audio URL using ExoPlayer.
-     * Follows V2's proven Archive.org streaming patterns.
+     * Set track metadata for MediaSession rich notifications and Auto/Wear integration.
      */
-    actual suspend fun loadAndPlay(url: String): Result<Unit> = withContext(Dispatchers.Main) {
-        try {
-            Log.d(TAG, "Loading and playing URL: $url")
+    actual suspend fun setTrackMetadata(track: com.grateful.deadly.services.archive.Track, recordingId: String) {
+        Log.d(TAG, "🎵 [METADATA] Setting track: ${track.title} from $recordingId")
+        currentTrack = track
+        currentRecordingId = recordingId
+    }
 
-            updatePlaybackState {
-                copy(isLoading = true, error = null, isBuffering = false)
+    /**
+     * Load and play an audio URL using MediaSession.
+     * Enables notifications, Android Auto, and Wear support automatically.
+     */
+    actual suspend fun loadAndPlay(url: String): Result<Unit> {
+        return try {
+            Log.d(TAG, "🎵 [MEDIA] Loading and playing URL: $url")
+
+            // Use MediaControllerRepository with rich metadata if available
+            val track = currentTrack
+            val recordingId = currentRecordingId
+
+            if (track != null && recordingId != null) {
+                // Use MediaSession with rich metadata for notifications/Auto/Wear
+                mediaControllerRepository.loadAndPlay(url, track, recordingId)
+            } else {
+                // Fallback: could create a dummy track, but this shouldn't happen
+                Log.w(TAG, "No track metadata available - MediaSession features may be limited")
+                Result.failure(Exception("Track metadata required for MediaSession integration"))
             }
-
-            // Create MediaItem for the URL
-            val mediaItem = MediaItem.fromUri(url)
-
-            // Set the media item and prepare
-            exoPlayer.setMediaItem(mediaItem)
-            exoPlayer.prepare()
-            exoPlayer.play()
-
-            // Reset retry count on new load
-            retryCount = 0
-
-            Log.d(TAG, "ExoPlayer.play() called for URL: $url")
-            Result.success(Unit)
 
         } catch (e: Exception) {
             Log.e(TAG, "Failed to load and play URL: $url", e)
-            updatePlaybackState {
-                copy(
-                    isLoading = false,
-                    error = e.message ?: "Failed to load media"
-                )
-            }
             Result.failure(e)
         }
     }
 
-    actual suspend fun pause(): Result<Unit> = withContext(Dispatchers.Main) {
-        try {
-            Log.d(TAG, "Pausing playback")
-            exoPlayer.pause()
-            Result.success(Unit)
+    /**
+     * Load and play a playlist of tracks (V2 pattern for proper queuing)
+     * Android implementation using MediaController setMediaItems for full playlist queuing
+     */
+    actual suspend fun loadAndPlayPlaylist(tracks: List<com.grateful.deadly.services.archive.Track>, recordingId: String, startIndex: Int): Result<Unit> {
+        return try {
+            Log.d(TAG, "🎵 [PLAYLIST] Loading playlist: ${tracks.size} tracks from $recordingId, starting at $startIndex")
+
+            // Use V2's playlist queuing approach via MediaController
+            mediaControllerRepository.loadAndPlayPlaylist(tracks, recordingId, startIndex)
+
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to load and play playlist", e)
+            Result.failure(e)
+        }
+    }
+
+    actual suspend fun pause(): Result<Unit> {
+        return try {
+            Log.d(TAG, "🎵 [MEDIA] Pausing playback")
+            mediaControllerRepository.pause()
         } catch (e: Exception) {
             Log.e(TAG, "Failed to pause", e)
             Result.failure(e)
         }
     }
 
-    actual suspend fun resume(): Result<Unit> = withContext(Dispatchers.Main) {
-        try {
-            Log.d(TAG, "Resuming playback")
-            exoPlayer.play()
-            Result.success(Unit)
+    actual suspend fun resume(): Result<Unit> {
+        return try {
+            Log.d(TAG, "🎵 [MEDIA] Resuming playback")
+            mediaControllerRepository.resume()
         } catch (e: Exception) {
             Log.e(TAG, "Failed to resume", e)
             Result.failure(e)
         }
     }
 
-    actual suspend fun seekTo(positionMs: Long): Result<Unit> = withContext(Dispatchers.Main) {
-        try {
-            Log.d(TAG, "Seeking to position: ${positionMs}ms")
-            exoPlayer.seekTo(positionMs)
-            Result.success(Unit)
+    actual suspend fun seekTo(positionMs: Long): Result<Unit> {
+        return try {
+            Log.d(TAG, "🎵 [MEDIA] Seeking to position: ${positionMs}ms")
+            mediaControllerRepository.seekTo(positionMs)
         } catch (e: Exception) {
             Log.e(TAG, "Failed to seek to position: ${positionMs}ms", e)
             Result.failure(e)
         }
     }
 
-    actual suspend fun stop(): Result<Unit> = withContext(Dispatchers.Main) {
-        try {
-            Log.d(TAG, "Stopping playback")
-            exoPlayer.stop()
-            exoPlayer.clearMediaItems()
+    actual suspend fun stop(): Result<Unit> {
+        return try {
+            Log.d(TAG, "🎵 [MEDIA] Stopping playback")
+            val result = mediaControllerRepository.stop()
 
+            // Clear local state
             updatePlaybackState {
                 copy(
                     isPlaying = false,
@@ -148,148 +147,95 @@ actual class PlatformMediaPlayer(
                 )
             }
 
-            Result.success(Unit)
+            result
         } catch (e: Exception) {
             Log.e(TAG, "Failed to stop", e)
             Result.failure(e)
         }
     }
 
-    actual fun release() {
-        Log.d(TAG, "Releasing ExoPlayer resources")
-        positionUpdateJob?.cancel()
-        playerScope.launch {
-            exoPlayer.release()
+    /**
+     * Skip to next track in playlist (Android MediaController navigation)
+     */
+    actual suspend fun nextTrack(): Result<Unit> {
+        return try {
+            Log.d(TAG, "🎵 [NAVIGATION] Next track")
+            mediaControllerRepository.nextTrack()
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to go to next track", e)
+            Result.failure(e)
         }
     }
 
     /**
-     * Set up ExoPlayer listeners following V2's proven patterns.
+     * Skip to previous track in playlist (Android MediaController navigation)
      */
-    private fun setupPlayerListeners() {
-        exoPlayer.addListener(object : Player.Listener {
-            override fun onIsPlayingChanged(isPlaying: Boolean) {
-                Log.d(TAG, "ExoPlayer isPlaying changed: $isPlaying")
+    actual suspend fun previousTrack(): Result<Unit> {
+        return try {
+            Log.d(TAG, "🎵 [NAVIGATION] Previous track")
+            mediaControllerRepository.previousTrack()
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to go to previous track", e)
+            Result.failure(e)
+        }
+    }
+
+    actual fun release() {
+        Log.d(TAG, "🎵 [MEDIA] Releasing MediaController resources")
+        stateUpdateJob?.cancel()
+        playerScope.launch {
+            mediaControllerRepository.release()
+        }
+    }
+
+    /**
+     * Sync MediaController state to PlatformPlaybackState.
+     * Bridges MediaController state to the universal service interface.
+     */
+    private fun setupMediaControllerStateSync() {
+        stateUpdateJob = playerScope.launch {
+            // Collect MediaController state and map to PlatformPlaybackState
+            mediaControllerRepository.isPlaying.collect { isPlaying ->
                 updatePlaybackState { copy(isPlaying = isPlaying) }
-
-                if (isPlaying) {
-                    // Reset retry count on successful playback
-                    retryCount = 0
-                }
             }
+        }
 
-            override fun onPlaybackStateChanged(playbackState: Int) {
-                val stateString = when (playbackState) {
-                    Player.STATE_IDLE -> "IDLE"
-                    Player.STATE_BUFFERING -> "BUFFERING"
-                    Player.STATE_READY -> "READY"
-                    Player.STATE_ENDED -> "ENDED"
-                    else -> "UNKNOWN($playbackState)"
-                }
-                Log.d(TAG, "ExoPlayer state changed: $stateString")
+        // Collect other state flows for comprehensive state sync
+        playerScope.launch {
+            mediaControllerRepository.currentPosition.collect { position ->
+                updatePlaybackState { copy(currentPositionMs = position) }
+            }
+        }
 
+        playerScope.launch {
+            mediaControllerRepository.duration.collect { duration ->
+                updatePlaybackState { copy(durationMs = duration) }
+            }
+        }
+
+        playerScope.launch {
+            mediaControllerRepository.connectionState.collect { connectionState ->
+                val connectionLoading = connectionState == MediaControllerRepository.ConnectionState.Connecting
                 updatePlaybackState {
                     copy(
-                        isLoading = playbackState == Player.STATE_BUFFERING,
-                        isBuffering = playbackState == Player.STATE_BUFFERING,
-                        durationMs = if (playbackState == Player.STATE_READY) {
-                            exoPlayer.duration.coerceAtLeast(0L)
-                        } else durationMs
+                        error = if (connectionState == MediaControllerRepository.ConnectionState.Failed) {
+                            "Failed to connect to MediaSession"
+                        } else null
                     )
                 }
             }
-
-            override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
-                Log.e(TAG, "ExoPlayer error: ${error.message}", error)
-                handlePlayerError(error)
-            }
-        })
-    }
-
-    /**
-     * Handle player errors with retry logic following V2's patterns.
-     */
-    private fun handlePlayerError(error: androidx.media3.common.PlaybackException) {
-        // Check if this is a retryable network error
-        val isRetryable = error.errorCode == androidx.media3.common.PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED ||
-                error.errorCode == androidx.media3.common.PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT ||
-                error.errorCode == androidx.media3.common.PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS ||
-                error.message?.contains("Source error") == true
-
-        if (!isRetryable || retryCount >= MAX_RETRIES) {
-            val errorMessage = if (retryCount >= MAX_RETRIES) {
-                "Network error after $MAX_RETRIES retries: ${error.message}"
-            } else {
-                "Playback error: ${error.message}"
-            }
-
-            Log.e(TAG, errorMessage)
-            updatePlaybackState {
-                copy(
-                    isLoading = false,
-                    isBuffering = false,
-                    error = errorMessage
-                )
-            }
-            retryCount = 0
-            return
         }
-
-        // Retry with exponential backoff
-        val delayMs = when (retryCount) {
-            0 -> 0L      // Immediate retry
-            1 -> 1000L   // 1 second
-            2 -> 2000L   // 2 seconds
-            else -> 3000L
-        }
-
-        retryCount++
-        Log.w(TAG, "Retrying playback (attempt $retryCount/$MAX_RETRIES) in ${delayMs}ms")
 
         playerScope.launch {
-            delay(delayMs)
-
-            try {
-                val currentPosition = exoPlayer.currentPosition
-                val wasPlaying = exoPlayer.playWhenReady
-
-                Log.d(TAG, "Retry attempt $retryCount: position=${currentPosition}ms, wasPlaying=$wasPlaying")
-
-                // Retry by seeking to current position and resuming playback state
-                exoPlayer.seekTo(maxOf(0L, currentPosition))
-                if (wasPlaying) {
-                    exoPlayer.play()
-                }
-                exoPlayer.prepare()
-
-            } catch (retryError: Exception) {
-                Log.e(TAG, "Retry attempt $retryCount failed", retryError)
+            mediaControllerRepository.isLoading.collect { isLoading ->
+                updatePlaybackState { copy(isLoading = isLoading) }
             }
         }
-    }
 
-    /**
-     * Start periodic position updates for progress tracking.
-     */
-    private fun startPositionUpdates() {
-        positionUpdateJob = playerScope.launch {
-            while (true) {
-                try {
-                    val currentPosition = exoPlayer.currentPosition
-                    val duration = exoPlayer.duration.coerceAtLeast(0L)
-
-                    updatePlaybackState {
-                        copy(
-                            currentPositionMs = currentPosition,
-                            durationMs = duration
-                        )
-                    }
-
-                    delay(POSITION_UPDATE_INTERVAL_MS)
-                } catch (e: Exception) {
-                    Log.e(TAG, "Error updating position", e)
-                    delay(POSITION_UPDATE_INTERVAL_MS)
-                }
+        playerScope.launch {
+            mediaControllerRepository.currentMediaItemIndex.collect { index ->
+                _currentTrackIndex.value = index
+                Log.d(TAG, "🎵 [SYNC] Track index synced to: $index")
             }
         }
     }

@@ -9,6 +9,9 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
+import androidx.media3.session.SessionResult
+import com.google.common.util.concurrent.Futures
+import com.google.common.util.concurrent.ListenableFuture
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -187,10 +190,13 @@ class DeadlyMediaSessionService : MediaSessionService() {
     }
 
     /**
-     * MediaSession callback for standard commands
+     * MediaSession callback for handling remote commands (notifications, Android Auto, Wear)
+     * Uses default ExoPlayer behavior - MediaSession.Callback will automatically handle
+     * next/previous commands using the ExoPlayer's playlist
      */
     private inner class MediaSessionCallback : MediaSession.Callback {
         // MediaSession.Callback methods will handle player commands automatically
-        // No need to override unless we need custom behavior
+        // ExoPlayer's built-in playlist navigation will handle next/previous tracks
+        // No need to override - the default implementation works with our setMediaItems playlist
     }
 }

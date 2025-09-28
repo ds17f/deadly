@@ -5,6 +5,10 @@ import com.grateful.deadly.services.media.platform.PlatformPlaybackState
 import com.grateful.deadly.services.archive.Track
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 
 /**
  * Universal MediaService implementing Archive.org track playback business logic.
@@ -29,6 +33,22 @@ import kotlinx.coroutines.flow.map
 class MediaService(
     private val platformMediaPlayer: PlatformMediaPlayer
 ) {
+
+    // Service scope for track sync
+    private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+
+    init {
+        // Sync track index changes from platform (Android MediaController navigation)
+        serviceScope.launch {
+            platformMediaPlayer.currentTrackIndex.collect { newIndex ->
+                if (newIndex >= 0 && newIndex < currentPlaylist.size && newIndex != currentTrackIndex) {
+                    println("MediaService: Syncing track index from platform: $currentTrackIndex -> $newIndex")
+                    currentTrackIndex = newIndex
+                    currentTrack = currentPlaylist[newIndex]
+                }
+            }
+        }
+    }
 
     companion object {
         // Archive.org streaming optimization
@@ -68,24 +88,21 @@ class MediaService(
     }
 
     /**
-     * Load and play a single Archive.org track.
+     * Load and play a specific track from a show (V2 pattern).
      *
-     * Handles Archive.org URL construction and track context setup.
-     * Clears any existing playlist context for single-track playback.
+     * ALWAYS loads the entire show playlist and starts at the specified track.
+     * This enables proper next/previous navigation and matches V2 behavior.
      */
-    suspend fun playTrack(track: Track, recordingId: String): Result<Unit> {
+    suspend fun playTrack(track: Track, recordingId: String, allTracks: List<Track>): Result<Unit> {
         return try {
-            // Set single-track context
-            currentTrack = track
-            currentPlaylist = listOf(track)
-            currentTrackIndex = 0
-            currentRecordingId = recordingId
+            // Find the index of the clicked track in the full track list
+            val startIndex = allTracks.indexOfFirst { it.name == track.name }
+            if (startIndex == -1) {
+                return Result.failure(Exception("Track ${track.name} not found in show tracks"))
+            }
 
-            // Build Archive.org streaming URL
-            val streamUrl = buildArchiveStreamUrl(track)
-
-            // Delegate to platform player
-            platformMediaPlayer.loadAndPlay(streamUrl)
+            // Use playlist approach for proper navigation (V2 pattern)
+            playPlaylist(allTracks, recordingId, startIndex)
         } catch (e: Exception) {
             Result.failure(Exception("Failed to play track ${track.name}", e))
         }
@@ -116,8 +133,8 @@ class MediaService(
             // Build Archive.org streaming URL for starting track
             val streamUrl = buildArchiveStreamUrl(currentTrack!!)
 
-            // Delegate to platform player
-            platformMediaPlayer.loadAndPlay(streamUrl)
+            // Use playlist approach for better platform integration
+            platformMediaPlayer.loadAndPlayPlaylist(tracks, recordingId, startIndex)
         } catch (e: Exception) {
             Result.failure(Exception("Failed to play playlist", e))
         }
@@ -126,7 +143,8 @@ class MediaService(
     /**
      * Navigate to next track in playlist.
      *
-     * Handles Archive.org playlist navigation and automatic track advancement.
+     * Uses platform-native playlist navigation when available (Android MediaController),
+     * falls back to manual navigation (iOS).
      */
     suspend fun nextTrack(): Result<Unit> {
         return try {
@@ -134,11 +152,8 @@ class MediaService(
                 return Result.failure(Exception("No next track available"))
             }
 
-            currentTrackIndex++
-            currentTrack = currentPlaylist[currentTrackIndex]
-
-            val streamUrl = buildArchiveStreamUrl(currentTrack!!)
-            platformMediaPlayer.loadAndPlay(streamUrl)
+            // Use platform implementation directly (both platforms now support this method)
+            platformMediaPlayer.nextTrack()
         } catch (e: Exception) {
             Result.failure(Exception("Failed to advance to next track", e))
         }
@@ -147,7 +162,8 @@ class MediaService(
     /**
      * Navigate to previous track in playlist.
      *
-     * Handles Archive.org playlist navigation and track history.
+     * Uses platform-native playlist navigation when available (Android MediaController),
+     * falls back to manual navigation (iOS).
      */
     suspend fun previousTrack(): Result<Unit> {
         return try {
@@ -155,11 +171,8 @@ class MediaService(
                 return Result.failure(Exception("No previous track available"))
             }
 
-            currentTrackIndex--
-            currentTrack = currentPlaylist[currentTrackIndex]
-
-            val streamUrl = buildArchiveStreamUrl(currentTrack!!)
-            platformMediaPlayer.loadAndPlay(streamUrl)
+            // Use platform implementation directly (both platforms now support this method)
+            platformMediaPlayer.previousTrack()
         } catch (e: Exception) {
             Result.failure(Exception("Failed to go to previous track", e))
         }

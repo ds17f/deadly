@@ -194,11 +194,14 @@ class ShowDetailViewModel(
 
         viewModelScope.launch {
             try {
-                // Use MediaService to play the track
-                val result = mediaService.playTrack(track, uiState.value.currentRecordingId ?: "")
+                // V2 pattern: Load entire show playlist and start at clicked track
+                val allTracks = uiState.value.tracks
+                val recordingId = uiState.value.currentRecordingId ?: ""
+
+                val result = mediaService.playTrack(track, recordingId, allTracks)
 
                 if (result.isSuccess) {
-                    Logger.d(TAG, "Track playback started successfully")
+                    Logger.d(TAG, "Track playback started successfully (playlist loaded)")
                     // Navigate to the player screen to show full player UI
                     _navigation.emit(NavigationEvent(AppScreen.Player))
                 } else {
@@ -235,9 +238,9 @@ class ShowDetailViewModel(
                         val firstTrack = tracks.first()
                         Logger.d(TAG, "Starting playback with first track: ${firstTrack.title ?: firstTrack.name}")
 
-                        val result = mediaService.playTrack(firstTrack, uiState.value.currentRecordingId ?: "")
+                        val result = mediaService.playTrack(firstTrack, uiState.value.currentRecordingId ?: "", tracks)
                         if (result.isSuccess) {
-                            Logger.d(TAG, "Show playback started successfully")
+                            Logger.d(TAG, "Show playback started successfully (full playlist loaded)")
                             // Navigate to the player screen
                             _navigation.emit(NavigationEvent(AppScreen.Player))
                         } else {

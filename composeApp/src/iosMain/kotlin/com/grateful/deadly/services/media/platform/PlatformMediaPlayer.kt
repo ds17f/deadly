@@ -14,7 +14,9 @@ import kotlinx.coroutines.withContext
 import platform.AVFoundation.*
 import platform.CoreMedia.*
 import platform.Foundation.*
+import platform.MediaPlayer.*
 import platform.darwin.NSObject
+import platform.AudioToolbox.*
 
 /**
  * iOS implementation of PlatformMediaPlayer using AVPlayer.
@@ -42,9 +44,129 @@ actual class PlatformMediaPlayer {
     private val _playbackState = MutableStateFlow(PlatformPlaybackState())
     actual val playbackState: Flow<PlatformPlaybackState> = _playbackState.asStateFlow()
 
+    // Track current index for iOS manual navigation
+    private val _currentTrackIndex = MutableStateFlow(-1)
+    actual val currentTrackIndex: Flow<Int> = _currentTrackIndex.asStateFlow()
+
     init {
         setupPlayerObservers()
         startPositionUpdates()
+    }
+
+
+    // Current track metadata for MPNowPlayingInfoCenter
+    private var currentTrack: com.grateful.deadly.services.archive.Track? = null
+    private var currentRecordingId: String? = null
+
+    // Manual playlist management for iOS (no native playlist like Android MediaController)
+    private var currentPlaylist: List<com.grateful.deadly.services.archive.Track> = emptyList()
+    private var currentPlaylistIndex: Int = -1
+    private var currentPlaylistRecordingId: String? = null
+
+    /**
+     * Set track metadata for rich platform integrations.
+     * iOS implementation updates MPNowPlayingInfoCenter for CarPlay/Apple Watch support.
+     */
+    actual suspend fun setTrackMetadata(track: com.grateful.deadly.services.archive.Track, recordingId: String) {
+        currentTrack = track
+        currentRecordingId = recordingId
+
+        // Update MPNowPlayingInfoCenter for CarPlay/Apple Watch
+        updateNowPlayingInfo()
+    }
+
+    /**
+     * Load and play a playlist of tracks.
+     * iOS implementation: falls back to playing first track (no native playlist queue like Android MediaController)
+     */
+    actual suspend fun loadAndPlayPlaylist(tracks: List<com.grateful.deadly.services.archive.Track>, recordingId: String, startIndex: Int): Result<Unit> {
+        return try {
+            if (tracks.isEmpty() || startIndex !in tracks.indices) {
+                return Result.failure(Exception("Invalid playlist or start index"))
+            }
+
+            // Store playlist for manual navigation
+            currentPlaylist = tracks
+            currentPlaylistIndex = startIndex
+            currentPlaylistRecordingId = recordingId
+
+            // Update track index flow
+            _currentTrackIndex.value = startIndex
+
+            // For iOS, set metadata and load the starting track
+            val startTrack = tracks[startIndex]
+            setTrackMetadata(startTrack, recordingId)
+
+            val url = "https://archive.org/download/$recordingId/${startTrack.name}"
+            loadAndPlay(url)
+
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * Skip to next track (iOS manual navigation)
+     */
+    actual suspend fun nextTrack(): Result<Unit> {
+        return try {
+            val playlist = currentPlaylist
+            val currentIndex = currentPlaylistIndex
+            val recordingId = currentPlaylistRecordingId
+
+            if (playlist.isEmpty() || recordingId == null) {
+                return Result.failure(Exception("No playlist loaded"))
+            }
+
+            if (currentIndex >= playlist.size - 1) {
+                return Result.failure(Exception("No next track available"))
+            }
+
+            val nextIndex = currentIndex + 1
+            val nextTrack = playlist[nextIndex]
+
+            currentPlaylistIndex = nextIndex
+            _currentTrackIndex.value = nextIndex
+            setTrackMetadata(nextTrack, recordingId)
+
+            val url = "https://archive.org/download/$recordingId/${nextTrack.name}"
+            loadAndPlay(url)
+
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * Skip to previous track (iOS manual navigation)
+     */
+    actual suspend fun previousTrack(): Result<Unit> {
+        return try {
+            val playlist = currentPlaylist
+            val currentIndex = currentPlaylistIndex
+            val recordingId = currentPlaylistRecordingId
+
+            if (playlist.isEmpty() || recordingId == null) {
+                return Result.failure(Exception("No playlist loaded"))
+            }
+
+            if (currentIndex <= 0) {
+                return Result.failure(Exception("No previous track available"))
+            }
+
+            val prevIndex = currentIndex - 1
+            val prevTrack = playlist[prevIndex]
+
+            currentPlaylistIndex = prevIndex
+            _currentTrackIndex.value = prevIndex
+            setTrackMetadata(prevTrack, recordingId)
+
+            val url = "https://archive.org/download/$recordingId/${prevTrack.name}"
+            loadAndPlay(url)
+
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
     }
 
     /**
@@ -52,8 +174,6 @@ actual class PlatformMediaPlayer {
      */
     actual suspend fun loadAndPlay(url: String): Result<Unit> = withContext(Dispatchers.Main) {
         try {
-            println("PlatformMediaPlayer: Loading and playing URL: $url")
-
             updatePlaybackState {
                 copy(isLoading = true, error = null, isBuffering = false)
             }
@@ -75,11 +195,12 @@ actual class PlatformMediaPlayer {
             // Reset retry count on new load
             retryCount = 0
 
-            println("PlatformMediaPlayer: AVPlayer.play() called for URL: $url")
+            // Update MPNowPlayingInfoCenter
+            updateNowPlayingInfo()
+
             Result.success(Unit)
 
         } catch (e: Exception) {
-            println("PlatformMediaPlayer: Failed to load and play URL: $url, error: ${e.message}")
             updatePlaybackState {
                 copy(
                     isLoading = false,
@@ -92,44 +213,48 @@ actual class PlatformMediaPlayer {
 
     actual suspend fun pause(): Result<Unit> = withContext(Dispatchers.Main) {
         try {
-            println("PlatformMediaPlayer: Pausing playback")
             avPlayer.pause()
+
+            // Update MPNowPlayingInfoCenter
+            updateNowPlayingInfo()
+
             Result.success(Unit)
         } catch (e: Exception) {
-            println("PlatformMediaPlayer: Failed to pause: ${e.message}")
             Result.failure(e)
         }
     }
 
     actual suspend fun resume(): Result<Unit> = withContext(Dispatchers.Main) {
         try {
-            println("PlatformMediaPlayer: Resuming playback")
             avPlayer.play()
+
+            // Update MPNowPlayingInfoCenter
+            updateNowPlayingInfo()
+
             Result.success(Unit)
         } catch (e: Exception) {
-            println("PlatformMediaPlayer: Failed to resume: ${e.message}")
             Result.failure(e)
         }
     }
 
     actual suspend fun seekTo(positionMs: Long): Result<Unit> = withContext(Dispatchers.Main) {
         try {
-            println("PlatformMediaPlayer: Seeking to position: ${positionMs}ms")
-
             val timeValue = positionMs / 1000.0 // Convert to seconds
             val cmTime = CMTimeMakeWithSeconds(timeValue, 1000)
 
             avPlayer.seekToTime(cmTime)
+
+            // Update MPNowPlayingInfoCenter with new position
+            updateNowPlayingInfo()
+
             Result.success(Unit)
         } catch (e: Exception) {
-            println("PlatformMediaPlayer: Failed to seek to position: ${positionMs}ms, error: ${e.message}")
             Result.failure(e)
         }
     }
 
     actual suspend fun stop(): Result<Unit> = withContext(Dispatchers.Main) {
         try {
-            println("PlatformMediaPlayer: Stopping playback")
             avPlayer.pause()
             avPlayer.replaceCurrentItemWithPlayerItem(null)
 
@@ -146,13 +271,11 @@ actual class PlatformMediaPlayer {
 
             Result.success(Unit)
         } catch (e: Exception) {
-            println("PlatformMediaPlayer: Failed to stop: ${e.message}")
             Result.failure(e)
         }
     }
 
     actual fun release() {
-        println("PlatformMediaPlayer: Releasing AVPlayer resources")
         positionUpdateJob?.cancel()
 
         playerScope.launch {
@@ -202,6 +325,7 @@ actual class PlatformMediaPlayer {
                         val isLoading = status == AVPlayerItemStatusUnknown
                         val isBuffering = status == AVPlayerItemStatusReadyToPlay && !isPlaying && avPlayer.rate == 0.0f
 
+
                         updatePlaybackState {
                             copy(
                                 isPlaying = isPlaying,
@@ -226,7 +350,6 @@ actual class PlatformMediaPlayer {
 
                     delay(POSITION_UPDATE_INTERVAL_MS)
                 } catch (e: Exception) {
-                    println("PlatformMediaPlayer: Error updating position: ${e.message}")
                     delay(POSITION_UPDATE_INTERVAL_MS)
                 }
             }
@@ -238,7 +361,6 @@ actual class PlatformMediaPlayer {
      */
     private fun handlePlayerError(error: NSError) {
         val errorMessage = error.localizedDescription
-        println("PlatformMediaPlayer: AVPlayer error: $errorMessage")
 
         // Simple retry logic for network errors
         val isRetryable = error.domain == NSURLErrorDomain &&
@@ -253,7 +375,6 @@ actual class PlatformMediaPlayer {
                 "Playback error: $errorMessage"
             }
 
-            println("PlatformMediaPlayer: $finalErrorMessage")
             updatePlaybackState {
                 copy(
                     isLoading = false,
@@ -274,7 +395,6 @@ actual class PlatformMediaPlayer {
         }
 
         retryCount++
-        println("PlatformMediaPlayer: Retrying playback (attempt $retryCount/$MAX_RETRIES) in ${delayMs}ms")
 
         playerScope.launch {
             delay(delayMs)
@@ -282,8 +402,6 @@ actual class PlatformMediaPlayer {
             try {
                 val currentPositionMs = (CMTimeGetSeconds(avPlayer.currentTime()) * 1000).toLong()
                 val wasPlaying = avPlayer.rate > 0.0f
-
-                println("PlatformMediaPlayer: Retry attempt $retryCount: position=${currentPositionMs}ms, wasPlaying=$wasPlaying")
 
                 // Retry by reloading the current URL
                 currentUrl?.let { url ->
@@ -306,8 +424,90 @@ actual class PlatformMediaPlayer {
                 }
 
             } catch (retryError: Exception) {
-                println("PlatformMediaPlayer: Retry attempt $retryCount failed: ${retryError.message}")
+                // Retry failed, give up
             }
+        }
+    }
+
+    /**
+     * Update MPNowPlayingInfoCenter for CarPlay and Apple Watch integration.
+     * Called whenever track metadata or playback state changes.
+     */
+    private fun updateNowPlayingInfo() {
+        val track = currentTrack ?: return
+        val recordingId = currentRecordingId ?: return
+
+        try {
+            // Create now playing info dictionary
+            val nowPlayingInfo = mutableMapOf<String, Any?>()
+
+            // Basic track information
+            nowPlayingInfo[MPMediaItemPropertyTitle] = track.title ?: track.name
+            nowPlayingInfo[MPMediaItemPropertyArtist] = "Grateful Dead"
+            nowPlayingInfo[MPMediaItemPropertyAlbumTitle] = recordingId
+
+            // Track number if available
+            track.trackNumber?.let { trackNumber ->
+                nowPlayingInfo[MPMediaItemPropertyAlbumTrackNumber] = trackNumber
+            }
+
+            // Duration if available (convert from string to seconds)
+            track.duration?.let { durationString ->
+                val durationSeconds = parseDurationToSeconds(durationString)
+                if (durationSeconds > 0) {
+                    nowPlayingInfo[MPMediaItemPropertyPlaybackDuration] = durationSeconds
+                }
+            }
+
+            // Current playback info
+            val currentTime = avPlayer.currentTime()
+            val currentSeconds = CMTimeGetSeconds(currentTime)
+            if (currentSeconds.isFinite() && currentSeconds >= 0) {
+                nowPlayingInfo[MPNowPlayingInfoPropertyElapsedPlaybackTime] = currentSeconds
+            }
+
+            // Playback rate (1.0 = playing, 0.0 = paused)
+            val playbackRate = if (avPlayer.rate > 0.0f) 1.0 else 0.0
+            nowPlayingInfo[MPNowPlayingInfoPropertyPlaybackRate] = playbackRate
+
+            // Set the now playing info
+            MPNowPlayingInfoCenter.defaultCenter().setNowPlayingInfo(nowPlayingInfo as Map<Any?, *>)
+
+            // Set playback state
+            val playbackState = if (avPlayer.rate > 0.0f) {
+                MPNowPlayingPlaybackStatePlaying
+            } else {
+                MPNowPlayingPlaybackStatePaused
+            }
+            MPNowPlayingInfoCenter.defaultCenter().setPlaybackState(playbackState)
+
+        } catch (e: Exception) {
+            // Failed to update MPNowPlayingInfoCenter
+        }
+    }
+
+    /**
+     * Parse duration string (e.g., "4:32" or "1:23:45") to seconds.
+     */
+    private fun parseDurationToSeconds(durationString: String): Double {
+        return try {
+            val parts = durationString.split(":")
+            when (parts.size) {
+                2 -> { // mm:ss format
+                    val minutes = parts[0].toDouble()
+                    val seconds = parts[1].toDouble()
+                    minutes * 60 + seconds
+                }
+                3 -> { // hh:mm:ss format
+                    val hours = parts[0].toDouble()
+                    val minutes = parts[1].toDouble()
+                    val seconds = parts[2].toDouble()
+                    hours * 3600 + minutes * 60 + seconds
+                }
+                else -> 0.0
+            }
+        } catch (e: Exception) {
+            0.0
         }
     }
 
