@@ -35,6 +35,10 @@ fun PlayerScreen(
     val playbackState by mediaService.playbackState.collectAsState(
         initial = MediaPlaybackState(
             currentTrack = null,
+            currentRecordingId = null,
+            showDate = null,
+            venue = null,
+            location = null,
             isPlaying = false,
             currentPositionMs = 0L,
             durationMs = 0L,
@@ -71,7 +75,7 @@ fun PlayerScreen(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(createRecordingGradient(playbackState.currentTrack?.title ?: "default"))
+                        .background(createRecordingGradient(playbackState.currentRecordingId ?: "default"))
                 ) {
                     Column {
                         // V2 Exact: PlayerTopBar with 8dp vertical padding

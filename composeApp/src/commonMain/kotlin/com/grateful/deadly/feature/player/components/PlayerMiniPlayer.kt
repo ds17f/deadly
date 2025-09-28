@@ -44,6 +44,10 @@ fun PlayerMiniPlayer(
     val playbackState = mediaService.playbackState.collectAsState(
         initial = com.grateful.deadly.services.media.MediaPlaybackState(
             currentTrack = null,
+            currentRecordingId = null,
+            showDate = null,
+            venue = null,
+            location = null,
             isPlaying = false,
             currentPositionMs = 0L,
             durationMs = 0L,
@@ -58,7 +62,7 @@ fun PlayerMiniPlayer(
     ).value
 
     // V2 Exact: Use medium color from recording's color stack (index 1)
-    val backgroundColor = getRecordingColorStack(playbackState.currentTrack?.title)[1]
+    val backgroundColor = getRecordingColorStack(playbackState.currentRecordingId)[1]
 
     Card(
         modifier = modifier

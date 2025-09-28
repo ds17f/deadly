@@ -28,6 +28,10 @@ class PlayerViewModel(
             started = SharingStarted.WhileSubscribed(5000L),
             initialValue = MediaPlaybackState(
                 currentTrack = null,
+                currentRecordingId = null,
+                showDate = null,
+                venue = null,
+                location = null,
                 isPlaying = false,
                 currentPositionMs = 0L,
                 durationMs = 0L,

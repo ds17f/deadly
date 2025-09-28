@@ -15,6 +15,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.grateful.deadly.core.design.AppDimens
@@ -25,15 +26,15 @@ import com.grateful.deadly.services.media.MediaService
 import kotlinx.coroutines.launch
 
 /**
- * Mini player component following V2's card-based design with progress bar.
+ * Global MiniPlayer component following exact V2 design.
  *
- * Features:
- * - Card-based layout with elevation and rounded corners
- * - Thin progress bar at top following V2 patterns
- * - Compact track info with proper typography hierarchy
- * - Play/pause button with loading states
- * - Dark themed design matching V2 mini player
- * - Proper spacing and Material 3 theming
+ * V2 Exact Features:
+ * - 68dp height Card with 8dp elevation and top rounded corners only
+ * - Dark red-brown color (0xFF2D1B1B) for V2 theme consistency
+ * - Track title and show date/venue subtitle
+ * - Play/pause button with loading states (40dp)
+ * - Progress bar at bottom (2dp height) with primary color
+ * - 10dp padding for compact V2 layout
  */
 @Composable
 fun MiniPlayer(
@@ -44,6 +45,10 @@ fun MiniPlayer(
     val playbackState by mediaService.playbackState.collectAsState(
         initial = MediaPlaybackState(
             currentTrack = null,
+            currentRecordingId = null,
+            showDate = null,
+            venue = null,
+            location = null,
             isPlaying = false,
             currentPositionMs = 0L,
             durationMs = 0L,
@@ -90,130 +95,86 @@ private fun MiniPlayerContent(
     Card(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = AppDimens.S, vertical = AppDimens.XS)
+            .height(68.dp)
             .clickable { onPlayerClick() },
-        shape = RoundedCornerShape(AppDimens.CornerRadius.Medium),
+        shape = RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainer
+            containerColor = Color(0xFF2D1B1B) // V2 Exact: Dark red-brown
         ),
         elevation = CardDefaults.cardElevation(
-            defaultElevation = 2.dp
+            defaultElevation = 8.dp
         )
     ) {
         Column {
-            // Thin progress bar at top (V2 style)
-            LinearProgressIndicator(
-                progress = { playbackState.progress },
-                modifier = Modifier.fillMaxWidth(),
-                color = MaterialTheme.colorScheme.primary,
-                trackColor = Color.Transparent, // Invisible track for cleaner look
-                strokeCap = StrokeCap.Round
-            )
-
-            // Main content row
+            // V2 Exact: Main content row with 10dp padding
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(AppDimens.M),
+                    .weight(1f)
+                    .padding(10.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Small cover art placeholder
-                Box(
-                    modifier = Modifier
-                        .size(40.dp)
-                        .clip(RoundedCornerShape(AppDimens.CornerRadius.Small))
-                        .background(MaterialTheme.colorScheme.surfaceVariant),
-                    contentAlignment = Alignment.Center
-                ) {
-                    AppIcon.MusicNote.Render(
-                        size = 20.dp,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-                    )
-                }
-
-                Spacer(modifier = Modifier.width(AppDimens.M))
-
-                // Track info (expandable)
+                // V2 Exact: Track information (no cover art)
                 Column(
                     modifier = Modifier.weight(1f)
                 ) {
+                    // V2 Exact: Track title (songTitle)
                     Text(
                         text = playbackState.currentTrack?.title ?: "Unknown Track",
                         style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurface,
+                        fontWeight = FontWeight.Medium,
                         maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+                        overflow = TextOverflow.Ellipsis,
+                        color = Color.White // V2 Exact: White text on dark background
                     )
+                    // V2 Exact: Show subtitle (displaySubtitle - showDate - venue)
                     Text(
-                        text = "Grateful Dead • ${playbackState.formattedPosition}",
+                        text = playbackState.displaySubtitle.ifBlank { "Grateful Dead" },
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+                        overflow = TextOverflow.Ellipsis,
+                        color = Color.White.copy(alpha = 0.7f) // V2 Exact: Semi-transparent white
                     )
                 }
 
-                Spacer(modifier = Modifier.width(AppDimens.M))
-
-                // Play/pause button
-                MiniPlayerPlayButton(
-                    isPlaying = playbackState.isPlaying,
-                    isLoading = playbackState.isLoading,
-                    onPlayPause = onPlayPause
-                )
-            }
-        }
-    }
-}
-
-/**
- * Play/pause button for mini player following V2's design patterns.
- */
-@Composable
-private fun MiniPlayerPlayButton(
-    isPlaying: Boolean,
-    isLoading: Boolean,
-    onPlayPause: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Box(
-        modifier = modifier
-            .size(36.dp)
-            .clip(CircleShape)
-            .background(
-                if (isPlaying) {
-                    MaterialTheme.colorScheme.primary
-                } else {
-                    MaterialTheme.colorScheme.surfaceVariant
-                }
-            )
-            .clickable { onPlayPause() },
-        contentAlignment = Alignment.Center
-    ) {
-        when {
-            isLoading -> {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(18.dp),
-                    strokeWidth = 2.dp,
-                    color = if (isPlaying) {
-                        MaterialTheme.colorScheme.onPrimary
+                // V2 Exact: Play/pause button (40dp IconButton)
+                IconButton(
+                    onClick = onPlayPause,
+                    modifier = Modifier.size(40.dp)
+                ) {
+                    if (playbackState.isLoading) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(18.dp),
+                            color = Color.White,
+                            strokeWidth = 2.dp
+                        )
                     } else {
-                        MaterialTheme.colorScheme.onSurfaceVariant
+                        if (playbackState.isPlaying) {
+                            AppIcon.Pause.Render(
+                                size = 18.dp,
+                                tint = Color.White
+                            )
+                        } else {
+                            AppIcon.PlayArrow.Render(
+                                size = 18.dp,
+                                tint = Color.White
+                            )
+                        }
                     }
-                )
+                }
             }
-            isPlaying -> {
-                AppIcon.Pause.Render(
-                    size = AppDimens.IconSize.Small,
-                    tint = MaterialTheme.colorScheme.onPrimary
-                )
-            }
-            else -> {
-                AppIcon.PlayArrow.Render(
-                    size = AppDimens.IconSize.Small,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
+
+            // V2 Exact: Progress bar at bottom (2dp height)
+            LinearProgressIndicator(
+                progress = { playbackState.progress },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(2.dp),
+                color = MaterialTheme.colorScheme.primary,
+                trackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)
+            )
         }
     }
 }
+
+// MiniPlayerPlayButton component removed - now using inline IconButton to match V2 exactly

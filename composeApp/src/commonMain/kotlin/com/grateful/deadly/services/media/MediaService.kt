@@ -66,6 +66,11 @@ class MediaService(
     private var currentTrackIndex: Int = -1
     private var currentRecordingId: String? = null
 
+    // Show metadata for UI display
+    private var currentShowDate: String? = null
+    private var currentVenue: String? = null
+    private var currentLocation: String? = null
+
     /**
      * Show-aware playback state combining platform state with Archive.org context.
      *
@@ -74,6 +79,10 @@ class MediaService(
     val playbackState: Flow<MediaPlaybackState> = platformMediaPlayer.playbackState.map { platformState ->
         MediaPlaybackState(
             currentTrack = currentTrack,
+            currentRecordingId = currentRecordingId,
+            showDate = currentShowDate,
+            venue = currentVenue,
+            location = currentLocation,
             isPlaying = platformState.isPlaying,
             currentPositionMs = platformState.currentPositionMs,
             durationMs = platformState.durationMs,
@@ -93,8 +102,20 @@ class MediaService(
      * ALWAYS loads the entire show playlist and starts at the specified track.
      * This enables proper next/previous navigation and matches V2 behavior.
      */
-    suspend fun playTrack(track: Track, recordingId: String, allTracks: List<Track>): Result<Unit> {
+    suspend fun playTrack(
+        track: Track,
+        recordingId: String,
+        allTracks: List<Track>,
+        showDate: String? = null,
+        venue: String? = null,
+        location: String? = null
+    ): Result<Unit> {
         return try {
+            // Store show metadata for UI display
+            currentShowDate = showDate
+            currentVenue = venue
+            currentLocation = location
+
             // Find the index of the clicked track in the full track list
             val startIndex = allTracks.indexOfFirst { it.name == track.name }
             if (startIndex == -1) {
@@ -278,6 +299,12 @@ class MediaService(
 data class MediaPlaybackState(
     // Archive.org track context
     val currentTrack: Track?,
+    val currentRecordingId: String?,
+
+    // Show metadata for UI display (V2 pattern)
+    val showDate: String?,           // e.g., "1977-05-08"
+    val venue: String?,              // e.g., "Barton Hall"
+    val location: String?,           // e.g., "Cornell University, Ithaca, NY"
 
     // Platform playback state (mapped from PlatformPlaybackState)
     val isPlaying: Boolean,
@@ -316,6 +343,26 @@ data class MediaPlaybackState(
      */
     val formattedRemaining: String
         get() = if (durationMs > currentPositionMs) "-${formatDuration(durationMs - currentPositionMs)}" else "0:00"
+
+    /**
+     * V2-style display subtitle for MiniPlayer: "showDate - venue" or "showDate - location"
+     */
+    val displaySubtitle: String
+        get() = buildString {
+            if (!showDate.isNullOrBlank()) {
+                append(showDate)
+            }
+            when {
+                !venue.isNullOrBlank() && venue != "Unknown Venue" -> {
+                    if (showDate?.isNotBlank() == true) append(" - ")
+                    append(venue)
+                }
+                !location.isNullOrBlank() -> {
+                    if (showDate?.isNotBlank() == true) append(" - ")
+                    append(location)
+                }
+            }
+        }
 
     private fun formatDuration(durationMs: Long): String {
         val totalSeconds = durationMs / 1000

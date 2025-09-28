@@ -57,14 +57,19 @@ fun PlayerTrackInfoRow(
 
             // V2 Exact: Show date - bodyLarge, onSurfaceVariant color
             Text(
-                text = "1977-05-08", // TODO: Extract from track metadata
+                text = playbackState.showDate ?: "Show date loading...",
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
             // V2 Exact: Venue - bodyMedium, onSurfaceVariant color, 2 maxLines
             Text(
-                text = playbackState.currentTrack?.let { "Barton Hall, Ithaca, NY" } ?: "Unknown Venue",
+                text = when {
+                    !playbackState.venue.isNullOrBlank() -> playbackState.venue!!
+                    !playbackState.location.isNullOrBlank() -> playbackState.location!!
+                    playbackState.currentTrack != null -> "Venue loading..."
+                    else -> "No venue information"
+                },
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 2,

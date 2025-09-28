@@ -48,32 +48,15 @@ fun PlayerTopBar(
 
         Spacer(modifier = Modifier.width(AppDimens.S))
 
-        // Context text (expandable)
-        Column(
+        // V2 Exact: Simple "Playing from Show" context text
+        Text(
+            text = "Playing from Show",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f)
-        ) {
-            Text(
-                text = "Playing from",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-
-            val contextSource = when {
-                playbackState.playlistSize > 1 -> "Playlist • ${playbackState.playlistSize} tracks"
-                playbackState.currentTrack != null -> "Single track"
-                else -> "No source"
-            }
-
-            Text(
-                text = contextSource,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurface,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-        }
+        )
 
         // Options menu button (if callback provided)
         onOptionsClick?.let { callback ->

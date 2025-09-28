@@ -30,29 +30,31 @@ fun PlayerMaterialPanels(
         modifier = modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        // V2 Exact: About the Venue Panel
-        MaterialPanel(
-            title = "About the Venue",
-            content = "Barton Hall at Cornell University in Ithaca, New York, is legendary among Deadheads for hosting one of the greatest Grateful Dead concerts of all time on May 8, 1977. The show is often cited as the pinnacle of the band's creative peak during their spring 1977 tour."
-        )
+        // About the Venue Panel - only show when we have venue data
+        if (playbackState.currentTrack != null) {
+            MaterialPanel(
+                title = "About the Venue",
+                content = "Venue information will be displayed when show metadata is available."
+            )
 
-        // V2 Exact: Lyrics Panel
-        MaterialPanel(
-            title = "Lyrics",
-            content = "Scarlet begonias tucked into her curls\nI knew right away she was not like other girls\nOther girls\nWell I ain't often right but I've never been wrong\nSeldom turns out the way it does in a song\nOnce in a while you get shown the light\nIn the strangest of places if you look at it right"
-        )
+            // Lyrics Panel - only show when we have track data
+            MaterialPanel(
+                title = "Lyrics",
+                content = "Lyrics will be displayed when available for ${playbackState.currentTrack?.title ?: "this track"}."
+            )
 
-        // V2 Exact: Similar Shows Panel
-        MaterialPanel(
-            title = "Similar Shows",
-            content = "Other standout shows from Spring 1977 include Boston Music Hall (May 7), Buffalo Memorial Auditorium (May 9), and Hartford Civic Center (May 28). This tour is considered the creative peak of the Grateful Dead."
-        )
+            // Similar Shows Panel
+            MaterialPanel(
+                title = "Similar Shows",
+                content = "Similar shows will be displayed when show data is loaded."
+            )
 
-        // V2 Exact: Credits Panel
-        MaterialPanel(
-            title = "Credits",
-            content = "Jerry Garcia - Lead Guitar, Vocals\nBob Weir - Rhythm Guitar, Vocals\nPhil Lesh - Bass, Vocals\nBill Kreutzmann - Drums\nMickey Hart - Drums\nKeith Godchaux - Piano\nDonna Jean Godchaux - Vocals"
-        )
+            // Credits Panel
+            MaterialPanel(
+                title = "Credits",
+                content = "Performance credits will be displayed when available."
+            )
+        }
     }
 }
 
