@@ -56,6 +56,7 @@ fun App() {
         val searchViewModel: SearchViewModel = remember { DIHelper.get() }
         val homeViewModel: com.grateful.deadly.feature.home.HomeViewModel = remember { DIHelper.get() }
         val dataSyncOrchestrator: DataSyncOrchestrator = remember { DIHelper.get() }
+        val recentShowsService: com.grateful.deadly.services.data.RecentShowsService = remember { DIHelper.get() }
         val coroutineScope = rememberCoroutineScope()
 
         // Initialize data if needed on app startup
@@ -63,6 +64,11 @@ fun App() {
             Logger.i("App", "🗄️  Initializing data on app startup...")
             val result = dataSyncOrchestrator.syncData()
             Logger.i("App", "🗄️  Data synchronization result: $result")
+
+            // Start RecentShowsService tracking
+            Logger.i("App", "📱 Starting RecentShowsService tracking...")
+            recentShowsService.startTracking()
+            Logger.i("App", "📱 RecentShowsService tracking started")
         }
 
         // Collect navigation events from ViewModels

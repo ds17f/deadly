@@ -5,7 +5,11 @@ import com.grateful.deadly.services.media.platform.PlatformPlaybackState
 import com.grateful.deadly.services.archive.Track
 import com.grateful.deadly.core.logging.Logger
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -73,6 +77,25 @@ class MediaService(
     private var currentShowDate: String? = null
     private var currentVenue: String? = null
     private var currentLocation: String? = null
+
+    // StateFlows for RecentShowsService observation (V2 pattern)
+    private val _currentShowId = MutableStateFlow<String?>(null)
+    val currentShowId: StateFlow<String?> = _currentShowId.asStateFlow()
+
+    private val _isPlaying = MutableStateFlow(false)
+    val isPlaying: StateFlow<Boolean> = _isPlaying.asStateFlow()
+
+    val playbackStatus: StateFlow<PlaybackStatus> = platformMediaPlayer.playbackState.map { platformState ->
+        _isPlaying.value = platformState.isPlaying
+        PlaybackStatus(
+            currentPosition = platformState.currentPositionMs,
+            duration = platformState.durationMs,
+            progress = if (platformState.durationMs > 0) platformState.currentPositionMs.toFloat() / platformState.durationMs.toFloat() else 0f,
+            isPlaying = platformState.isPlaying,
+            isLoading = platformState.isLoading,
+            isBuffering = platformState.isBuffering
+        )
+    }.stateIn(serviceScope, kotlinx.coroutines.flow.SharingStarted.Eagerly, PlaybackStatus())
 
     /**
      * Show-aware playback state combining platform state with Archive.org context.
@@ -161,6 +184,9 @@ class MediaService(
             currentTrackIndex = startIndex
             currentTrack = tracks[startIndex]
             currentRecordingId = recordingId
+
+            // Update StateFlow for RecentShowsService observation
+            _currentShowId.value = showId
 
             // Create enriched tracks with all V2 metadata
             val enrichedTracks = tracks.mapIndexed { index, track ->
@@ -401,3 +427,17 @@ data class MediaPlaybackState(
         return "${minutes}:${seconds.toString().padStart(2, '0')}"
     }
 }
+
+/**
+ * Playback status for RecentShowsService observation (V2 pattern).
+ *
+ * Simplified version of MediaPlaybackState focused on play detection.
+ */
+data class PlaybackStatus(
+    val currentPosition: Long = 0L,
+    val duration: Long = 0L,
+    val progress: Float = 0f,
+    val isPlaying: Boolean = false,
+    val isLoading: Boolean = false,
+    val isBuffering: Boolean = false
+)

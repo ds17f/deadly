@@ -82,6 +82,9 @@ endif
 	@echo "DATABASE COMMANDS:"
 	@echo "  db-android              - Extract Android database and open in DB Browser"
 	@echo "  db-ios                  - Extract iOS database and open in DB Browser"
+	@echo "  clean-db                - Delete databases on both platforms (force schema recreation)"
+	@echo "  clean-db-android        - Delete Android database only"
+	@echo "  clean-db-ios            - Delete iOS database only"
 	@echo ""
 	@echo "UTILITY COMMANDS:"
 	@echo "  clean                   - Clean all build outputs"
@@ -424,3 +427,18 @@ db-android:
 db-ios:
 	@echo "🗄️ Extracting iOS database..."
 	./scripts/get-db.sh ios
+
+.PHONY: clean-db
+clean-db:
+	@echo "🧹 Cleaning databases on both platforms..."
+	./scripts/clean-db.sh all
+
+.PHONY: clean-db-android
+clean-db-android:
+	@echo "🧹 Cleaning Android database..."
+	./scripts/clean-db.sh android
+
+.PHONY: clean-db-ios
+clean-db-ios:
+	@echo "🧹 Cleaning iOS database..."
+	./scripts/clean-db.sh ios

@@ -212,6 +212,49 @@ expect class ShowRepository(database: com.grateful.deadly.database.Database) {
      */
     suspend fun deleteRecordingsForShow(showId: String)
 
+    // === Recent Shows Operations (V2 Pattern) ===
+
+    /**
+     * Record a show play with UPSERT logic for smart deduplication.
+     * Updates lastPlayedTimestamp and increments totalPlayCount.
+     */
+    suspend fun recordShowPlay(showId: String, playTimestamp: Long = kotlinx.datetime.Clock.System.now().toEpochMilliseconds())
+
+    /**
+     * Get recent shows ordered by last played timestamp.
+     */
+    suspend fun getRecentShows(limit: Int = 8): List<Show>
+
+    /**
+     * Get reactive flow of recent shows for UI observation (V2 pattern).
+     */
+    fun getRecentShowsFlow(limit: Int = 8): kotlinx.coroutines.flow.Flow<List<Show>>
+
+    /**
+     * Check if a show is in the recent list.
+     */
+    suspend fun isShowInRecent(showId: String): Boolean
+
+    /**
+     * Remove a show from recent list (privacy control).
+     */
+    suspend fun removeRecentShow(showId: String)
+
+    /**
+     * Clear all recent shows (privacy control).
+     */
+    suspend fun clearAllRecentShows()
+
+    /**
+     * Get recent shows statistics for analytics.
+     */
+    suspend fun getRecentShowsStats(): RecentShowsStats
+
+    /**
+     * Clean up old recent shows entries (maintenance - keep only N most recent).
+     */
+    suspend fun cleanupOldRecentShows(keepCount: Int = 50)
+
     // === Statistics ===
 
     /**
@@ -239,4 +282,15 @@ data class RatingStats(
     val averageRating: Double?,
     val minRating: Double?,
     val maxRating: Double?
+)
+
+/**
+ * Recent shows statistics data class (V2 pattern).
+ */
+data class RecentShowsStats(
+    val totalShows: Int,
+    val avgPlayCount: Double,
+    val maxPlayCount: Int,
+    val oldestPlayTimestamp: Long?,
+    val newestPlayTimestamp: Long?
 )

@@ -1,0 +1,174 @@
+package com.grateful.deadly.services.data
+
+import com.grateful.deadly.domain.models.Show
+import com.grateful.deadly.services.data.platform.ShowRepository
+import com.grateful.deadly.services.data.platform.RecentShowsStats
+import com.grateful.deadly.services.media.MediaService
+import com.grateful.deadly.services.media.PlaybackStatus
+import com.grateful.deadly.core.logging.Logger
+import kotlinx.coroutines.*
+import kotlinx.coroutines.flow.*
+import kotlinx.datetime.Clock
+
+class RecentShowsServiceImpl(
+    private val showRepository: ShowRepository,
+    private val mediaService: MediaService,
+    private val applicationScope: CoroutineScope
+) : RecentShowsService {
+
+    companion object {
+        private const val TAG = "RecentShowsService"
+        // V2 constants (from analysis)
+        private const val MEANINGFUL_PLAY_DURATION_MS = 10_000L // 10 seconds
+        private const val MEANINGFUL_PLAY_PERCENTAGE = 0.25f // 25% of track
+        private const val DEFAULT_RECENT_LIMIT = 8
+    }
+
+    private val _recentShows = MutableStateFlow<List<Show>>(emptyList())
+    override val recentShows: StateFlow<List<Show>> = _recentShows.asStateFlow()
+
+    // Track state for debouncing (matches V2 pattern)
+    private var currentTrackShowId: String? = null
+    private var currentTrackStartTime: Long = 0
+    private var hasRecordedCurrentTrack = false
+    private var trackingJob: Job? = null
+
+    override fun startTracking() {
+        Logger.d(TAG, "📱 Starting RecentShowsService tracking...")
+        stopTracking() // Ensure clean state
+
+        // Start observing recent shows from database (V2 pattern)
+        startObservingRecentShows()
+
+        // Start observing playback for automatic tracking (V2 pattern)
+        startObservingPlayback()
+        Logger.d(TAG, "📱 RecentShowsService tracking started successfully")
+    }
+
+    override fun stopTracking() {
+        Logger.d(TAG, "📱 Stopping RecentShowsService tracking...")
+        trackingJob?.cancel()
+        trackingJob = null
+        resetTrackingState()
+        Logger.d(TAG, "📱 RecentShowsService tracking stopped")
+    }
+
+    private fun startObservingRecentShows() {
+        Logger.d(TAG, "📱 Starting database observation for recent shows...")
+        applicationScope.launch {
+            // Convert database flow to StateFlow (matches V2)
+            showRepository.getRecentShowsFlow(DEFAULT_RECENT_LIMIT)
+                .flowOn(Dispatchers.IO)
+                .collect { shows ->
+                    Logger.d(TAG, "📱 Database updated: ${shows.size} recent shows")
+                    _recentShows.value = shows
+                }
+        }
+    }
+
+    private fun startObservingPlayback() {
+        Logger.d(TAG, "📱 Starting MediaService playback observation...")
+        trackingJob = applicationScope.launch {
+            // Observe MediaService state changes (V2 pattern)
+            combine(
+                mediaService.currentShowId,
+                mediaService.playbackStatus,
+                mediaService.isPlaying
+            ) { showId, playbackStatus, isPlaying ->
+                PlaybackInfo(showId, playbackStatus, isPlaying)
+            }
+                .distinctUntilChanged()
+                .collect { playbackInfo ->
+                    Logger.d(TAG, "📱 Playback state change: showId=${playbackInfo.showId}, isPlaying=${playbackInfo.isPlaying}, position=${playbackInfo.playbackStatus.currentPosition}ms")
+                    handlePlaybackStateChange(playbackInfo)
+                }
+        }
+    }
+
+    private suspend fun handlePlaybackStateChange(playbackInfo: PlaybackInfo) {
+        val showId = playbackInfo.showId ?: return
+
+        // Track changes (V2 debouncing pattern)
+        if (showId != currentTrackShowId) {
+            Logger.d(TAG, "📱 Track change detected: $currentTrackShowId -> $showId")
+            resetTrackingState()
+            currentTrackShowId = showId
+            currentTrackStartTime = Clock.System.now().toEpochMilliseconds()
+            hasRecordedCurrentTrack = false
+        }
+
+        // Only record once per track when playing and meets threshold
+        if (playbackInfo.isPlaying &&
+            !hasRecordedCurrentTrack &&
+            shouldRecordPlay(playbackInfo.playbackStatus)) {
+
+            val position = playbackInfo.playbackStatus.currentPosition
+            val duration = playbackInfo.playbackStatus.duration
+            Logger.d(TAG, "📱 Play threshold met: ${position/1000}s / ${duration/1000}s - recording show play")
+            recordShowPlay(showId)
+            hasRecordedCurrentTrack = true
+        }
+    }
+
+    private fun shouldRecordPlay(playbackStatus: PlaybackStatus): Boolean {
+        val position = playbackStatus.currentPosition
+        val duration = playbackStatus.duration
+
+        if (duration <= 0) return false
+
+        // Long tracks: simple 10 second rule (V2 logic)
+        if (duration > 40_000L) {
+            return position >= MEANINGFUL_PLAY_DURATION_MS
+        }
+
+        // Short tracks: 25% rule, capped at 10 seconds (V2 logic)
+        val percentageThreshold = (duration * MEANINGFUL_PLAY_PERCENTAGE).toLong()
+        val actualThreshold = minOf(percentageThreshold, MEANINGFUL_PLAY_DURATION_MS)
+        return position >= actualThreshold
+    }
+
+    private fun resetTrackingState() {
+        currentTrackShowId = null
+        currentTrackStartTime = 0
+        hasRecordedCurrentTrack = false
+    }
+
+    override suspend fun recordShowPlay(showId: String, playTimestamp: Long) {
+        Logger.d(TAG, "📱 Recording show play: $showId at timestamp $playTimestamp")
+        showRepository.recordShowPlay(showId, playTimestamp)
+        Logger.d(TAG, "📱 Show play recorded successfully")
+    }
+
+    override suspend fun getRecentShows(limit: Int): List<Show> {
+        return showRepository.getRecentShows(limit)
+    }
+
+    override suspend fun isShowInRecent(showId: String): Boolean {
+        return showRepository.isShowInRecent(showId)
+    }
+
+    override suspend fun removeShow(showId: String) {
+        showRepository.removeRecentShow(showId)
+    }
+
+    override suspend fun clearRecentShows() {
+        showRepository.clearAllRecentShows()
+    }
+
+    override suspend fun getRecentShowsStats(): Map<String, Any> {
+        val stats = showRepository.getRecentShowsStats()
+        return mapOf(
+            "totalShows" to stats.totalShows,
+            "avgPlayCount" to stats.avgPlayCount,
+            "maxPlayCount" to stats.maxPlayCount,
+            "oldestPlayTimestamp" to (stats.oldestPlayTimestamp ?: 0L),
+            "newestPlayTimestamp" to (stats.newestPlayTimestamp ?: 0L)
+        )
+    }
+}
+
+private data class PlaybackInfo(
+    val showId: String?,
+    val playbackStatus: PlaybackStatus,
+    val isPlaying: Boolean
+)

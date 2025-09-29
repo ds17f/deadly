@@ -106,7 +106,10 @@ fun HomeScreen(
                     onItemClick = { item ->
                         // Find the show and navigate
                         val show = uiState.homeContent.todayInHistory.find { it.id == item.id }
-                        show?.let { onNavigateToShow(it.id) }
+                        show?.let {
+                            Logger.d("HomeScreen", "🗓️ Navigating to TIGDH show: ${it.id} (${it.date})")
+                            onNavigateToShow(it.id)
+                        }
                     }
                 )
             }

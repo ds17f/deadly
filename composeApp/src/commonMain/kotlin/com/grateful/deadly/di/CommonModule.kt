@@ -25,6 +25,8 @@ import com.grateful.deadly.services.archive.platform.CacheManager
 import com.grateful.deadly.services.media.platform.PlatformMediaPlayer
 import com.grateful.deadly.services.archive.ArchiveService
 import com.grateful.deadly.services.media.MediaService
+import com.grateful.deadly.services.data.RecentShowsService
+import com.grateful.deadly.services.data.RecentShowsServiceImpl
 import com.grateful.deadly.feature.showdetail.ShowDetailService
 import com.grateful.deadly.feature.showdetail.ShowDetailServiceImpl
 
@@ -34,6 +36,9 @@ import io.ktor.client.HttpClient
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.serialization.kotlinx.json.json
 import kotlinx.serialization.json.Json
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import org.koin.dsl.module
 
 /**
@@ -58,6 +63,12 @@ val commonModule = module {
     single<FileSystem> {
         Logger.d("CommonModule", "Creating FileSystem instance")
         FileSystem.SYSTEM
+    }
+
+    // Application scope for long-running services
+    single<CoroutineScope> {
+        Logger.d("CommonModule", "Creating application CoroutineScope")
+        CoroutineScope(SupervisorJob() + Dispatchers.Main)
     }
 
     // New Architecture - Platform Tools
@@ -143,6 +154,15 @@ val commonModule = module {
         Logger.d("CommonModule", "Creating MediaService")
         MediaService(
             platformMediaPlayer = get()
+        )
+    }
+
+    single<RecentShowsService> {
+        Logger.d("CommonModule", "Creating RecentShowsService")
+        RecentShowsServiceImpl(
+            showRepository = get(),
+            mediaService = get(),
+            applicationScope = get()
         )
     }
 

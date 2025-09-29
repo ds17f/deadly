@@ -1,6 +1,6 @@
 package com.grateful.deadly.services.home
 
-import com.grateful.deadly.core.util.Logger
+import com.grateful.deadly.core.logging.Logger
 import com.grateful.deadly.domain.home.HomeService
 import com.grateful.deadly.domain.home.HomeContent
 import com.grateful.deadly.domain.models.Show
@@ -146,12 +146,26 @@ class HomeServiceImpl(
     private suspend fun getTodayInHistoryShows(): List<Show> {
         return try {
             val today = Clock.System.todayIn(TimeZone.currentSystemDefault())
+            Logger.d(TAG, "🗓️ Getting TIGDH shows for ${today.monthNumber}/${today.dayOfMonth}")
+
             val todayInHistoryShows = showRepository.getShowsForDate(today.monthNumber, today.dayOfMonth)
 
-            Logger.d(TAG, "Found ${todayInHistoryShows.size} shows for today in history (${today.monthNumber}/${today.dayOfMonth})")
-            todayInHistoryShows // Return all shows for today in history
+            Logger.d(TAG, "🗓️ Found ${todayInHistoryShows.size} shows for today in history (${today.monthNumber}/${today.dayOfMonth})")
+
+            if (todayInHistoryShows.isNotEmpty()) {
+                Logger.d(TAG, "🗓️ Sample TIGDH shows:")
+                todayInHistoryShows.take(3).forEach { show ->
+                    Logger.d(TAG, "  - ID: ${show.id} | ${show.date}: ${show.venue.name}, ${show.location.city}")
+                }
+            } else {
+                Logger.w(TAG, "🗓️ No TIGDH shows found - checking if any shows exist in database...")
+                val totalShows = showRepository.getShowCount()
+                Logger.d(TAG, "🗓️ Total shows in database: $totalShows")
+            }
+
+            todayInHistoryShows
         } catch (e: Exception) {
-            Logger.e(TAG, "Failed to get today in history shows", e)
+            Logger.e(TAG, "🗓️ Failed to get today in history shows", e)
             emptyList()
         }
     }

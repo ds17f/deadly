@@ -1,0 +1,78 @@
+-- SQLDelight schema for RecentShows table
+-- Based on V2 RecentShowEntity - UPSERT pattern for efficient deduplication
+
+-- Recent shows table with smart deduplication (V2 pattern)
+CREATE TABLE recent_shows (
+    showId TEXT PRIMARY KEY NOT NULL,              -- One record per show (UPSERT key)
+    lastPlayedTimestamp INTEGER NOT NULL,          -- Updated each meaningful play
+    firstPlayedTimestamp INTEGER NOT NULL,         -- Set once, for analytics
+    totalPlayCount INTEGER NOT NULL DEFAULT 1      -- Incremented each meaningful play
+);
+
+-- Index for efficient ordering (critical for V2 performance)
+CREATE INDEX idx_recent_shows_timestamp ON recent_shows(lastPlayedTimestamp DESC);
+
+-- UPSERT operations for smart deduplication
+insertOrUpdateRecentShow:
+INSERT OR REPLACE INTO recent_shows (showId, lastPlayedTimestamp, firstPlayedTimestamp, totalPlayCount)
+VALUES (
+    ?,
+    ?,
+    COALESCE((SELECT firstPlayedTimestamp FROM recent_shows WHERE showId = ?), ?),
+    COALESCE((SELECT totalPlayCount FROM recent_shows WHERE showId = ?) + 1, 1)
+);
+
+-- Get recent shows with efficient ordering
+getRecentShows:
+SELECT * FROM recent_shows
+ORDER BY lastPlayedTimestamp DESC
+LIMIT ?;
+
+-- Reactive query for StateFlow integration
+getRecentShowsFlow:
+SELECT * FROM recent_shows
+ORDER BY lastPlayedTimestamp DESC
+LIMIT ?;
+
+-- Check if show is in recent list
+isShowInRecent:
+SELECT COUNT(*) > 0 FROM recent_shows WHERE showId = ?;
+
+-- Get specific recent show record
+getRecentShow:
+SELECT * FROM recent_shows WHERE showId = ?;
+
+-- Privacy controls
+removeRecentShow:
+DELETE FROM recent_shows WHERE showId = ?;
+
+clearAllRecentShows:
+DELETE FROM recent_shows;
+
+-- Analytics queries
+getRecentShowsCount:
+SELECT COUNT(*) FROM recent_shows;
+
+getRecentShowsStats:
+SELECT
+    COUNT(*) AS totalShows,
+    AVG(totalPlayCount) AS avgPlayCount,
+    MAX(totalPlayCount) AS maxPlayCount,
+    MIN(lastPlayedTimestamp) AS oldestPlayTimestamp,
+    MAX(lastPlayedTimestamp) AS newestPlayTimestamp
+FROM recent_shows;
+
+-- Get recent shows in date range (for analytics)
+getRecentShowsInDateRange:
+SELECT * FROM recent_shows
+WHERE lastPlayedTimestamp BETWEEN ? AND ?
+ORDER BY lastPlayedTimestamp DESC;
+
+-- Maintenance: Clean up old entries (keep only most recent N shows)
+cleanupOldRecentShows:
+DELETE FROM recent_shows
+WHERE showId NOT IN (
+    SELECT showId FROM recent_shows
+    ORDER BY lastPlayedTimestamp DESC
+    LIMIT ?
+);

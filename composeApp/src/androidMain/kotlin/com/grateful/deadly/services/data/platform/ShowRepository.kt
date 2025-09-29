@@ -12,6 +12,10 @@ import com.grateful.deadly.services.data.models.RecordingEntity
 import com.grateful.deadly.services.data.models.ShowEntity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.delay
 import kotlinx.datetime.Clock
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.get
@@ -429,5 +433,64 @@ actual class ShowRepository actual constructor(
             lowRatings = row.lowRatings.toInt(),
             collectionTimestamp = row.collectionTimestamp
         )
+    }
+
+    // === Recent Shows Operations (V2 Pattern) ===
+
+    actual suspend fun recordShowPlay(showId: String, playTimestamp: Long) = withContext(Dispatchers.IO) {
+        database.recentShowsQueries.insertOrUpdateRecentShow(
+            showId = showId,
+            lastPlayedTimestamp = playTimestamp,
+            showId_ = showId, // Used for COALESCE firstPlayedTimestamp lookup
+            value = playTimestamp, // Fallback if not exists
+            showId__ = showId, // Used for COALESCE totalPlayCount lookup
+        )
+    }
+
+    actual suspend fun getRecentShows(limit: Int): List<Show> = withContext(Dispatchers.IO) {
+        val recentShowIds = database.recentShowsQueries.getRecentShows(value_ = limit.toLong())
+            .executeAsList()
+            .map { it.showId }
+
+        // Get full Show objects maintaining the recent order
+        getShowsByIds(recentShowIds)
+    }
+
+    actual fun getRecentShowsFlow(limit: Int): Flow<List<Show>> = flow {
+        // For now, emit current shows and then poll for updates
+        // In a production app, this would use Room's built-in Flow support
+        emit(getRecentShows(limit))
+
+        while (true) {
+            delay(1000) // Poll every second for database changes
+            emit(getRecentShows(limit))
+        }
+    }.flowOn(Dispatchers.IO)
+
+    actual suspend fun isShowInRecent(showId: String): Boolean = withContext(Dispatchers.IO) {
+        database.recentShowsQueries.isShowInRecent(showId).executeAsOne()
+    }
+
+    actual suspend fun removeRecentShow(showId: String) = withContext(Dispatchers.IO) {
+        database.recentShowsQueries.removeRecentShow(showId)
+    }
+
+    actual suspend fun clearAllRecentShows() = withContext(Dispatchers.IO) {
+        database.recentShowsQueries.clearAllRecentShows()
+    }
+
+    actual suspend fun getRecentShowsStats(): RecentShowsStats = withContext(Dispatchers.IO) {
+        val stats = database.recentShowsQueries.getRecentShowsStats().executeAsOne()
+        RecentShowsStats(
+            totalShows = stats.totalShows.toInt(),
+            avgPlayCount = stats.avgPlayCount ?: 0.0,
+            maxPlayCount = stats.maxPlayCount?.toInt() ?: 0,
+            oldestPlayTimestamp = stats.oldestPlayTimestamp,
+            newestPlayTimestamp = stats.newestPlayTimestamp
+        )
+    }
+
+    actual suspend fun cleanupOldRecentShows(keepCount: Int) = withContext(Dispatchers.IO) {
+        database.recentShowsQueries.cleanupOldRecentShows(keepCount.toLong())
     }
 }

@@ -89,10 +89,12 @@ ORDER BY
   date DESC;
 
 -- Get shows for specific month and day across all years (for "Today in History")
+-- Only return shows that have recordings to avoid "no recordings" errors
 getShowsForDate:
-SELECT * FROM Show
-WHERE month = ? AND CAST(SUBSTR(date, 9, 2) AS INTEGER) = ?
-ORDER BY year ASC;
+SELECT DISTINCT Show.* FROM Show
+INNER JOIN Recording ON Show.showId = Recording.showId
+WHERE Show.month = ? AND CAST(SUBSTR(Show.date, 9, 2) AS INTEGER) = ?
+ORDER BY Show.year ASC;
 
 -- Flexible show query with optional filters
 getShows:

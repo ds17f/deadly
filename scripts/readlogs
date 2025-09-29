@@ -81,6 +81,7 @@ CONCEPT GROUPS:
     platform    Platform tools (NetworkClient, CacheManager)
     icons       Cross-platform icon rendering
     logging     Logging system itself
+    recent      Recent shows functionality (RecentShowsService, tracking, database)
     all         All deadly app logs (default)
     [custom]    Custom tag filter (exact match)
 
@@ -173,7 +174,7 @@ get_tag_filters() {
             echo "KoinInitializer|DeadlyApplication|CommonModule|AndroidModule|IOSModule|Koin"
             ;;
         "ui")
-            echo "App|SearchScreen|Navigation"
+            echo "App|SearchScreen|Navigation|HomeServiceImpl|🗓️"
             ;;
         "data")
             echo "DataImportService|ZipExtractionService|ZipExtractor|FileDiscoveryService|DownloadService|JsonImportService|GitHubModels"
@@ -189,6 +190,9 @@ get_tag_filters() {
             ;;
         "logging")
             echo "Logger"
+            ;;
+        "recent")
+            echo "RecentShowsService|Recent|ShowRepository.*recent|App.*Recent"
             ;;
         "all")
             echo "$APP_PACKAGE"
