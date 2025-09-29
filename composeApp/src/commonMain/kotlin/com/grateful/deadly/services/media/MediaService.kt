@@ -71,7 +71,7 @@ class MediaService(
     private var currentTrack: Track? = null
     private var currentPlaylist: List<Track> = emptyList()
     private var currentTrackIndex: Int = -1
-    private var currentRecordingId: String? = null
+    private var internalCurrentRecordingId: String? = null
 
     // Show metadata for UI display
     private var currentShowDate: String? = null
@@ -81,6 +81,9 @@ class MediaService(
     // StateFlows for RecentShowsService observation (V2 pattern)
     private val _currentShowId = MutableStateFlow<String?>(null)
     val currentShowId: StateFlow<String?> = _currentShowId.asStateFlow()
+
+    private val _currentRecordingId = MutableStateFlow<String?>(null)
+    val currentRecordingId: StateFlow<String?> = _currentRecordingId.asStateFlow()
 
     private val _isPlaying = MutableStateFlow(false)
     val isPlaying: StateFlow<Boolean> = _isPlaying.asStateFlow()
@@ -105,7 +108,7 @@ class MediaService(
     val playbackState: Flow<MediaPlaybackState> = platformMediaPlayer.playbackState.map { platformState ->
         MediaPlaybackState(
             currentTrack = currentTrack,
-            currentRecordingId = currentRecordingId,
+            currentRecordingId = internalCurrentRecordingId,
             showDate = currentShowDate,
             venue = currentVenue,
             location = currentLocation,
@@ -183,10 +186,11 @@ class MediaService(
             currentPlaylist = tracks
             currentTrackIndex = startIndex
             currentTrack = tracks[startIndex]
-            currentRecordingId = recordingId
+            internalCurrentRecordingId = recordingId
 
             // Update StateFlow for RecentShowsService observation
             _currentShowId.value = showId
+            _currentRecordingId.value = recordingId
 
             // Create enriched tracks with all V2 metadata
             val enrichedTracks = tracks.mapIndexed { index, track ->
@@ -334,7 +338,7 @@ class MediaService(
 
     private fun buildArchiveStreamUrl(track: Track): String {
         // Archive.org streaming URL format: https://archive.org/download/{identifier}/{filename}
-        return "$ARCHIVE_STREAM_BASE/${currentRecordingId}/${track.name}"
+        return "$ARCHIVE_STREAM_BASE/${internalCurrentRecordingId}/${track.name}"
     }
 
     private fun hasNextTrack(): Boolean {

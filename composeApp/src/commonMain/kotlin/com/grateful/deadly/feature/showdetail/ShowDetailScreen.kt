@@ -38,7 +38,7 @@ fun ShowDetailScreen(
 ) {
     Logger.d("ShowDetailScreen", "=== SHOW DETAIL SCREEN LOADED === showId: $showId, recordingId: $recordingId")
 
-    val uiState by viewModel.uiState.collectAsState()
+    val uiState by viewModel.enhancedUiState.collectAsState()
 
     // Load show data when screen opens
     LaunchedEffect(showId, recordingId) {
@@ -140,6 +140,9 @@ fun ShowDetailScreen(
                         item {
                             ShowDetailActionRow(
                                 showData = showData,
+                                isPlaying = uiState.isPlaying,
+                                isLoading = uiState.isMediaLoading,
+                                isCurrentShowAndRecording = uiState.isCurrentShowAndRecording,
                                 onLibraryAction = {
                                     // TODO Phase 5: Implement library actions
                                     Logger.d("ShowDetailScreen", "Library action")

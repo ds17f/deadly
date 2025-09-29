@@ -7,6 +7,7 @@ import com.grateful.deadly.domain.models.Show
 import com.grateful.deadly.domain.models.Recording
 import com.grateful.deadly.services.archive.Track
 import com.grateful.deadly.services.media.MediaService
+import com.grateful.deadly.services.media.PlaybackStatus
 import com.grateful.deadly.navigation.AppScreen
 import com.grateful.deadly.navigation.NavigationEvent
 import kotlinx.coroutines.flow.*
@@ -32,7 +33,7 @@ class ShowDetailViewModel(
         private const val TAG = "ShowDetailViewModel"
     }
 
-    // UI State - combines service state flows into single reactive UI state
+    // UI State - combines service state flows into single reactive UI state (V2 pattern)
     val uiState: StateFlow<ShowDetailUiState> = combine(
         showDetailService.currentShow,
         showDetailService.currentRecording,
@@ -40,7 +41,7 @@ class ShowDetailViewModel(
         showDetailService.isTracksLoading,
         showDetailService.error
     ) { show, recording, tracks, isTracksLoading, error ->
-        Logger.d(TAG, "UI state update: show=${show?.displayTitle}, recording=${recording?.identifier}, tracks=${tracks.size}, loading=$isTracksLoading, error=$error")
+        Logger.d(TAG, "Base UI state update: show=${show?.displayTitle}, recording=${recording?.identifier}, tracks=${tracks.size}, loading=$isTracksLoading, error=$error")
 
         ShowDetailUiState(
             showData = show,
@@ -48,7 +49,55 @@ class ShowDetailViewModel(
             tracks = tracks,
             isLoading = show == null && error == null, // Loading if no show and no error
             isTracksLoading = isTracksLoading,
-            error = error
+            error = error,
+            isCurrentShowAndRecording = false, // Will be updated by media state combination
+            isPlaying = false,
+            isMediaLoading = false
+        )
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = ShowDetailUiState(isLoading = true)
+    )
+
+    // Media state for comparison logic (separate StateFlow)
+    private val mediaState: StateFlow<MediaState> = combine(
+        mediaService.currentShowId,
+        mediaService.currentRecordingId,
+        mediaService.playbackStatus,
+        mediaService.isPlaying
+    ) { mediaShowId, mediaRecordingId, playbackStatus, isPlaying ->
+        MediaState(
+            currentShowId = mediaShowId,
+            currentRecordingId = mediaRecordingId,
+            playbackStatus = playbackStatus,
+            isPlaying = isPlaying
+        )
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = MediaState()
+    )
+
+    // Combined UI state with media comparison logic
+    val enhancedUiState: StateFlow<ShowDetailUiState> = combine(
+        uiState,
+        mediaState
+    ) { baseState, media ->
+        // V2 logic: Determine if current show and recording match MediaService
+        val playlistShowId = baseState.showData?.id
+        val playlistRecordingId = baseState.currentRecordingId
+        val isCurrentShowAndRecording = playlistShowId != null &&
+                                       playlistRecordingId != null &&
+                                       (playlistShowId == media.currentShowId || playlistShowId == media.currentShowId?.replace("-", "")) &&
+                                       playlistRecordingId == media.currentRecordingId
+
+        Logger.d(TAG, "Enhanced UI state update: isCurrentShowAndRecording=$isCurrentShowAndRecording, mediaShowId=${media.currentShowId}, mediaRecordingId=${media.currentRecordingId}")
+
+        baseState.copy(
+            isCurrentShowAndRecording = isCurrentShowAndRecording,
+            isPlaying = media.isPlaying,
+            isMediaLoading = media.playbackStatus?.isLoading == true || media.playbackStatus?.isBuffering == true
         )
     }.stateIn(
         scope = viewModelScope,
@@ -195,9 +244,9 @@ class ShowDetailViewModel(
         viewModelScope.launch {
             try {
                 // V2 pattern: Load entire show playlist and start at clicked track
-                val allTracks = uiState.value.tracks
-                val recordingId = uiState.value.currentRecordingId ?: ""
-                val showData = uiState.value.showData
+                val allTracks = enhancedUiState.value.tracks
+                val recordingId = enhancedUiState.value.currentRecordingId ?: ""
+                val showData = enhancedUiState.value.showData
 
                 // Pass show metadata to MediaService for UI display
                 val result = mediaService.playTrack(
@@ -213,8 +262,7 @@ class ShowDetailViewModel(
 
                 if (result.isSuccess) {
                     Logger.d(TAG, "Track playback started successfully (playlist loaded)")
-                    // Navigate to the player screen to show full player UI
-                    _navigation.emit(NavigationEvent(AppScreen.Player))
+                    // Stay on ShowDetail screen - don't navigate to player
                 } else {
                     Logger.e(TAG, "Failed to start track playback: ${result.exceptionOrNull()?.message}")
                 }
@@ -225,50 +273,54 @@ class ShowDetailViewModel(
     }
 
     /**
-     * Toggle playback of the current show - play first track if none playing.
+     * Toggle playback of the current show - V2 logic for same show vs different show.
      */
     fun togglePlayback() {
-        Logger.d(TAG, "Toggling playback for current show")
+        Logger.d(TAG, "Toggling playback for current show (V2 logic)")
 
         viewModelScope.launch {
             try {
-                val currentPlaybackState = mediaService.playbackState.first()
+                val currentState = enhancedUiState.value // Use reactive state with isCurrentShowAndRecording
 
-                if (currentPlaybackState.currentTrack != null && currentPlaybackState.isPlaying) {
-                    // If something is playing, pause it
+                if (currentState.isCurrentShowAndRecording && currentState.isPlaying) {
+                    // Currently playing this show/recording → pause
+                    Logger.d(TAG, "V2 Media: Pausing current playback")
                     mediaService.pause()
-                    Logger.d(TAG, "Paused current track")
-                } else if (currentPlaybackState.currentTrack != null) {
-                    // If something is paused, resume it
-                    mediaService.resume()
-                    Logger.d(TAG, "Resumed current track")
                 } else {
-                    // If nothing is playing, play the first track of the current show
-                    val tracks = uiState.value.tracks
-                    if (tracks.isNotEmpty()) {
-                        val firstTrack = tracks.first()
-                        Logger.d(TAG, "Starting playback with first track: ${firstTrack.title ?: firstTrack.name}")
+                    // Either not playing, or different show/recording → start playback
+                    Logger.d(TAG, "V2 Media: Starting playback (new or resume)")
 
-                        val showData = uiState.value.showData
-                        val result = mediaService.playTrack(
-                            track = firstTrack,
-                            recordingId = uiState.value.currentRecordingId ?: "",
-                            allTracks = tracks,
-                            showId = showData?.id ?: "",
-                            format = "SBD", // TODO: Get from user preference or recording metadata
-                            showDate = showData?.date,
-                            venue = showData?.venue?.name,
-                            location = showData?.location?.displayText
-                        )
-                        if (result.isSuccess) {
-                            Logger.d(TAG, "Show playback started successfully (full playlist loaded)")
-                            // Navigate to the player screen
-                            _navigation.emit(NavigationEvent(AppScreen.Player))
-                        } else {
-                            Logger.e(TAG, "Failed to start show playback: ${result.exceptionOrNull()?.message}")
-                        }
+                    if (currentState.isCurrentShowAndRecording) {
+                        Logger.d(TAG, "V2 Media: Resuming current recording ${currentState.currentRecordingId}")
+                        mediaService.resume()
                     } else {
-                        Logger.w(TAG, "No tracks available to play")
+                        Logger.d(TAG, "V2 Media: Play All for new recording ${currentState.currentRecordingId}")
+                        // Use MediaService for Play All logic (new show/recording)
+                        val tracks = currentState.tracks
+                        if (tracks.isNotEmpty()) {
+                            val firstTrack = tracks.first()
+                            Logger.d(TAG, "Starting playback with first track: ${firstTrack.title ?: firstTrack.name}")
+
+                            val showData = currentState.showData
+                            val result = mediaService.playTrack(
+                                track = firstTrack,
+                                recordingId = currentState.currentRecordingId ?: "",
+                                allTracks = tracks,
+                                showId = showData?.id ?: "",
+                                format = "SBD", // TODO: Get from user preference or recording metadata
+                                showDate = showData?.date,
+                                venue = showData?.venue?.name,
+                                location = showData?.location?.displayText
+                            )
+                            if (result.isSuccess) {
+                                Logger.d(TAG, "Show playback started successfully (full playlist loaded)")
+                                // Stay on ShowDetail screen - don't navigate to player
+                            } else {
+                                Logger.e(TAG, "Failed to start show playback: ${result.exceptionOrNull()?.message}")
+                            }
+                        } else {
+                            Logger.w(TAG, "No tracks available to play")
+                        }
                     }
                 }
             } catch (e: Exception) {
@@ -277,6 +329,16 @@ class ShowDetailViewModel(
         }
     }
 }
+
+/**
+ * Media state for comparison logic.
+ */
+private data class MediaState(
+    val currentShowId: String? = null,
+    val currentRecordingId: String? = null,
+    val playbackStatus: PlaybackStatus? = null,
+    val isPlaying: Boolean = false
+)
 
 /**
  * UI state for ShowDetail screen combining all service state.
@@ -288,7 +350,10 @@ data class ShowDetailUiState(
     val tracks: List<Track> = emptyList(),
     val isLoading: Boolean = false,
     val isTracksLoading: Boolean = false,
-    val error: String? = null
+    val error: String? = null,
+    val isCurrentShowAndRecording: Boolean = false,
+    val isPlaying: Boolean = false,
+    val isMediaLoading: Boolean = false
 ) {
     /**
      * Whether we have show data loaded.
