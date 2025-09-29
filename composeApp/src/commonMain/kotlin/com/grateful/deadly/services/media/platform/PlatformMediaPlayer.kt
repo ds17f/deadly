@@ -1,5 +1,6 @@
 package com.grateful.deadly.services.media.platform
 
+import com.grateful.deadly.services.media.EnrichedTrack
 import kotlinx.coroutines.flow.Flow
 
 /**
@@ -65,16 +66,16 @@ expect class PlatformMediaPlayer {
     suspend fun setTrackMetadata(track: com.grateful.deadly.services.archive.Track, recordingId: String)
 
     /**
-     * Load and play a playlist of tracks (for proper queuing like V2).
+     * Load and play a playlist of enriched tracks with metadata (V2 pattern).
      *
-     * Platforms may implement this for optimized playlist handling.
-     * Android uses MediaController setMediaItems, iOS falls back to single track.
+     * Platforms implement rich metadata handling:
+     * - Android: Create MediaItems with MediaMetadata extras
+     * - iOS: Use EnrichedTrack mapping + externalMetadata for Now Playing
      *
-     * @param tracks Full playlist of tracks
-     * @param recordingId Recording identifier
+     * @param enrichedTracks Full playlist with all V2 metadata fields
      * @param startIndex Index of track to start playing
      */
-    suspend fun loadAndPlayPlaylist(tracks: List<com.grateful.deadly.services.archive.Track>, recordingId: String, startIndex: Int = 0): Result<Unit>
+    suspend fun loadAndPlayPlaylist(enrichedTracks: List<EnrichedTrack>, startIndex: Int = 0): Result<Unit>
 
     /**
      * Skip to next track in playlist.
@@ -129,4 +130,30 @@ expect class PlatformMediaPlayer {
      * Should be called when the player is no longer needed.
      */
     fun release()
+
+    // === Metadata Extraction Methods (for RecentShowsService) ===
+
+    /**
+     * Extract showId from currently playing item.
+     * Used by RecentShowsService for tracking meaningful plays.
+     *
+     * @return showId if available, null otherwise
+     */
+    fun extractShowIdFromCurrentItem(): String?
+
+    /**
+     * Extract recordingId from currently playing item.
+     * Used by RecentShowsService for context tracking.
+     *
+     * @return recordingId if available, null otherwise
+     */
+    fun extractRecordingIdFromCurrentItem(): String?
+
+    /**
+     * Extract complete enriched track metadata from currently playing item.
+     * Provides access to all V2 metadata fields for services that need them.
+     *
+     * @return EnrichedTrack with all metadata if available, null otherwise
+     */
+    fun extractCurrentEnrichedTrack(): EnrichedTrack?
 }

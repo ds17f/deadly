@@ -3,6 +3,7 @@ package com.grateful.deadly.services.media
 import com.grateful.deadly.services.media.platform.PlatformMediaPlayer
 import com.grateful.deadly.services.media.platform.PlatformPlaybackState
 import com.grateful.deadly.services.archive.Track
+import com.grateful.deadly.core.logging.Logger
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.CoroutineScope
@@ -34,6 +35,18 @@ class MediaService(
     private val platformMediaPlayer: PlatformMediaPlayer
 ) {
 
+    companion object {
+        private const val TAG = "MediaService"
+
+        // Archive.org streaming optimization
+        private const val ARCHIVE_STREAM_BASE = "https://archive.org/download"
+
+        // Business logic constants
+        private const val SEEK_FORWARD_SECONDS = 15
+        private const val SEEK_BACKWARD_SECONDS = 15
+        private const val AUTO_NEXT_THRESHOLD_SECONDS = 5 // Auto-advance when near end
+    }
+
     // Service scope for track sync
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
@@ -42,22 +55,12 @@ class MediaService(
         serviceScope.launch {
             platformMediaPlayer.currentTrackIndex.collect { newIndex ->
                 if (newIndex >= 0 && newIndex < currentPlaylist.size && newIndex != currentTrackIndex) {
-                    println("MediaService: Syncing track index from platform: $currentTrackIndex -> $newIndex")
+                    Logger.d(TAG, "🎵 [SYNC] Track index from platform: $currentTrackIndex -> $newIndex")
                     currentTrackIndex = newIndex
                     currentTrack = currentPlaylist[newIndex]
                 }
             }
         }
-    }
-
-    companion object {
-        // Archive.org streaming optimization
-        private const val ARCHIVE_STREAM_BASE = "https://archive.org/download"
-
-        // Business logic constants
-        private const val SEEK_FORWARD_SECONDS = 15
-        private const val SEEK_BACKWARD_SECONDS = 15
-        private const val AUTO_NEXT_THRESHOLD_SECONDS = 5 // Auto-advance when near end
     }
 
     // Current playback context - Archive.org business knowledge
@@ -106,6 +109,8 @@ class MediaService(
         track: Track,
         recordingId: String,
         allTracks: List<Track>,
+        showId: String,           // Show ID for RecentShowsService tracking
+        format: String,           // User-selected format (SBD/AUD/etc)
         showDate: String? = null,
         venue: String? = null,
         location: String? = null
@@ -122,8 +127,8 @@ class MediaService(
                 return Result.failure(Exception("Track ${track.name} not found in show tracks"))
             }
 
-            // Use playlist approach for proper navigation (V2 pattern)
-            playPlaylist(allTracks, recordingId, startIndex)
+            // Use enriched playlist approach for proper navigation (V2 pattern)
+            playPlaylist(allTracks, recordingId, showId, format, startIndex)
         } catch (e: Exception) {
             Result.failure(Exception("Failed to play track ${track.name}", e))
         }
@@ -135,7 +140,13 @@ class MediaService(
      * Sets up playlist context and starts with the specified track.
      * Enables track navigation and auto-advance functionality.
      */
-    suspend fun playPlaylist(tracks: List<Track>, recordingId: String, startIndex: Int = 0): Result<Unit> {
+    suspend fun playPlaylist(
+        tracks: List<Track>,
+        recordingId: String,
+        showId: String,
+        format: String,
+        startIndex: Int = 0
+    ): Result<Unit> {
         return try {
             if (tracks.isEmpty()) {
                 return Result.failure(Exception("Cannot play empty playlist"))
@@ -151,11 +162,30 @@ class MediaService(
             currentTrack = tracks[startIndex]
             currentRecordingId = recordingId
 
-            // Build Archive.org streaming URL for starting track
-            val streamUrl = buildArchiveStreamUrl(currentTrack!!)
+            // Create enriched tracks with all V2 metadata
+            val enrichedTracks = tracks.mapIndexed { index, track ->
+                EnrichedTrack.create(
+                    track = track,
+                    trackIndex = index,
+                    showId = showId,
+                    recordingId = recordingId,
+                    format = format,
+                    showDate = currentShowDate,
+                    venue = currentVenue,
+                    location = currentLocation
+                )
+            }
 
-            // Use playlist approach for better platform integration
-            platformMediaPlayer.loadAndPlayPlaylist(tracks, recordingId, startIndex)
+            // Log enrichment verification
+            Logger.d(TAG, "🎵 [ENRICHMENT] Created ${enrichedTracks.size} enriched tracks")
+            enrichedTracks.firstOrNull()?.let { firstTrack ->
+                Logger.d(TAG, "🎵 [ENRICHMENT] Sample track - showId: ${firstTrack.showId}, format: ${firstTrack.format}")
+                Logger.d(TAG, "🎵 [ENRICHMENT] DisplayAlbum: ${firstTrack.displayAlbum}")
+                Logger.d(TAG, "🎵 [ENRICHMENT] MediaId: ${firstTrack.mediaId}")
+            }
+
+            // Use enriched playlist approach for metadata-rich platform integration
+            platformMediaPlayer.loadAndPlayPlaylist(enrichedTracks, startIndex)
         } catch (e: Exception) {
             Result.failure(Exception("Failed to play playlist", e))
         }

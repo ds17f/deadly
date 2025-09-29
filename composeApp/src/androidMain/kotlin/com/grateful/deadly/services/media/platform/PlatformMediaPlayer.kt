@@ -3,6 +3,7 @@ package com.grateful.deadly.services.media.platform
 import android.content.Context
 import android.util.Log
 import com.grateful.deadly.services.media.MediaControllerRepository
+import com.grateful.deadly.services.media.EnrichedTrack
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -42,6 +43,10 @@ actual class PlatformMediaPlayer(
     // Current track metadata for MediaSession
     private var currentTrack: com.grateful.deadly.services.archive.Track? = null
     private var currentRecordingId: String? = null
+
+    // Enriched track metadata for extraction (V2 pattern)
+    private var currentEnrichedTracks: List<EnrichedTrack> = emptyList()
+    private var currentEnrichedTrackIndex: Int = -1
 
     init {
         setupMediaControllerStateSync()
@@ -84,18 +89,27 @@ actual class PlatformMediaPlayer(
     }
 
     /**
-     * Load and play a playlist of tracks (V2 pattern for proper queuing)
-     * Android implementation using MediaController setMediaItems for full playlist queuing
+     * Load and play a playlist of enriched tracks with V2 metadata.
+     * Android implementation creates MediaItems with rich MediaMetadata extras.
      */
-    actual suspend fun loadAndPlayPlaylist(tracks: List<com.grateful.deadly.services.archive.Track>, recordingId: String, startIndex: Int): Result<Unit> {
+    actual suspend fun loadAndPlayPlaylist(enrichedTracks: List<EnrichedTrack>, startIndex: Int): Result<Unit> {
         return try {
-            Log.d(TAG, "🎵 [PLAYLIST] Loading playlist: ${tracks.size} tracks from $recordingId, starting at $startIndex")
+            Log.d(TAG, "🎵 [PLAYLIST] Loading enriched playlist: ${enrichedTracks.size} tracks, starting at $startIndex")
+
+            // Store enriched tracks for metadata extraction
+            currentEnrichedTracks = enrichedTracks
+            currentEnrichedTrackIndex = startIndex
+
+            // Extract basic tracks for MediaController (it will handle MediaMetadata creation)
+            val tracks = enrichedTracks.map { it.track }
+            val recordingId = enrichedTracks.firstOrNull()?.recordingId ?: ""
 
             // Use V2's playlist queuing approach via MediaController
+            // TODO: Update MediaControllerRepository to accept EnrichedTrack directly
             mediaControllerRepository.loadAndPlayPlaylist(tracks, recordingId, startIndex)
 
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to load and play playlist", e)
+            Log.e(TAG, "Failed to load and play enriched playlist", e)
             Result.failure(e)
         }
     }
@@ -185,6 +199,54 @@ actual class PlatformMediaPlayer(
         stateUpdateJob?.cancel()
         playerScope.launch {
             mediaControllerRepository.release()
+        }
+    }
+
+    /**
+     * Extract showId from currently playing item.
+     * Uses stored EnrichedTrack metadata and synced MediaController track index.
+     */
+    actual fun extractShowIdFromCurrentItem(): String? {
+        val mediaControllerIndex = _currentTrackIndex.value
+        return if (mediaControllerIndex >= 0 && mediaControllerIndex < currentEnrichedTracks.size) {
+            val enrichedTrack = currentEnrichedTracks[mediaControllerIndex]
+            Log.d(TAG, "🎵 [EXTRACT] ShowId: ${enrichedTrack.showId} (index: $mediaControllerIndex)")
+            enrichedTrack.showId
+        } else {
+            Log.w(TAG, "🎵 [EXTRACT] No showId available - invalid index: $mediaControllerIndex/${currentEnrichedTracks.size}")
+            null
+        }
+    }
+
+    /**
+     * Extract recordingId from currently playing item.
+     * Uses stored EnrichedTrack metadata and synced MediaController track index.
+     */
+    actual fun extractRecordingIdFromCurrentItem(): String? {
+        val mediaControllerIndex = _currentTrackIndex.value
+        return if (mediaControllerIndex >= 0 && mediaControllerIndex < currentEnrichedTracks.size) {
+            val enrichedTrack = currentEnrichedTracks[mediaControllerIndex]
+            Log.d(TAG, "🎵 [EXTRACT] RecordingId: ${enrichedTrack.recordingId} (index: $mediaControllerIndex)")
+            enrichedTrack.recordingId
+        } else {
+            Log.w(TAG, "🎵 [EXTRACT] No recordingId available - invalid index: $mediaControllerIndex/${currentEnrichedTracks.size}")
+            null
+        }
+    }
+
+    /**
+     * Extract complete enriched track metadata from currently playing item.
+     * Uses stored EnrichedTrack metadata and synced MediaController track index.
+     */
+    actual fun extractCurrentEnrichedTrack(): EnrichedTrack? {
+        val mediaControllerIndex = _currentTrackIndex.value
+        return if (mediaControllerIndex >= 0 && mediaControllerIndex < currentEnrichedTracks.size) {
+            val enrichedTrack = currentEnrichedTracks[mediaControllerIndex]
+            Log.d(TAG, "🎵 [EXTRACT] EnrichedTrack: ${enrichedTrack.shortId} (index: $mediaControllerIndex)")
+            enrichedTrack
+        } else {
+            Log.w(TAG, "🎵 [EXTRACT] No EnrichedTrack available - invalid index: $mediaControllerIndex/${currentEnrichedTracks.size}")
+            null
         }
     }
 

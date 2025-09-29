@@ -113,13 +113,34 @@ class DeadlyMediaSessionService : MediaSessionService() {
     }
 
     override fun onDestroy() {
-        Log.d(TAG, "🎵 [MEDIA] Service onDestroy()")
-        mediaSession?.run {
-            release()
+        Log.d(TAG, "🎵 [MEDIA] Service onDestroy() - cleaning up resources")
+
+        try {
+            // Properly stop the player first to notify all listeners
+            if (exoPlayer.isPlaying) {
+                exoPlayer.stop()
+            }
+
+            // Give a moment for callbacks to complete
+            Thread.sleep(100)
+
+            // Release MediaSession first (this notifies system components)
+            mediaSession?.run {
+                Log.d(TAG, "🎵 [MEDIA] Releasing MediaSession")
+                release()
+            }
             mediaSession = null
+
+            // Release ExoPlayer
+            Log.d(TAG, "🎵 [MEDIA] Releasing ExoPlayer")
+            exoPlayer.release()
+
+        } catch (e: Exception) {
+            Log.e(TAG, "Error during service cleanup", e)
+        } finally {
+            super.onDestroy()
+            Log.d(TAG, "🎵 [MEDIA] Service cleanup completed")
         }
-        exoPlayer.release()
-        super.onDestroy()
     }
 
     /**

@@ -77,7 +77,8 @@ CONCEPT GROUPS:
     di          Dependency injection (Koin, modules, application startup)
     ui          UI interactions (App, navigation, screens)
     data        Data import/export (DataImportService, ZipExtraction, etc.)
-    platform    Platform tools (NetworkClient, CacheManager, PlatformMediaPlayer)
+    media       Media playback (MediaService, PlatformMediaPlayer, enrichment)
+    platform    Platform tools (NetworkClient, CacheManager)
     icons       Cross-platform icon rendering
     logging     Logging system itself
     all         All deadly app logs (default)
@@ -138,7 +139,8 @@ if [ "$CONCEPT" = "all" ] && [ $# -eq 0 ]; then
     echo -e "  ${CYAN}di${NC}        - Dependency injection (Koin, modules, application startup)"
     echo -e "  ${CYAN}ui${NC}        - UI interactions (App, navigation, screens)"
     echo -e "  ${CYAN}data${NC}      - Data import/export (DataImportService, ZipExtraction, etc.)"
-    echo -e "  ${CYAN}platform${NC}  - Platform tools (NetworkClient, CacheManager, PlatformMediaPlayer)"
+    echo -e "  ${CYAN}media${NC}     - Media playback (MediaService, PlatformMediaPlayer, enrichment)"
+    echo -e "  ${CYAN}platform${NC}  - Platform tools (NetworkClient, CacheManager)"
     echo -e "  ${CYAN}icons${NC}     - Cross-platform icon rendering"
     echo -e "  ${CYAN}logging${NC}   - Logging system itself"
     echo -e "  ${CYAN}all${NC}       - All deadly app logs"
@@ -176,8 +178,11 @@ get_tag_filters() {
         "data")
             echo "DataImportService|ZipExtractionService|ZipExtractor|FileDiscoveryService|DownloadService|JsonImportService|GitHubModels"
             ;;
+        "media")
+            echo "MediaService|PlatformMediaPlayer|MediaController|EnrichedTrack|ENRICHMENT|SYNC|EXTRACT"
+            ;;
         "platform")
-            echo "NetworkClient|CacheManager|PlatformMediaPlayer"
+            echo "NetworkClient|CacheManager"
             ;;
         "icons")
             echo "AppIcon|IconRenderer"

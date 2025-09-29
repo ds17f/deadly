@@ -204,6 +204,8 @@ class ShowDetailViewModel(
                     track = track,
                     recordingId = recordingId,
                     allTracks = allTracks,
+                    showId = showData?.id ?: "",
+                    format = "SBD", // TODO: Get from user preference or recording metadata
                     showDate = showData?.date,
                     venue = showData?.venue?.name,
                     location = showData?.location?.displayText
@@ -252,6 +254,8 @@ class ShowDetailViewModel(
                             track = firstTrack,
                             recordingId = uiState.value.currentRecordingId ?: "",
                             allTracks = tracks,
+                            showId = showData?.id ?: "",
+                            format = "SBD", // TODO: Get from user preference or recording metadata
                             showDate = showData?.date,
                             venue = showData?.venue?.name,
                             location = showData?.location?.displayText

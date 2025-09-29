@@ -1,5 +1,6 @@
 package com.grateful.deadly.services.media.platform
 
+import com.grateful.deadly.services.media.EnrichedTrack
 import kotlinx.cinterop.*
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -58,10 +59,9 @@ actual class PlatformMediaPlayer {
     private var currentTrack: com.grateful.deadly.services.archive.Track? = null
     private var currentRecordingId: String? = null
 
-    // Manual playlist management for iOS (no native playlist like Android MediaController)
-    private var currentPlaylist: List<com.grateful.deadly.services.archive.Track> = emptyList()
-    private var currentPlaylistIndex: Int = -1
-    private var currentPlaylistRecordingId: String? = null
+    // Enriched track metadata for extraction and MPNowPlayingInfoCenter (V2 pattern)
+    private var currentEnrichedTracks: List<EnrichedTrack> = emptyList()
+    private var currentEnrichedTrackIndex: Int = -1
 
     /**
      * Set track metadata for rich platform integrations.
@@ -76,29 +76,28 @@ actual class PlatformMediaPlayer {
     }
 
     /**
-     * Load and play a playlist of tracks.
-     * iOS implementation: falls back to playing first track (no native playlist queue like Android MediaController)
+     * Load and play a playlist of enriched tracks with V2 metadata.
+     * iOS implementation: Manual navigation with enhanced MPNowPlayingInfoCenter integration.
      */
-    actual suspend fun loadAndPlayPlaylist(tracks: List<com.grateful.deadly.services.archive.Track>, recordingId: String, startIndex: Int): Result<Unit> {
+    actual suspend fun loadAndPlayPlaylist(enrichedTracks: List<EnrichedTrack>, startIndex: Int): Result<Unit> {
         return try {
-            if (tracks.isEmpty() || startIndex !in tracks.indices) {
-                return Result.failure(Exception("Invalid playlist or start index"))
+            if (enrichedTracks.isEmpty() || startIndex !in enrichedTracks.indices) {
+                return Result.failure(Exception("Invalid enriched playlist or start index"))
             }
 
-            // Store playlist for manual navigation
-            currentPlaylist = tracks
-            currentPlaylistIndex = startIndex
-            currentPlaylistRecordingId = recordingId
+            // Store enriched tracks for metadata extraction and navigation
+            currentEnrichedTracks = enrichedTracks
+            currentEnrichedTrackIndex = startIndex
 
             // Update track index flow
             _currentTrackIndex.value = startIndex
 
-            // For iOS, set metadata and load the starting track
-            val startTrack = tracks[startIndex]
-            setTrackMetadata(startTrack, recordingId)
+            // For iOS, set metadata and load the starting track using EnrichedTrack data
+            val startEnrichedTrack = enrichedTracks[startIndex]
+            setTrackMetadata(startEnrichedTrack.track, startEnrichedTrack.recordingId)
 
-            val url = "https://archive.org/download/$recordingId/${startTrack.name}"
-            loadAndPlay(url)
+            // Use EnrichedTrack's computed URL
+            loadAndPlay(startEnrichedTrack.trackUrl)
 
         } catch (e: Exception) {
             Result.failure(e)
@@ -106,31 +105,29 @@ actual class PlatformMediaPlayer {
     }
 
     /**
-     * Skip to next track (iOS manual navigation)
+     * Skip to next track (iOS manual navigation with EnrichedTrack)
      */
     actual suspend fun nextTrack(): Result<Unit> {
         return try {
-            val playlist = currentPlaylist
-            val currentIndex = currentPlaylistIndex
-            val recordingId = currentPlaylistRecordingId
+            val enrichedTracks = currentEnrichedTracks
+            val currentIndex = currentEnrichedTrackIndex
 
-            if (playlist.isEmpty() || recordingId == null) {
-                return Result.failure(Exception("No playlist loaded"))
+            if (enrichedTracks.isEmpty()) {
+                return Result.failure(Exception("No enriched playlist loaded"))
             }
 
-            if (currentIndex >= playlist.size - 1) {
+            if (currentIndex >= enrichedTracks.size - 1) {
                 return Result.failure(Exception("No next track available"))
             }
 
             val nextIndex = currentIndex + 1
-            val nextTrack = playlist[nextIndex]
+            val nextEnrichedTrack = enrichedTracks[nextIndex]
 
-            currentPlaylistIndex = nextIndex
+            currentEnrichedTrackIndex = nextIndex
             _currentTrackIndex.value = nextIndex
-            setTrackMetadata(nextTrack, recordingId)
+            setTrackMetadata(nextEnrichedTrack.track, nextEnrichedTrack.recordingId)
 
-            val url = "https://archive.org/download/$recordingId/${nextTrack.name}"
-            loadAndPlay(url)
+            loadAndPlay(nextEnrichedTrack.trackUrl)
 
         } catch (e: Exception) {
             Result.failure(e)
@@ -138,16 +135,15 @@ actual class PlatformMediaPlayer {
     }
 
     /**
-     * Skip to previous track (iOS manual navigation)
+     * Skip to previous track (iOS manual navigation with EnrichedTrack)
      */
     actual suspend fun previousTrack(): Result<Unit> {
         return try {
-            val playlist = currentPlaylist
-            val currentIndex = currentPlaylistIndex
-            val recordingId = currentPlaylistRecordingId
+            val enrichedTracks = currentEnrichedTracks
+            val currentIndex = currentEnrichedTrackIndex
 
-            if (playlist.isEmpty() || recordingId == null) {
-                return Result.failure(Exception("No playlist loaded"))
+            if (enrichedTracks.isEmpty()) {
+                return Result.failure(Exception("No enriched playlist loaded"))
             }
 
             if (currentIndex <= 0) {
@@ -155,14 +151,13 @@ actual class PlatformMediaPlayer {
             }
 
             val prevIndex = currentIndex - 1
-            val prevTrack = playlist[prevIndex]
+            val prevEnrichedTrack = enrichedTracks[prevIndex]
 
-            currentPlaylistIndex = prevIndex
+            currentEnrichedTrackIndex = prevIndex
             _currentTrackIndex.value = prevIndex
-            setTrackMetadata(prevTrack, recordingId)
+            setTrackMetadata(prevEnrichedTrack.track, prevEnrichedTrack.recordingId)
 
-            val url = "https://archive.org/download/$recordingId/${prevTrack.name}"
-            loadAndPlay(url)
+            loadAndPlay(prevEnrichedTrack.trackUrl)
 
         } catch (e: Exception) {
             Result.failure(e)
@@ -430,8 +425,50 @@ actual class PlatformMediaPlayer {
     }
 
     /**
+     * Extract showId from currently playing item.
+     * Uses stored EnrichedTrack metadata and current track index.
+     */
+    actual fun extractShowIdFromCurrentItem(): String? {
+        val currentIndex = currentEnrichedTrackIndex
+        return if (currentIndex >= 0 && currentIndex < currentEnrichedTracks.size) {
+            val enrichedTrack = currentEnrichedTracks[currentIndex]
+            enrichedTrack.showId
+        } else {
+            null
+        }
+    }
+
+    /**
+     * Extract recordingId from currently playing item.
+     * Uses stored EnrichedTrack metadata and current track index.
+     */
+    actual fun extractRecordingIdFromCurrentItem(): String? {
+        val currentIndex = currentEnrichedTrackIndex
+        return if (currentIndex >= 0 && currentIndex < currentEnrichedTracks.size) {
+            val enrichedTrack = currentEnrichedTracks[currentIndex]
+            enrichedTrack.recordingId
+        } else {
+            null
+        }
+    }
+
+    /**
+     * Extract complete enriched track metadata from currently playing item.
+     * Uses stored EnrichedTrack metadata and current track index.
+     */
+    actual fun extractCurrentEnrichedTrack(): EnrichedTrack? {
+        val currentIndex = currentEnrichedTrackIndex
+        return if (currentIndex >= 0 && currentIndex < currentEnrichedTracks.size) {
+            currentEnrichedTracks[currentIndex]
+        } else {
+            null
+        }
+    }
+
+    /**
      * Update MPNowPlayingInfoCenter for CarPlay and Apple Watch integration.
      * Called whenever track metadata or playback state changes.
+     * Enhanced with EnrichedTrack V2 metadata when available.
      */
     private fun updateNowPlayingInfo() {
         val track = currentTrack ?: return
@@ -441,10 +478,22 @@ actual class PlatformMediaPlayer {
             // Create now playing info dictionary
             val nowPlayingInfo = mutableMapOf<String, Any?>()
 
-            // Basic track information
-            nowPlayingInfo[MPMediaItemPropertyTitle] = track.title ?: track.name
-            nowPlayingInfo[MPMediaItemPropertyArtist] = "Grateful Dead"
-            nowPlayingInfo[MPMediaItemPropertyAlbumTitle] = recordingId
+            // Use EnrichedTrack metadata if available (dual strategy)
+            val currentEnrichedTrack = if (currentEnrichedTrackIndex >= 0 && currentEnrichedTrackIndex < currentEnrichedTracks.size) {
+                currentEnrichedTracks[currentEnrichedTrackIndex]
+            } else null
+
+            // Basic track information - prefer EnrichedTrack computed display fields
+            if (currentEnrichedTrack != null) {
+                nowPlayingInfo[MPMediaItemPropertyTitle] = currentEnrichedTrack.displayTitle
+                nowPlayingInfo[MPMediaItemPropertyArtist] = currentEnrichedTrack.displayArtist
+                nowPlayingInfo[MPMediaItemPropertyAlbumTitle] = currentEnrichedTrack.displayAlbum
+            } else {
+                // Fallback to basic track info
+                nowPlayingInfo[MPMediaItemPropertyTitle] = track.title ?: track.name
+                nowPlayingInfo[MPMediaItemPropertyArtist] = "Grateful Dead"
+                nowPlayingInfo[MPMediaItemPropertyAlbumTitle] = recordingId
+            }
 
             // Track number if available
             track.trackNumber?.let { trackNumber ->

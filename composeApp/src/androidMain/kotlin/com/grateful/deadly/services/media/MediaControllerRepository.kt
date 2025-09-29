@@ -3,6 +3,7 @@ package com.grateful.deadly.services.media
 import android.content.ComponentName
 import android.content.Context
 import android.os.Bundle
+import android.os.DeadObjectException
 import android.util.Log
 import androidx.core.content.ContextCompat
 import androidx.media3.common.MediaItem
@@ -428,6 +429,14 @@ class MediaControllerRepository(private val context: Context) {
                         Log.d(TAG, "Executing MediaController command on Main thread")
                         command()
                         Log.d(TAG, "MediaController command completed successfully")
+                    } catch (e: DeadObjectException) {
+                        Log.w(TAG, "MediaController is dead - attempting to reconnect", e)
+                        _connectionState.value = ConnectionState.Failed
+                        // Queue the command for retry after reconnection
+                        synchronized(pendingCommands) {
+                            pendingCommands.add(command)
+                        }
+                        connectToService()
                     } catch (e: Exception) {
                         Log.e(TAG, "MediaController command failed", e)
                         throw e
@@ -499,11 +508,37 @@ class MediaControllerRepository(private val context: Context) {
      */
     fun release() {
         Log.d(TAG, "release() - Releasing MediaController resources")
-        mediaController?.release()
-        mediaController = null
-        controllerFuture?.cancel(true)
-        repositoryScope.launch { /* scope will be cancelled by job */ }
-        _connectionState.value = ConnectionState.Disconnected
-        Log.d(TAG, "release() - Resources released successfully")
+
+        try {
+            // Safely release MediaController
+            mediaController?.let { controller ->
+                try {
+                    controller.release()
+                    Log.d(TAG, "MediaController released successfully")
+                } catch (e: Exception) {
+                    Log.w(TAG, "Error releasing MediaController (likely already dead)", e)
+                }
+            }
+            mediaController = null
+
+            // Cancel any pending connection futures
+            controllerFuture?.let { future ->
+                try {
+                    future.cancel(true)
+                    Log.d(TAG, "Controller future cancelled")
+                } catch (e: Exception) {
+                    Log.w(TAG, "Error cancelling controller future", e)
+                }
+            }
+            controllerFuture = null
+
+            // Update connection state
+            _connectionState.value = ConnectionState.Disconnected
+
+        } catch (e: Exception) {
+            Log.e(TAG, "Error during MediaControllerRepository cleanup", e)
+        } finally {
+            Log.d(TAG, "release() - Resources released successfully")
+        }
     }
 }
