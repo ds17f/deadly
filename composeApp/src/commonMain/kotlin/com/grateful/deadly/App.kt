@@ -201,11 +201,14 @@ fun App() {
             
             composable(AppScreen.Player) {
                 val playerViewModel: com.grateful.deadly.feature.player.PlayerViewModel = remember { DIHelper.get() }
-                val mediaService: com.grateful.deadly.services.media.MediaService = remember { DIHelper.get() }
 
                 com.grateful.deadly.feature.player.PlayerScreen(
-                    mediaService = mediaService,
-                    onNavigateBack = { navigationController.navigateUp() }
+                    viewModel = playerViewModel,
+                    onNavigateBack = { navigationController.navigateUp() },
+                    onNavigateToShowDetail = { showId, recordingId ->
+                        // Navigate to ShowDetail with current show/recording like V2
+                        navigationController.navigate(AppScreen.ShowDetail(showId, recordingId))
+                    }
                 )
             }
             

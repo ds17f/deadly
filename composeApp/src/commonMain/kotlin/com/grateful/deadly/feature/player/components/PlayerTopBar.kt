@@ -1,5 +1,6 @@
 package com.grateful.deadly.feature.player.components
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -26,6 +27,7 @@ import com.grateful.deadly.services.media.MediaPlaybackState
 fun PlayerTopBar(
     playbackState: MediaPlaybackState,
     onNavigateBack: () -> Unit,
+    onContextClick: (() -> Unit)? = null,
     onOptionsClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
@@ -48,14 +50,22 @@ fun PlayerTopBar(
 
         Spacer(modifier = Modifier.width(AppDimens.S))
 
-        // V2 Exact: Simple "Playing from Show" context text
+        // V2 Exact: Simple "Playing from Show" context text (clickable like V2)
         Text(
             text = "Playing from Show",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurface,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.weight(1f)
+            modifier = Modifier
+                .weight(1f)
+                .then(
+                    if (onContextClick != null) {
+                        Modifier.clickable { onContextClick() }
+                    } else {
+                        Modifier
+                    }
+                )
         )
 
         // Options menu button (if callback provided)

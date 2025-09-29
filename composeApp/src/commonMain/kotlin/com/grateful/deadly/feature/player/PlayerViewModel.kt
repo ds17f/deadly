@@ -7,26 +7,42 @@ import com.grateful.deadly.services.media.MediaService
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.combine
 
 /**
  * PlayerViewModel for reactive state management following V2 patterns.
  *
  * Provides a clean interface between PlayerScreen and MediaService.
  * All business logic is delegated to MediaService (Universal Service pattern).
+ *
+ * Follows V2's architecture where ViewModel combines service flows into unified UI state
+ * with navigation information for proper show/recording context.
  */
 class PlayerViewModel(
     private val mediaService: MediaService
 ) : ViewModel() {
 
     /**
-     * Current playback state from MediaService.
-     * Exposed as StateFlow for reactive UI updates.
+     * Unified UI state combining playback state with navigation info, following V2 pattern.
+     * Exposes current show/recording IDs for navigation while maintaining reactive updates.
      */
-    val playbackState: StateFlow<MediaPlaybackState> = mediaService.playbackState
-        .stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5000L),
-            initialValue = MediaPlaybackState(
+    val uiState: StateFlow<PlayerUiState> = combine(
+        mediaService.playbackState,
+        mediaService.currentShowId,
+        mediaService.currentRecordingId
+    ) { playbackState, showId, recordingId ->
+        PlayerUiState(
+            playbackState = playbackState,
+            navigationInfo = NavigationInfo(
+                showId = showId,
+                recordingId = recordingId
+            )
+        )
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000L),
+        initialValue = PlayerUiState(
+            playbackState = MediaPlaybackState(
                 currentTrack = null,
                 currentRecordingId = null,
                 showDate = null,
@@ -42,14 +58,19 @@ class PlayerViewModel(
                 hasPrevious = false,
                 playlistPosition = 0,
                 playlistSize = 0
+            ),
+            navigationInfo = NavigationInfo(
+                showId = null,
+                recordingId = null
             )
         )
+    )
 
     /**
      * Play or pause the current track.
      */
     suspend fun togglePlayPause() {
-        val currentState = playbackState.value
+        val currentState = uiState.value.playbackState
         if (currentState.isPlaying) {
             mediaService.pause()
         } else {
@@ -99,3 +120,21 @@ class PlayerViewModel(
         mediaService.stop()
     }
 }
+
+/**
+ * Unified UI state for PlayerScreen, following V2's PlayerUiState pattern.
+ * Combines playback state with navigation information for proper show/recording context.
+ */
+data class PlayerUiState(
+    val playbackState: MediaPlaybackState,
+    val navigationInfo: NavigationInfo
+)
+
+/**
+ * Navigation information for the current track, following V2's NavigationInfo pattern.
+ * Provides show and recording IDs for navigation to ShowDetail screen.
+ */
+data class NavigationInfo(
+    val showId: String?,
+    val recordingId: String?
+)

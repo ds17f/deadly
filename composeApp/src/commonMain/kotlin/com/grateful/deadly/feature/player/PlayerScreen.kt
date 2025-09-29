@@ -29,28 +29,11 @@ import kotlinx.coroutines.launch
  */
 @Composable
 fun PlayerScreen(
-    mediaService: MediaService,
-    onNavigateBack: () -> Unit
+    viewModel: PlayerViewModel,
+    onNavigateBack: () -> Unit,
+    onNavigateToShowDetail: (String, String?) -> Unit
 ) {
-    val playbackState by mediaService.playbackState.collectAsState(
-        initial = MediaPlaybackState(
-            currentTrack = null,
-            currentRecordingId = null,
-            showDate = null,
-            venue = null,
-            location = null,
-            isPlaying = false,
-            currentPositionMs = 0L,
-            durationMs = 0L,
-            isLoading = false,
-            isBuffering = false,
-            error = null,
-            hasNext = false,
-            hasPrevious = false,
-            playlistPosition = 0,
-            playlistSize = 0
-        )
-    )
+    val uiState by viewModel.uiState.collectAsState()
     val coroutineScope = rememberCoroutineScope()
 
     // V2 Exact: LazyColumn with scroll state for mini player detection
@@ -75,13 +58,21 @@ fun PlayerScreen(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(createRecordingGradient(playbackState.currentRecordingId ?: "default"))
+                        .background(createRecordingGradient(uiState.playbackState.currentRecordingId ?: "default"))
                 ) {
                     Column {
                         // V2 Exact: PlayerTopBar with 8dp vertical padding
                         PlayerTopBar(
-                            playbackState = playbackState,
+                            playbackState = uiState.playbackState,
                             onNavigateBack = onNavigateBack,
+                            onContextClick = {
+                                // Navigate to ShowDetail with current show and recording like V2
+                                val showId = uiState.navigationInfo.showId
+                                val recordingId = uiState.navigationInfo.recordingId
+                                if (showId != null) {
+                                    onNavigateToShowDetail(showId, recordingId)
+                                }
+                            },
                             modifier = Modifier.padding(vertical = 8.dp)
                         )
 
@@ -90,7 +81,7 @@ fun PlayerScreen(
 
                         // V2 Exact: PlayerTrackInfoRow (24dp horizontal padding)
                         PlayerTrackInfoRow(
-                            playbackState = playbackState,
+                            playbackState = uiState.playbackState,
                             onAddToPlaylist = {
                                 // TODO: Implement add to playlist
                             }
@@ -98,34 +89,30 @@ fun PlayerScreen(
 
                         // V2 Exact: PlayerProgressControl (24dp horizontal padding)
                         PlayerProgressControl(
-                            playbackState = playbackState,
+                            playbackState = uiState.playbackState,
                             onSeek = { positionMs ->
                                 coroutineScope.launch {
-                                    mediaService.seekTo(positionMs)
+                                    viewModel.seekTo(positionMs)
                                 }
                             }
                         )
 
                         // V2 Exact: PlayerEnhancedControls (24dp horizontal padding)
                         PlayerEnhancedControls(
-                            playbackState = playbackState,
+                            playbackState = uiState.playbackState,
                             onPrevious = {
                                 coroutineScope.launch {
-                                    mediaService.previousTrack()
+                                    viewModel.previousTrack()
                                 }
                             },
                             onPlayPause = {
                                 coroutineScope.launch {
-                                    if (playbackState.isPlaying) {
-                                        mediaService.pause()
-                                    } else {
-                                        mediaService.resume()
-                                    }
+                                    viewModel.togglePlayPause()
                                 }
                             },
                             onNext = {
                                 coroutineScope.launch {
-                                    mediaService.nextTrack()
+                                    viewModel.nextTrack()
                                 }
                             },
                             onShuffle = {
@@ -157,7 +144,7 @@ fun PlayerScreen(
             // V2 Exact: PlayerMaterialPanels (16dp horizontal, 6dp vertical)
             item {
                 PlayerMaterialPanels(
-                    playbackState = playbackState,
+                    playbackState = uiState.playbackState,
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
                 )
             }
@@ -169,13 +156,18 @@ fun PlayerScreen(
         }
 
         // V2 Exact: Overlay Mini Player when scrolled
-        if (showMiniPlayer && playbackState.currentTrack != null) {
+        if (showMiniPlayer && uiState.playbackState.currentTrack != null) {
             PlayerMiniPlayer(
-                mediaService = mediaService,
+                playbackState = uiState.playbackState,
                 onPlayerClick = {
                     // Scroll back to top when mini player is clicked
                     coroutineScope.launch {
                         lazyListState.animateScrollToItem(0)
+                    }
+                },
+                onPlayPause = {
+                    coroutineScope.launch {
+                        viewModel.togglePlayPause()
                     }
                 },
                 modifier = Modifier.align(Alignment.TopCenter)

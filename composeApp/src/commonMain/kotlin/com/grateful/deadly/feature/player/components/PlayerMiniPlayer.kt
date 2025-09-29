@@ -15,10 +15,6 @@ import androidx.compose.ui.unit.dp
 import com.grateful.deadly.core.design.icons.AppIcon
 import com.grateful.deadly.core.design.icons.Render
 import com.grateful.deadly.services.media.MediaPlaybackState
-import com.grateful.deadly.services.media.MediaService
-import kotlinx.coroutines.launch
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.collectAsState
 
 /**
  * Exact V2 Mini Player component that appears when scrolling past media controls.
@@ -34,32 +30,11 @@ import androidx.compose.runtime.collectAsState
  */
 @Composable
 fun PlayerMiniPlayer(
-    mediaService: MediaService,
+    playbackState: MediaPlaybackState,
     onPlayerClick: () -> Unit,
+    onPlayPause: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val coroutineScope = rememberCoroutineScope()
-
-    // Get playback state
-    val playbackState = mediaService.playbackState.collectAsState(
-        initial = com.grateful.deadly.services.media.MediaPlaybackState(
-            currentTrack = null,
-            currentRecordingId = null,
-            showDate = null,
-            venue = null,
-            location = null,
-            isPlaying = false,
-            currentPositionMs = 0L,
-            durationMs = 0L,
-            isLoading = false,
-            isBuffering = false,
-            error = null,
-            hasNext = false,
-            hasPrevious = false,
-            playlistPosition = 0,
-            playlistSize = 0
-        )
-    ).value
 
     // V2 Exact: Use medium color from recording's color stack (index 1)
     val backgroundColor = getRecordingColorStack(playbackState.currentRecordingId)[1]
@@ -108,15 +83,7 @@ fun PlayerMiniPlayer(
 
                 // V2 Exact: Play/Pause button (NOT clickable for expansion) - 48dp IconButton
                 IconButton(
-                    onClick = {
-                        coroutineScope.launch {
-                            if (playbackState.isPlaying) {
-                                mediaService.pause()
-                            } else {
-                                mediaService.resume()
-                            }
-                        }
-                    },
+                    onClick = { onPlayPause() },
                     modifier = Modifier.size(48.dp)
                 ) {
                     if (playbackState.isPlaying) {
