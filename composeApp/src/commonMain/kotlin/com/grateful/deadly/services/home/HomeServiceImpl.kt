@@ -12,6 +12,7 @@ import com.grateful.deadly.services.media.MediaService
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -55,17 +56,19 @@ class HomeServiceImpl(
      * Load initial home content
      */
     private fun loadInitialContent() {
-        try {
-            val content = HomeContent(
-                recentShows = generateMockRecentShows(),
-                todayInHistory = generateTodayInHistoryShows(),
-                featuredCollections = generateMockCollections(),
-                lastRefresh = Clock.System.now().toEpochMilliseconds()
-            )
-            _homeContent.value = content
-            Logger.d(TAG, "Loaded initial content: ${content.recentShows.size} recent, ${content.todayInHistory.size} history, ${content.featuredCollections.size} collections")
-        } catch (e: Exception) {
-            Logger.e(TAG, "Failed to load initial content", e)
+        serviceScope.launch {
+            try {
+                val content = HomeContent(
+                    recentShows = generateMockRecentShows(),
+                    todayInHistory = getTodayInHistoryShows(),
+                    featuredCollections = generateMockCollections(),
+                    lastRefresh = Clock.System.now().toEpochMilliseconds()
+                )
+                _homeContent.value = content
+                Logger.d(TAG, "Loaded initial content: ${content.recentShows.size} recent, ${content.todayInHistory.size} history, ${content.featuredCollections.size} collections")
+            } catch (e: Exception) {
+                Logger.e(TAG, "Failed to load initial content", e)
+            }
         }
     }
 
@@ -75,10 +78,17 @@ class HomeServiceImpl(
         return try {
             // TODO: Integrate with real data sources:
             // - Recent shows from MediaService play history
-            // - Today in history from ShowRepository date queries
             // - Featured collections from database or API
 
-            loadInitialContent()
+            val content = HomeContent(
+                recentShows = generateMockRecentShows(),
+                todayInHistory = getTodayInHistoryShows(),
+                featuredCollections = generateMockCollections(),
+                lastRefresh = Clock.System.now().toEpochMilliseconds()
+            )
+            _homeContent.value = content
+            Logger.d(TAG, "Refreshed content: ${content.recentShows.size} recent, ${content.todayInHistory.size} history, ${content.featuredCollections.size} collections")
+
             Result.success(Unit)
         } catch (e: Exception) {
             Logger.e(TAG, "Failed to refresh", e)
@@ -130,48 +140,20 @@ class HomeServiceImpl(
     }
 
     /**
-     * Generate "Today in History" shows
-     * TODO: Replace with actual ShowRepository query by month/day
+     * Get "Today in History" shows from database
+     * Query for shows that happened on today's date in previous years
      */
-    private fun generateTodayInHistoryShows(): List<Show> {
-        val today = Clock.System.todayIn(TimeZone.currentSystemDefault())
+    private suspend fun getTodayInHistoryShows(): List<Show> {
+        return try {
+            val today = Clock.System.todayIn(TimeZone.currentSystemDefault())
+            val todayInHistoryShows = showRepository.getShowsForDate(today.monthNumber, today.dayOfMonth)
 
-        return listOf(
-            Show(
-                id = "gd1970-${today.monthNumber.toString().padStart(2, '0')}-${today.dayOfMonth.toString().padStart(2, '0')}-history",
-                date = "1970-${today.monthNumber.toString().padStart(2, '0')}-${today.dayOfMonth.toString().padStart(2, '0')}",
-                year = 1970,
-                band = "Grateful Dead",
-                venue = Venue("Kresge Plaza, MIT", "Cambridge", "MA", "USA"),
-                location = Location("Cambridge, MA", "Cambridge", "MA"),
-                setlist = null,
-                lineup = null,
-                recordingIds = listOf("gd70-05-08.aud.unknown.12345.shnf"),
-                bestRecordingId = "gd70-05-08.aud.unknown.12345.shnf",
-                recordingCount = 1,
-                averageRating = 4.0f,
-                totalReviews = 87,
-                isInLibrary = false,
-                libraryAddedAt = null
-            ),
-            Show(
-                id = "gd1972-${today.monthNumber.toString().padStart(2, '0')}-${today.dayOfMonth.toString().padStart(2, '0')}-history",
-                date = "1972-${today.monthNumber.toString().padStart(2, '0')}-${today.dayOfMonth.toString().padStart(2, '0')}",
-                year = 1972,
-                band = "Grateful Dead",
-                venue = Venue("Civic Arena", "Pittsburgh", "PA", "USA"),
-                location = Location("Pittsburgh, PA", "Pittsburgh", "PA"),
-                setlist = null,
-                lineup = null,
-                recordingIds = listOf("gd72-05-08.sbd.unknown.67890.shnf"),
-                bestRecordingId = "gd72-05-08.sbd.unknown.67890.shnf",
-                recordingCount = 1,
-                averageRating = 4.3f,
-                totalReviews = 156,
-                isInLibrary = true,
-                libraryAddedAt = Clock.System.now().toEpochMilliseconds() - 604800000 // 7 days ago
-            )
-        )
+            Logger.d(TAG, "Found ${todayInHistoryShows.size} shows for today in history (${today.monthNumber}/${today.dayOfMonth})")
+            todayInHistoryShows // Return all shows for today in history
+        } catch (e: Exception) {
+            Logger.e(TAG, "Failed to get today in history shows", e)
+            emptyList()
+        }
     }
 
     /**

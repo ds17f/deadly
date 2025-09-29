@@ -229,6 +229,12 @@ actual class ShowRepository actual constructor(
     actual suspend fun getShowsInDateRange(startDate: String, endDate: String): List<Show> =
         getShows(ShowFilters.forDateRange(startDate, endDate))
 
+    actual suspend fun getShowsForDate(month: Int, day: Int): List<Show> = withContext(Dispatchers.Default) {
+        val showRows = database.showQueries.getShowsForDate(month.toLong(), day.toLong()).executeAsList()
+        val entities = showRows.map { row -> mapRowToEntity(row) }
+        showMappers.entitiesToDomain(entities)
+    }
+
     actual suspend fun getShowsByVenue(venueName: String): List<Show> =
         getShows(ShowFilters.forVenue(venueName))
 

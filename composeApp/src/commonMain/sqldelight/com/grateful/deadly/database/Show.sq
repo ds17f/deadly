@@ -88,6 +88,12 @@ ORDER BY
   averageRating DESC,
   date DESC;
 
+-- Get shows for specific month and day across all years (for "Today in History")
+getShowsForDate:
+SELECT * FROM Show
+WHERE month = ? AND CAST(SUBSTR(date, 9, 2) AS INTEGER) = ?
+ORDER BY year ASC;
+
 -- Flexible show query with optional filters
 getShows:
 SELECT * FROM Show

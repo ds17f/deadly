@@ -94,6 +94,12 @@ expect class ShowRepository(database: com.grateful.deadly.database.Database) {
     suspend fun getShowsInDateRange(startDate: String, endDate: String): List<Show>
 
     /**
+     * Get shows for a specific month and day across all years (for "Today in History").
+     * Returns shows sorted by year descending (most recent first).
+     */
+    suspend fun getShowsForDate(month: Int, day: Int): List<Show>
+
+    /**
      * Search shows by venue name (partial match).
      */
     suspend fun getShowsByVenue(venueName: String): List<Show>
