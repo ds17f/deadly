@@ -195,6 +195,7 @@ val commonModule = module {
         Logger.d("CommonModule", "Creating HomeService")
         HomeServiceImpl(
             showRepository = get(),
+            recentShowsService = get(),
             mediaService = get()
         )
     }

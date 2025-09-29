@@ -8,6 +8,7 @@ import com.grateful.deadly.domain.models.Collection
 import com.grateful.deadly.domain.models.Venue
 import com.grateful.deadly.domain.models.Location
 import com.grateful.deadly.services.data.platform.ShowRepository
+import com.grateful.deadly.services.data.RecentShowsService
 import com.grateful.deadly.services.media.MediaService
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -16,6 +17,9 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.datetime.Clock
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
@@ -25,14 +29,15 @@ import kotlinx.datetime.todayIn
  * HomeService implementation following the Universal Service + Platform Tool pattern.
  *
  * Features:
- * - Recent shows from user activity (mock data for now, will integrate with MediaService later)
+ * - Recent shows from RecentShowsService (reactive StateFlow)
  * - Today in History from database queries with date matching
  * - Featured collections from curated content (mock data for now)
  *
- * Uses reactive StateFlow for real-time UI updates following SearchService patterns.
+ * Uses reactive StateFlow for real-time UI updates following V2 patterns.
  */
 class HomeServiceImpl(
     private val showRepository: ShowRepository,
+    private val recentShowsService: RecentShowsService,
     private val mediaService: MediaService
 ) : HomeService {
 
@@ -42,53 +47,75 @@ class HomeServiceImpl(
 
     private val serviceScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
 
-    // Reactive home content state
-    private val _homeContent = MutableStateFlow(HomeContent.initial())
-    override val homeContent: StateFlow<HomeContent> = _homeContent.asStateFlow()
+    // Reactive home content state - V2 pattern using combine() for real-time updates
+    override val homeContent: StateFlow<HomeContent> = combine(
+        recentShowsService.recentShows,
+        getTodayInHistoryFlow(),
+        getFeaturedCollectionsFlow()
+    ) { recentShows, todayInHistory, featuredCollections ->
+        Logger.d(TAG, "🏠 HomeContent updated: ${recentShows.size} recent, ${todayInHistory.size} history, ${featuredCollections.size} collections")
+        HomeContent(
+            recentShows = recentShows,
+            todayInHistory = todayInHistory,
+            featuredCollections = featuredCollections,
+            lastRefresh = Clock.System.now().toEpochMilliseconds()
+        )
+    }.stateIn(
+        scope = serviceScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = HomeContent.initial()
+    )
 
     init {
-        Logger.d(TAG, "HomeServiceImpl initialized")
-        // Load initial content
-        loadInitialContent()
+        Logger.d(TAG, "HomeServiceImpl initialized with reactive StateFlow architecture")
     }
 
     /**
-     * Load initial home content
+     * Create a flow for "Today in History" shows (reactive pattern)
      */
-    private fun loadInitialContent() {
+    private fun getTodayInHistoryFlow(): StateFlow<List<Show>> {
+        val flow = MutableStateFlow<List<Show>>(emptyList())
+
         serviceScope.launch {
             try {
-                val content = HomeContent(
-                    recentShows = generateMockRecentShows(),
-                    todayInHistory = getTodayInHistoryShows(),
-                    featuredCollections = generateMockCollections(),
-                    lastRefresh = Clock.System.now().toEpochMilliseconds()
-                )
-                _homeContent.value = content
-                Logger.d(TAG, "Loaded initial content: ${content.recentShows.size} recent, ${content.todayInHistory.size} history, ${content.featuredCollections.size} collections")
+                val shows = getTodayInHistoryShows()
+                flow.value = shows
             } catch (e: Exception) {
-                Logger.e(TAG, "Failed to load initial content", e)
+                Logger.e(TAG, "🗓️ Failed to load TIGDH shows", e)
+                flow.value = emptyList()
             }
         }
+
+        return flow.asStateFlow()
+    }
+
+    /**
+     * Create a flow for featured collections (reactive pattern)
+     */
+    private fun getFeaturedCollectionsFlow(): StateFlow<List<Collection>> {
+        val flow = MutableStateFlow<List<Collection>>(emptyList())
+
+        serviceScope.launch {
+            try {
+                val collections = generateMockCollections()
+                flow.value = collections
+            } catch (e: Exception) {
+                Logger.e(TAG, "Failed to load featured collections", e)
+                flow.value = emptyList()
+            }
+        }
+
+        return flow.asStateFlow()
     }
 
     override suspend fun refreshAll(): Result<Unit> {
         Logger.d(TAG, "refreshAll() called")
 
         return try {
-            // TODO: Integrate with real data sources:
-            // - Recent shows from MediaService play history
-            // - Featured collections from database or API
-
-            val content = HomeContent(
-                recentShows = generateMockRecentShows(),
-                todayInHistory = getTodayInHistoryShows(),
-                featuredCollections = generateMockCollections(),
-                lastRefresh = Clock.System.now().toEpochMilliseconds()
-            )
-            _homeContent.value = content
-            Logger.d(TAG, "Refreshed content: ${content.recentShows.size} recent, ${content.todayInHistory.size} history, ${content.featuredCollections.size} collections")
-
+            // With reactive architecture, the StateFlow will automatically update
+            // when underlying data sources change. No manual refresh needed.
+            // The combine operator will re-emit when any source flow emits.
+            Logger.d(TAG, "Using reactive architecture - no manual refresh needed")
             Result.success(Unit)
         } catch (e: Exception) {
             Logger.e(TAG, "Failed to refresh", e)
@@ -96,48 +123,6 @@ class HomeServiceImpl(
         }
     }
 
-    /**
-     * Generate mock recent shows (placeholder)
-     * TODO: Replace with MediaService integration for actual play history
-     */
-    private fun generateMockRecentShows(): List<Show> {
-        return listOf(
-            Show(
-                id = "gd1977-05-08-recent",
-                date = "1977-05-08",
-                year = 1977,
-                band = "Grateful Dead",
-                venue = Venue("Barton Hall, Cornell University", "Ithaca", "NY", "USA"),
-                location = Location("Ithaca, NY", "Ithaca", "NY"),
-                setlist = null,
-                lineup = null,
-                recordingIds = listOf("gd1977-05-08.sbd.hicks.4982.sbeok.shnf"),
-                bestRecordingId = "gd1977-05-08.sbd.hicks.4982.sbeok.shnf",
-                recordingCount = 1,
-                averageRating = 4.8f,
-                totalReviews = 245,
-                isInLibrary = true,
-                libraryAddedAt = Clock.System.now().toEpochMilliseconds() - 86400000 // 1 day ago
-            ),
-            Show(
-                id = "gd1978-05-08-recent",
-                date = "1978-05-08",
-                year = 1978,
-                band = "Grateful Dead",
-                venue = Venue("Horton Field House", "Normal", "IL", "USA"),
-                location = Location("Normal, IL", "Normal", "IL"),
-                setlist = null,
-                lineup = null,
-                recordingIds = listOf("gd78-05-08.sbd.unknown.12345.shnf"),
-                bestRecordingId = "gd78-05-08.sbd.unknown.12345.shnf",
-                recordingCount = 1,
-                averageRating = 4.2f,
-                totalReviews = 123,
-                isInLibrary = false,
-                libraryAddedAt = null
-            )
-        )
-    }
 
     /**
      * Get "Today in History" shows from database
