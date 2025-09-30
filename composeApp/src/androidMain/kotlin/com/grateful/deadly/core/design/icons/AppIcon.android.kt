@@ -68,6 +68,15 @@ actual fun AppIcon.Render(size: Dp, tint: Color?) {
         AppIcon.Cast -> "\uE307"           // cast
         AppIcon.Share -> "\uE80D"          // share
         AppIcon.QueueMusic -> "\uE03C"     // queue_music
+
+        // Library UI icons
+        AppIcon.PushPin -> "\uE8D4"        // push_pin
+        AppIcon.Delete -> "\uE872"         // delete
+        AppIcon.Close -> "\uE5CD"          // close
+        AppIcon.GridView -> "\uE9B0"       // grid_view
+        AppIcon.SwapVert -> "\uE8D5"       // swap_vert
+        AppIcon.KeyboardArrowUp -> "\uE316" // keyboard_arrow_up
+        AppIcon.Add -> "\uE145"            // add
     }
 
     Text(

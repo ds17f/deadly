@@ -59,6 +59,15 @@ enum class AppIcon {
     Share,
     QueueMusic,
 
+    // Library UI icons
+    PushPin,
+    Delete,
+    Close,
+    GridView,
+    SwapVert,
+    KeyboardArrowUp,
+    Add,
+
     // Add more icons as needed for the search feature and beyond
 }
 
