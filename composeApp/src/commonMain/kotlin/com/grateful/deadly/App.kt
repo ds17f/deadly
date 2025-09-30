@@ -227,7 +227,8 @@ fun App() {
                 val showDetailViewModel = remember {
                     com.grateful.deadly.feature.showdetail.ShowDetailViewModel(
                         showDetailService = DIHelper.get(),
-                        mediaService = DIHelper.get()
+                        mediaService = DIHelper.get(),
+                        libraryService = DIHelper.get()
                     )
                 }
 
@@ -256,7 +257,8 @@ fun App() {
                 val showDetailViewModel = remember {
                     com.grateful.deadly.feature.showdetail.ShowDetailViewModel(
                         showDetailService = DIHelper.get(),
-                        mediaService = DIHelper.get()
+                        mediaService = DIHelper.get(),
+                        libraryService = DIHelper.get()
                     )
                 }
 

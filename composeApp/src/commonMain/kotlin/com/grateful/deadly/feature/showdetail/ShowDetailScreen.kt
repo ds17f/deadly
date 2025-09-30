@@ -144,8 +144,8 @@ fun ShowDetailScreen(
                                 isLoading = uiState.isMediaLoading,
                                 isCurrentShowAndRecording = uiState.isCurrentShowAndRecording,
                                 onLibraryAction = {
-                                    // TODO Phase 5: Implement library actions
-                                    Logger.d("ShowDetailScreen", "Library action")
+                                    Logger.d("ShowDetailScreen", "Library action - toggling library status")
+                                    viewModel.toggleLibraryStatus()
                                 },
                                 onDownload = {
                                     // TODO Phase 5: Implement download

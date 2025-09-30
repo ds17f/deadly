@@ -137,6 +137,7 @@ if [ "$CONCEPT" = "all" ] && [ $# -eq 0 ]; then
         echo -e "${YELLOW}Available concept groups:${NC}"
     fi
     echo -e "  ${CYAN}search${NC}    - Search functionality (SearchViewModel, SearchService, etc.)"
+    echo -e "  ${CYAN}library${NC}   - Library system (LibraryService, LibraryRepository, LibraryViewModel)"
     echo -e "  ${CYAN}di${NC}        - Dependency injection (Koin, modules, application startup)"
     echo -e "  ${CYAN}ui${NC}        - UI interactions (App, navigation, screens)"
     echo -e "  ${CYAN}data${NC}      - Data import/export (DataImportService, ZipExtraction, etc.)"
@@ -169,6 +170,9 @@ get_tag_filters() {
     case "$concept" in
         "search")
             echo "SearchViewModel|SearchScreen|SearchService"
+            ;;
+        "library")
+            echo "LibraryService|LibraryRepository|LibraryViewModel|LibraryScreen"
             ;;
         "di")
             echo "KoinInitializer|DeadlyApplication|CommonModule|AndroidModule|IOSModule|Koin"

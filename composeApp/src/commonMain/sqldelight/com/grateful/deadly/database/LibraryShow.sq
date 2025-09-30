@@ -56,10 +56,10 @@ SELECT * FROM LibraryShow WHERE showId = ?;
 
 -- Status checks (reactive)
 isShowInLibraryFlow:
-SELECT EXISTS(SELECT 1 FROM LibraryShow WHERE showId = ?) AS result;
+SELECT COUNT(*) > 0 FROM LibraryShow WHERE showId = ?;
 
 isShowPinnedFlow:
-SELECT EXISTS(SELECT 1 FROM LibraryShow WHERE showId = ? AND isPinned = 1) AS result;
+SELECT COUNT(*) > 0 FROM LibraryShow WHERE showId = ? AND isPinned = 1;
 
 -- Statistics (reactive)
 getLibraryShowCountFlow:

@@ -8,10 +8,12 @@ import com.grateful.deadly.domain.models.Recording
 import com.grateful.deadly.services.archive.Track
 import com.grateful.deadly.services.media.MediaService
 import com.grateful.deadly.services.media.PlaybackStatus
+import com.grateful.deadly.services.library.LibraryService
 import com.grateful.deadly.navigation.AppScreen
 import com.grateful.deadly.navigation.NavigationEvent
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 
 /**
  * ShowDetailViewModel - Real implementation with ShowDetailService integration
@@ -24,9 +26,11 @@ import kotlinx.coroutines.launch
  *
  * Uses ShowDetailService for V2's database-first loading patterns.
  */
+@OptIn(ExperimentalCoroutinesApi::class)
 class ShowDetailViewModel(
     private val showDetailService: ShowDetailService,
-    private val mediaService: MediaService
+    private val mediaService: MediaService,
+    private val libraryService: LibraryService
 ) : ViewModel() {
 
     companion object {
@@ -79,11 +83,30 @@ class ShowDetailViewModel(
         initialValue = MediaState()
     )
 
-    // Combined UI state with media comparison logic
+    // Library state flow that reacts to current show changes (V2 pattern)
+    private val libraryState: StateFlow<Boolean> = uiState
+        .map { it.showData?.id }
+        .distinctUntilChanged()
+        .flatMapLatest { showId ->
+            if (showId != null) {
+                Logger.d(TAG, "Library state: Observing library status for showId: $showId")
+                libraryService.isShowInLibrary(showId)
+            } else {
+                Logger.d(TAG, "Library state: No show ID, returning false")
+                flowOf(false)
+            }
+        }.stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = false
+        )
+
+    // Combined UI state with media comparison logic and library state (V2 pattern)
     val enhancedUiState: StateFlow<ShowDetailUiState> = combine(
         uiState,
-        mediaState
-    ) { baseState, media ->
+        mediaState,
+        libraryState
+    ) { baseState, media, isInLibrary ->
         // V2 logic: Determine if current show and recording match MediaService
         val playlistShowId = baseState.showData?.id
         val playlistRecordingId = baseState.currentRecordingId
@@ -92,9 +115,13 @@ class ShowDetailViewModel(
                                        (playlistShowId == media.currentShowId || playlistShowId == media.currentShowId?.replace("-", "")) &&
                                        playlistRecordingId == media.currentRecordingId
 
-        Logger.d(TAG, "Enhanced UI state update: isCurrentShowAndRecording=$isCurrentShowAndRecording, mediaShowId=${media.currentShowId}, mediaRecordingId=${media.currentRecordingId}")
+        // Update showData with reactive library status (V2 pattern)
+        val updatedShowData = baseState.showData?.copy(isInLibrary = isInLibrary)
+
+        Logger.d(TAG, "Enhanced UI state update: isCurrentShowAndRecording=$isCurrentShowAndRecording, mediaShowId=${media.currentShowId}, mediaRecordingId=${media.currentRecordingId}, isInLibrary=$isInLibrary, showId=${baseState.showData?.id}")
 
         baseState.copy(
+            showData = updatedShowData,
             isCurrentShowAndRecording = isCurrentShowAndRecording,
             isPlaying = media.isPlaying,
             isMediaLoading = media.playbackStatus?.isLoading == true || media.playbackStatus?.isBuffering == true
@@ -328,6 +355,26 @@ class ShowDetailViewModel(
             }
         }
     }
+
+    // === Library Actions (V2 Pattern Integration) ===
+
+    /**
+     * Toggle library status for current show
+     */
+    fun toggleLibraryStatus() {
+        val showData = enhancedUiState.value.showData ?: return
+
+        Logger.d(TAG, "toggleLibraryStatus() - Current status: ${showData.isInLibrary}")
+
+        viewModelScope.launch {
+            if (showData.isInLibrary) {
+                libraryService.removeFromLibrary(showData.id)
+            } else {
+                libraryService.addToLibrary(showData.id)
+            }
+        }
+    }
+
 }
 
 /**
