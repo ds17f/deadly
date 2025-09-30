@@ -1,6 +1,7 @@
 package com.grateful.deadly.core.design.icons
 
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -10,6 +11,7 @@ import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.grateful.deadly.R
 import com.grateful.deadly.core.design.universalIconAlignment
@@ -86,7 +88,19 @@ actual fun AppIcon.Render(size: Dp, tint: Color?) {
         color = tint ?: MaterialTheme.colorScheme.primary,
         textAlign = TextAlign.Center,
         modifier = Modifier
-            .size(size)
+            .then(
+                // For small icons, provide extra height to accommodate the upward offset
+                if (size <= 12.dp) {
+                    Modifier.sizeIn(
+                        minWidth = size,
+                        maxWidth = size,
+                        minHeight = size + 6.dp,
+                        maxHeight = size + 6.dp
+                    )
+                } else {
+                    Modifier.size(size)
+                }
+            )
             .universalIconAlignment()
     )
 }
