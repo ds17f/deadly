@@ -8,8 +8,13 @@ The library system allows users to save shows, organize them, pin favorites, and
 ## V2 Architecture (Reference Implementation)
 
 ### Database Structure
-V2 uses a **separate `library_shows` table** (NOT columns in the shows table):
+V2 uses a **hybrid approach** for optimal performance:
 
+1. **Show table has denormalized library columns** for fast queries without JOINs:
+   - `isInLibrary: Boolean` - Fast filtering in queries
+   - `libraryAddedAt: Long?` - Fast sorting by date added
+
+2. **Separate `library_shows` table** for rich metadata:
 ```kotlin
 @Entity(
     tableName = "library_shows",
@@ -38,6 +43,11 @@ data class LibraryShowEntity(
 )
 ```
 
+**Why both?**
+- Show table columns enable fast `WHERE isInLibrary = 1` queries without JOIN
+- Separate table stores rich metadata (pin, notes, custom rating) without bloating Show table
+- This is V2's proven pattern - we copy it exactly
+
 ### V2 Data Flow
 1. **LibraryDao** - Room database operations with Flow queries
 2. **LibraryRepository** - Combines LibraryDao + ShowRepository to create rich `LibraryShow` domain models
@@ -59,9 +69,11 @@ User action (ShowDetail)
 
 ## Current Deadly Architecture Gap
 
-**Problem:** Deadly's Show table has `isInLibrary` and `libraryAddedAt` columns directly in it. This is wrong.
+**Current State:** Deadly's Show table has `isInLibrary` and `libraryAddedAt` columns. ✅ This is correct per V2 pattern.
 
-**Solution:** Create separate `library_shows` table in SQLDelight following V2's exact structure.
+**Missing:** Separate `library_shows` table for rich metadata (pin status, notes, custom rating, tags).
+
+**Solution:** Add the `library_shows` table to complete V2's hybrid architecture.
 
 ## Implementation Phases
 
@@ -991,8 +1003,10 @@ make run-ios-simulator
 
 ## Migration Notes
 
-**Current Show table has wrong columns:**
-- Remove `isInLibrary INTEGER NOT NULL DEFAULT 0`
-- Remove `libraryAddedAt INTEGER`
+**No migration needed for Show table!**
 
-These belong in the separate library_shows table per V2 architecture.
+V2's hybrid pattern uses BOTH:
+- Show table columns (`isInLibrary`, `libraryAddedAt`) - ✅ Already in place
+- Separate library_shows table (pin, notes, rating, tags) - ⚠️ Need to add
+
+Current Deadly Show table structure already matches V2. We just need to add the library_shows table for rich metadata.

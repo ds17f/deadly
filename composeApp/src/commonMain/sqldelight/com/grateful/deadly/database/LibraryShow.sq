@@ -1,0 +1,94 @@
+-- SQLDelight schema for LibraryShow table
+-- Based on V2 LibraryShowEntity - separate table for library-specific metadata
+
+-- Library shows table (V2 pattern - separate from Show table)
+CREATE TABLE LibraryShow (
+    showId TEXT PRIMARY KEY NOT NULL,
+    addedToLibraryAt INTEGER NOT NULL,
+    isPinned INTEGER NOT NULL DEFAULT 0,
+    libraryNotes TEXT,
+    customRating REAL,
+    lastAccessedAt INTEGER,
+    tags TEXT,
+
+    FOREIGN KEY(showId) REFERENCES Show(showId) ON DELETE CASCADE
+);
+
+-- Indexes for performance (V2 pattern)
+CREATE INDEX idx_library_shows_addedAt ON LibraryShow(addedToLibraryAt);
+CREATE INDEX idx_library_shows_isPinned ON LibraryShow(isPinned);
+
+-- Core CRUD operations
+addToLibrary:
+INSERT OR REPLACE INTO LibraryShow (showId, addedToLibraryAt, isPinned)
+VALUES (?, ?, 0);
+
+removeFromLibrary:
+DELETE FROM LibraryShow WHERE showId = ?;
+
+updatePinStatus:
+UPDATE LibraryShow SET isPinned = ? WHERE showId = ?;
+
+updateLibraryNotes:
+UPDATE LibraryShow SET libraryNotes = ? WHERE showId = ?;
+
+updateCustomRating:
+UPDATE LibraryShow SET customRating = ? WHERE showId = ?;
+
+updateLastAccessedAt:
+UPDATE LibraryShow SET lastAccessedAt = ? WHERE showId = ?;
+
+updateTags:
+UPDATE LibraryShow SET tags = ? WHERE showId = ?;
+
+-- Reactive queries (return Flow)
+getAllLibraryShowsFlow:
+SELECT * FROM LibraryShow ORDER BY isPinned DESC, addedToLibraryAt DESC;
+
+getPinnedLibraryShowsFlow:
+SELECT * FROM LibraryShow WHERE isPinned = 1 ORDER BY addedToLibraryAt DESC;
+
+getLibraryShowById:
+SELECT * FROM LibraryShow WHERE showId = ?;
+
+getLibraryShowByIdFlow:
+SELECT * FROM LibraryShow WHERE showId = ?;
+
+-- Status checks (reactive)
+isShowInLibraryFlow:
+SELECT EXISTS(SELECT 1 FROM LibraryShow WHERE showId = ?) AS result;
+
+isShowPinnedFlow:
+SELECT EXISTS(SELECT 1 FROM LibraryShow WHERE showId = ? AND isPinned = 1) AS result;
+
+-- Statistics (reactive)
+getLibraryShowCountFlow:
+SELECT COUNT(*) FROM LibraryShow;
+
+getPinnedShowCountFlow:
+SELECT COUNT(*) FROM LibraryShow WHERE isPinned = 1;
+
+getLibraryShowCount:
+SELECT COUNT(*) FROM LibraryShow;
+
+getPinnedShowCount:
+SELECT COUNT(*) FROM LibraryShow WHERE isPinned = 1;
+
+-- Bulk operations
+clearLibrary:
+DELETE FROM LibraryShow;
+
+unpinAllShows:
+UPDATE LibraryShow SET isPinned = 0;
+
+-- Get all library shows (non-reactive for one-time queries)
+getAllLibraryShows:
+SELECT * FROM LibraryShow ORDER BY isPinned DESC, addedToLibraryAt DESC;
+
+-- Get library shows ordered by date added
+getLibraryShowsByDateAdded:
+SELECT * FROM LibraryShow ORDER BY isPinned DESC, addedToLibraryAt DESC;
+
+-- Get library shows ordered by date added ascending
+getLibraryShowsByDateAddedAsc:
+SELECT * FROM LibraryShow ORDER BY isPinned DESC, addedToLibraryAt ASC;

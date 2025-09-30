@@ -28,7 +28,7 @@ data class Show(
     val averageRating: Float?,
     val totalReviews: Int,
 
-    // User state
+    // User state (V2 hybrid pattern: denormalized in Show table for fast queries)
     val isInLibrary: Boolean,
     val libraryAddedAt: Long?
 ) {

@@ -42,7 +42,7 @@ CREATE TABLE Show (
     averageRating REAL,
     totalReviews INTEGER NOT NULL DEFAULT 0,
 
-    -- Library status (for future V2 features)
+    -- Library status (V2 pattern: denormalized for fast queries, rich metadata in LibraryShow table)
     isInLibrary INTEGER NOT NULL DEFAULT 0,
     libraryAddedAt INTEGER,
 
