@@ -180,4 +180,42 @@ class LibraryServiceImpl(
             }
         }
     }
+
+    /**
+     * Populate library with test data (Development only)
+     */
+    override suspend fun populateTestData(): Result<Unit> {
+        return try {
+            Logger.d(TAG, "populateTestData() - Adding test shows to library for development")
+
+            // Sample show IDs (these should exist in your show database)
+            val testShows = listOf(
+                "1970-05-02-harpur-college", // Famous Workingman's Dead release show
+                "1972-05-08-bickershaw-festival", // Europe '72 tour
+                "1977-05-08-barton-hall", // Cornell '77 - legendary show
+                "1989-07-07-jfk-stadium", // 1980s era
+                "1995-07-09-soldier-field" // Final tour
+            )
+
+            val currentTime = kotlinx.datetime.Clock.System.now().toEpochMilliseconds()
+
+            testShows.forEach { showId ->
+                Logger.d(TAG, "Adding test show to library: $showId")
+                // Add to library (will skip if already exists due to IGNORE conflict resolution)
+                libraryRepository.addShowToLibrary(showId, currentTime)
+            }
+
+            // Pin a couple of the test shows
+            Logger.d(TAG, "Pinning select test shows")
+            libraryRepository.updatePinStatus("1977-05-08-barton-hall", true) // Cornell '77 is always pinned
+            libraryRepository.updatePinStatus("1972-05-08-bickershaw-festival", true) // Europe '72 classic
+
+            Logger.d(TAG, "Test data population completed successfully")
+            Result.success(Unit)
+
+        } catch (e: Exception) {
+            Logger.e(TAG, "Error populating test data", e)
+            Result.failure(e)
+        }
+    }
 }

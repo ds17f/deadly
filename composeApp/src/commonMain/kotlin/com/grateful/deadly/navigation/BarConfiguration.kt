@@ -1,8 +1,10 @@
 package com.grateful.deadly.navigation
 
+import androidx.compose.runtime.Composable
 import com.grateful.deadly.core.design.topbar.TopBarMode
 import com.grateful.deadly.feature.search.SearchBarConfiguration
 import com.grateful.deadly.feature.home.HomeBarConfiguration
+import com.grateful.deadly.feature.library.LibraryBarConfiguration
 
 /**
  * Configuration for the top bar
@@ -11,7 +13,8 @@ data class TopBarConfig(
     val visible: Boolean = true,
     val title: String = "",
     val mode: TopBarMode = TopBarMode.SOLID,
-    val showBackButton: Boolean = false
+    val showBackButton: Boolean = false,
+    val actions: @Composable (() -> Unit)? = null
 )
 
 /**
@@ -58,10 +61,8 @@ object NavigationBarConfig {
         // Placeholder configurations for other features
         // TODO: Move these to feature-specific configuration objects
 
-        AppScreen.Library -> BarConfiguration(
-            topBar = TopBarConfig(title = "Library"),
-            bottomBar = BottomBarConfig(visible = true)
-        )
+        // Library routes - delegate to LibraryBarConfiguration
+        AppScreen.Library -> LibraryBarConfiguration.getLibraryBarConfig()
         
         AppScreen.Collections -> BarConfiguration(
             topBar = TopBarConfig(title = "Collections"),

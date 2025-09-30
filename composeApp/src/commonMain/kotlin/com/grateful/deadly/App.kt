@@ -174,9 +174,23 @@ fun App() {
                 )
             }
             
-            // Placeholder screens for remaining bottom nav tabs
+            // Library screen with full functionality
             composable(AppScreen.Library) {
-                Text("Library Screen")
+                val libraryViewModel: com.grateful.deadly.feature.library.LibraryViewModel = remember { DIHelper.get() }
+
+                com.grateful.deadly.feature.library.LibraryScreen(
+                    onNavigateToShow = { showId ->
+                        navigationController.navigate(AppScreen.ShowDetail(showId))
+                    },
+                    onNavigateToPlayer = { recordingId ->
+                        // TODO Phase 5: Navigate to player with specific recording
+                        navigationController.navigate(AppScreen.Player)
+                    },
+                    onNavigateBack = {
+                        navigationController.navigateUp()
+                    },
+                    viewModel = libraryViewModel
+                )
             }
             
             composable(AppScreen.Collections) {

@@ -83,4 +83,10 @@ interface LibraryService {
      * Bulk operation for library management
      */
     suspend fun unpinAllShows(): Result<Unit>
+
+    /**
+     * Populate library with test data (Development only)
+     * Adds several sample shows to demonstrate library functionality
+     */
+    suspend fun populateTestData(): Result<Unit>
 }

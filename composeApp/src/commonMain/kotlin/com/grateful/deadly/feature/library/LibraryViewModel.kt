@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.grateful.deadly.core.logging.Logger
 import com.grateful.deadly.domain.models.LibraryShow
+import com.grateful.deadly.domain.models.LibraryShowViewModel
 import com.grateful.deadly.domain.models.LibraryDisplayMode
 import com.grateful.deadly.domain.models.LibrarySortDirection
 import com.grateful.deadly.domain.models.LibrarySortOption
@@ -74,10 +75,29 @@ class LibraryViewModel(
                     // Apply sorting with pin priority (V2 pattern: pinned shows always first)
                     val sortedShows = applySortingWithPinPriority(shows, sortOption, sortDirection)
 
+                    // Convert to view models for UI display
+                    val showViewModels = sortedShows.map { libraryShow ->
+                        LibraryShowViewModel(
+                            showId = libraryShow.showId,
+                            date = libraryShow.date,
+                            displayDate = libraryShow.displayDate,
+                            venue = libraryShow.venue,
+                            location = libraryShow.location,
+                            rating = libraryShow.averageRating,
+                            reviewCount = libraryShow.totalReviews,
+                            addedToLibraryAt = libraryShow.addedToLibraryAt,
+                            isPinned = libraryShow.isPinned,
+                            downloadStatus = libraryShow.downloadStatus,
+                            isDownloaded = libraryShow.isDownloaded,
+                            isDownloading = libraryShow.isDownloading,
+                            libraryStatusDescription = libraryShow.libraryStatusDescription
+                        )
+                    }
+
                     LibraryUiState(
                         isLoading = false,
                         error = null,
-                        shows = sortedShows,
+                        shows = showViewModels,
                         stats = stats,
                         selectedSortOption = sortOption,
                         selectedSortDirection = sortDirection,
@@ -294,6 +314,14 @@ class LibraryViewModel(
     }
 
     /**
+     * Refresh library data (same as retry, for LibraryScreen compatibility)
+     */
+    fun refreshLibrary() {
+        Logger.d(TAG, "refreshLibrary() - User requested refresh")
+        retry()
+    }
+
+    /**
      * Clear error state
      */
     fun clearError() {
@@ -301,5 +329,37 @@ class LibraryViewModel(
         if (_uiState.value.error != null) {
             _uiState.value = _uiState.value.copy(error = null)
         }
+    }
+
+    // === Development and Testing Methods ===
+
+    /**
+     * Populate library with test data for development
+     */
+    fun populateTestData() {
+        Logger.d(TAG, "populateTestData() - Populating library with test data")
+        viewModelScope.launch {
+            libraryService.populateTestData()
+        }
+    }
+
+    // === Download Management (Phase 5 - Placeholders for now) ===
+
+    /**
+     * Download show for offline access
+     * TODO Phase 5: Implement actual download functionality
+     */
+    fun downloadShow(showId: String) {
+        Logger.d(TAG, "downloadShow() - User requested download for show '$showId' (Phase 5: Coming soon)")
+        // TODO Phase 5: Implement download service integration
+    }
+
+    /**
+     * Cancel show download
+     * TODO Phase 5: Implement actual download cancellation
+     */
+    fun cancelDownload(showId: String) {
+        Logger.d(TAG, "cancelDownload() - User requested cancel download for show '$showId' (Phase 5: Coming soon)")
+        // TODO Phase 5: Implement download service integration
     }
 }

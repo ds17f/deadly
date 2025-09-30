@@ -142,7 +142,7 @@ enum class LibraryDisplayMode {
 data class LibraryUiState(
     val isLoading: Boolean = false,
     val error: String? = null,
-    val shows: List<LibraryShow> = emptyList(),
+    val shows: List<LibraryShowViewModel> = emptyList(),
     val stats: LibraryStats = LibraryStats(0, 0),
     val selectedSortOption: LibrarySortOption = LibrarySortOption.DATE_ADDED,
     val selectedSortDirection: LibrarySortDirection = LibrarySortDirection.DESCENDING,
