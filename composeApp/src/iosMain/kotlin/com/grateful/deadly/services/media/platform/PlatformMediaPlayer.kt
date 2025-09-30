@@ -318,7 +318,9 @@ actual class PlatformMediaPlayer {
                         // Get player status for loading/buffering states
                         val status = currentItem.status
                         val isLoading = status == AVPlayerItemStatusUnknown
-                        val isBuffering = status == AVPlayerItemStatusReadyToPlay && !isPlaying && avPlayer.rate == 0.0f
+                        // Only consider buffering when media is loading but not yet ready
+                        // Don't confuse paused state with buffering - paused means user explicitly stopped playback
+                        val isBuffering = false // iOS AVPlayer handles buffering internally, no need to expose it
 
 
                         updatePlaybackState {
