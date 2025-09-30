@@ -54,7 +54,6 @@ fun App() {
         val navigationController = rememberNavigationController()
         // Manual injection using KoinComponent for Koin 4.1.0 - cached to survive recomposition
         val searchViewModel: SearchViewModel = remember { DIHelper.get() }
-        val homeViewModel: com.grateful.deadly.feature.home.HomeViewModel = remember { DIHelper.get() }
         val recentShowsService: com.grateful.deadly.services.data.RecentShowsService = remember { DIHelper.get() }
         val coroutineScope = rememberCoroutineScope()
 
@@ -68,12 +67,6 @@ fun App() {
         // Collect navigation events from ViewModels
         LaunchedEffect(Unit) {
             searchViewModel.navigation.collect { event ->
-                navigationController.navigate(event.screen)
-            }
-        }
-
-        LaunchedEffect(Unit) {
-            homeViewModel.navigation.collect { event ->
                 navigationController.navigate(event.screen)
             }
         }
@@ -123,6 +116,16 @@ fun App() {
 
             // Main bottom navigation tabs
             composable(AppScreen.Home) {
+                // Create HomeViewModel lazily when navigating to Home (after splash completes)
+                val homeViewModel: com.grateful.deadly.feature.home.HomeViewModel = remember { DIHelper.get() }
+
+                // Collect navigation events from HomeViewModel
+                LaunchedEffect(Unit) {
+                    homeViewModel.navigation.collect { event ->
+                        navigationController.navigate(event.screen)
+                    }
+                }
+
                 com.grateful.deadly.feature.home.HomeScreen(
                     viewModel = homeViewModel,
                     onNavigateToPlayer = { recordingId ->
