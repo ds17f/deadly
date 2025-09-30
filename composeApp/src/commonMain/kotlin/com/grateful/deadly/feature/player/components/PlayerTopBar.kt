@@ -6,6 +6,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.grateful.deadly.core.design.AppDimens
@@ -34,53 +35,37 @@ fun PlayerTopBar(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = AppDimens.S),
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Back button
-        IconButton(
-            onClick = onNavigateBack,
-            modifier = Modifier.size(48.dp)
-        ) {
-            AppIcon.ArrowBack.Render(
-                size = AppDimens.IconSize.Medium,
+        // Down chevron (V2 exact: KeyboardArrowDown, 34dp)
+        IconButton(onClick = onNavigateBack) {
+            AppIcon.KeyboardArrowDown.Render(
+                size = 34.dp,
                 tint = MaterialTheme.colorScheme.onSurface
             )
         }
 
-        Spacer(modifier = Modifier.width(AppDimens.S))
-
-        // V2 Exact: Simple "Playing from Show" context text (clickable like V2)
+        // V2 Exact: Context text (clickable to navigate to playlist)
         Text(
             text = "Playing from Show",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurface,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier
-                .weight(1f)
-                .then(
-                    if (onContextClick != null) {
-                        Modifier.clickable { onContextClick() }
-                    } else {
-                        Modifier
-                    }
-                )
+            textAlign = TextAlign.Center,
+            modifier = if (onContextClick != null) {
+                Modifier.clickable { onContextClick() }
+            } else {
+                Modifier
+            }
         )
 
-        // Options menu button (if callback provided)
-        onOptionsClick?.let { callback ->
-            Spacer(modifier = Modifier.width(AppDimens.S))
-
-            IconButton(
-                onClick = callback,
-                modifier = Modifier.size(48.dp)
-            ) {
-                AppIcon.MoreVertical.Render(
-                    size = AppDimens.IconSize.Medium,
-                    tint = MaterialTheme.colorScheme.onSurface
-                )
-            }
+        // 3-dot menu (V2 exact: MoreVertical, 28dp)
+        IconButton(onClick = onOptionsClick ?: {}) {
+            AppIcon.MoreVertical.Render(
+                size = 28.dp,
+                tint = MaterialTheme.colorScheme.onSurface
+            )
         }
     }
 }

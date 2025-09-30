@@ -48,6 +48,7 @@ enum class AppIcon {
     SkipNext,
     MusicNote,
     PlaylistAdd,
+    KeyboardArrowDown,
     Shuffle,
     Repeat,
     Cast,

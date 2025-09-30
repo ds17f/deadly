@@ -73,6 +73,9 @@ fun PlayerScreen(
                                     onNavigateToShowDetail(showId, recordingId)
                                 }
                             },
+                            onOptionsClick = {
+                                // TODO: Implement bottom sheet for track actions (Share, Add to Playlist, Download)
+                            },
                             modifier = Modifier.padding(vertical = 8.dp)
                         )
 
