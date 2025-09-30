@@ -42,6 +42,12 @@ object NavigationBarConfig {
      * Delegates to feature-specific configuration objects
      */
     fun getBarConfig(screen: AppScreen): BarConfiguration = when (screen) {
+        // Splash screen - no bars for immersive initialization
+        AppScreen.Splash -> BarConfiguration(
+            topBar = null,
+            bottomBar = BottomBarConfig(visible = false)
+        )
+
         // Home routes - delegate to HomeBarConfiguration
         AppScreen.Home -> HomeBarConfiguration.getHomeBarConfig()
 
@@ -51,7 +57,7 @@ object NavigationBarConfig {
 
         // Placeholder configurations for other features
         // TODO: Move these to feature-specific configuration objects
-        
+
         AppScreen.Library -> BarConfiguration(
             topBar = TopBarConfig(title = "Library"),
             bottomBar = BottomBarConfig(visible = true)

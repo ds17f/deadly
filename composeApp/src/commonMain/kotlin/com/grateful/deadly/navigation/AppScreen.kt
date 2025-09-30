@@ -9,6 +9,7 @@ package com.grateful.deadly.navigation
  * Each screen can carry data parameters as properties of the data class.
  */
 sealed interface AppScreen {
+    object Splash : AppScreen
     object Home : AppScreen
     object Search : AppScreen
     object Library : AppScreen

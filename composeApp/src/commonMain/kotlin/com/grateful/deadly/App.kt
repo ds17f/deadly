@@ -55,17 +55,11 @@ fun App() {
         // Manual injection using KoinComponent for Koin 4.1.0 - cached to survive recomposition
         val searchViewModel: SearchViewModel = remember { DIHelper.get() }
         val homeViewModel: com.grateful.deadly.feature.home.HomeViewModel = remember { DIHelper.get() }
-        val dataSyncOrchestrator: DataSyncOrchestrator = remember { DIHelper.get() }
         val recentShowsService: com.grateful.deadly.services.data.RecentShowsService = remember { DIHelper.get() }
         val coroutineScope = rememberCoroutineScope()
 
-        // Initialize data if needed on app startup
+        // Start RecentShowsService tracking on app startup
         LaunchedEffect(Unit) {
-            Logger.i("App", "🗄️  Initializing data on app startup...")
-            val result = dataSyncOrchestrator.syncData()
-            Logger.i("App", "🗄️  Data synchronization result: $result")
-
-            // Start RecentShowsService tracking
             Logger.i("App", "📱 Starting RecentShowsService tracking...")
             recentShowsService.startTracking()
             Logger.i("App", "📱 RecentShowsService tracking started")
@@ -111,10 +105,22 @@ fun App() {
             // DeadlyNavHost with cross-platform navigation abstraction
             DeadlyNavHost(
                 navigationController = navigationController,
-                startDestination = AppScreen.Home, // Start on Home screen
+                startDestination = AppScreen.Splash, // Start on Splash screen for initialization
                 modifier = Modifier.padding(paddingValues),
                 onScreenChanged = { screen -> currentScreen = screen }
             ) {
+            // Splash screen for initialization
+            composable(AppScreen.Splash) {
+                val splashViewModel: com.grateful.deadly.feature.splash.SplashViewModel = remember { DIHelper.get() }
+
+                com.grateful.deadly.feature.splash.SplashScreen(
+                    onSplashComplete = {
+                        navigationController.navigate(AppScreen.Home)
+                    },
+                    viewModel = splashViewModel
+                )
+            }
+
             // Main bottom navigation tabs
             composable(AppScreen.Home) {
                 com.grateful.deadly.feature.home.HomeScreen(

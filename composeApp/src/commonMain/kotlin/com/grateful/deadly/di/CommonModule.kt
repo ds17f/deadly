@@ -29,6 +29,8 @@ import com.grateful.deadly.services.data.RecentShowsService
 import com.grateful.deadly.services.data.RecentShowsServiceImpl
 import com.grateful.deadly.feature.showdetail.ShowDetailService
 import com.grateful.deadly.feature.showdetail.ShowDetailServiceImpl
+import com.grateful.deadly.feature.splash.SplashService
+import com.grateful.deadly.feature.splash.SplashViewModel
 
 import com.grateful.deadly.core.design.theme.ThemeManager
 import okio.FileSystem
@@ -174,6 +176,13 @@ val commonModule = module {
         )
     }
 
+    single<SplashService> {
+        Logger.d("CommonModule", "Creating SplashService")
+        SplashService(
+            dataSyncOrchestrator = get()
+        )
+    }
+
     // Data Layer
     single<SearchRepository> {
         Logger.d("CommonModule", "Creating SearchRepository instance")
@@ -220,5 +229,10 @@ val commonModule = module {
     factory {
         Logger.d("CommonModule", "Creating PlayerViewModel instance")
         PlayerViewModel(get())
+    }
+
+    factory {
+        Logger.d("CommonModule", "Creating SplashViewModel instance")
+        SplashViewModel(get())
     }
 }

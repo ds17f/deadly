@@ -14,6 +14,10 @@ import androidx.compose.ui.unit.dp
  * Usage: AppIcon.QrCodeScanner.Render(size = 24.dp)
  */
 enum class AppIcon {
+    // App branding
+    Logo,
+    Error,
+
     QrCodeScanner,
     Home,
     Settings,

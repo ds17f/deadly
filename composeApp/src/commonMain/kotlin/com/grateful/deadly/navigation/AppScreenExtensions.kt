@@ -11,6 +11,7 @@ package com.grateful.deadly.navigation
  * Convert AppScreen to string route for navigation
  */
 fun AppScreen.route(): String = when (this) {
+    AppScreen.Splash -> "splash"
     AppScreen.Home -> "home"
     AppScreen.Search -> "search"
     AppScreen.Library -> "library"
@@ -26,6 +27,7 @@ fun AppScreen.route(): String = when (this) {
  * Returns null if route is not recognized
  */
 fun String.toAppScreen(): AppScreen? = when {
+    this == "splash" -> AppScreen.Splash
     this == "home" -> AppScreen.Home
     this == "search" -> AppScreen.Search
     this == "library" -> AppScreen.Library

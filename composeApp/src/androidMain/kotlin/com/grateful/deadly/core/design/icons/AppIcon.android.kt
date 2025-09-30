@@ -24,6 +24,10 @@ private val MaterialSymbols = FontFamily(
 @Composable
 actual fun AppIcon.Render(size: Dp, tint: Color?) {
     val codepoint = when (this) {
+        // App branding
+        AppIcon.Logo -> "\uE405"           // music_note (representing Grateful Dead music)
+        AppIcon.Error -> "\uE000"          // error
+
         AppIcon.QrCodeScanner -> "\uE4C6"  // qr_code_scanner
         AppIcon.Home -> "\uE88A"           // home
         AppIcon.Settings -> "\uE8B8"       // settings
