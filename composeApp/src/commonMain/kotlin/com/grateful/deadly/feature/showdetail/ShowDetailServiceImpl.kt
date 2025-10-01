@@ -13,6 +13,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Job
 
 /**
  * ShowDetailService implementation following V2's database-first loading patterns.
@@ -22,6 +23,7 @@ import kotlinx.coroutines.launch
  * 1. Database data loads immediately (no loading spinners for navigation)
  * 2. Archive.org tracks load asynchronously in background
  * 3. Progressive enhancement: DB → UI → API → enhanced UI
+ * 4. Background prefetching of adjacent shows (V2 pattern)
  *
  * Follows Universal Service + Platform Tool pattern with reactive StateFlow programming.
  */
@@ -44,6 +46,9 @@ class ShowDetailServiceImpl(
 
     // Service scope for background operations
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+
+    // Prefetch job tracking (V2 pattern) - tracks active background loads
+    private val prefetchJobs = mutableMapOf<String, Job>()
 
     // Reactive state flows (V2 pattern)
     private val _currentShow = MutableStateFlow<Show?>(null)
@@ -73,6 +78,9 @@ class ShowDetailServiceImpl(
     override suspend fun loadShow(showId: String, recordingId: String?) {
         Logger.d(TAG, "loadShow(showId=$showId, recordingId=$recordingId)")
         clearError()
+
+        // Cancel any stale prefetches from previous navigation
+        cancelAllPrefetches()
 
         try {
             // Phase 1: Load show data from database immediately (V2 pattern)
@@ -275,6 +283,9 @@ class ShowDetailServiceImpl(
 
                         _currentTracks.value = filteredTracks
                         _isTracksLoading.value = false
+
+                        // Start background prefetch for adjacent shows (V2 pattern)
+                        startAdjacentPrefetch()
                     },
                     onFailure = { error ->
                         Logger.e(TAG, "Failed to load tracks from Archive.org: ${error.message}", error)
@@ -342,5 +353,102 @@ class ShowDetailServiceImpl(
         return tracks.filter { track ->
             track.format.equals(selectedFormat, ignoreCase = true)
         }.sortedBy { it.trackNumber }
+    }
+
+    /**
+     * Start background prefetch for adjacent shows (V2 pattern).
+     * Prefetches 2 next + 2 previous shows to ArchiveService disk cache.
+     */
+    private fun startAdjacentPrefetch() {
+        val current = _currentShow.value
+        if (current == null) {
+            Logger.d(TAG, "No current show for adjacent prefetch")
+            return
+        }
+
+        Logger.d(TAG, "Starting adjacent prefetch for: ${current.displayTitle}")
+
+        serviceScope.launch {
+            try {
+                // Prefetch next 2 shows
+                var currentNextDate = current.date
+                repeat(2) { index ->
+                    val nextShow = showRepository.getNextShowByDate(currentNextDate)
+                    if (nextShow != null) {
+                        currentNextDate = nextShow.date
+                        val recordingId = nextShow.bestRecordingId
+
+                        if (recordingId != null && !prefetchJobs.containsKey(recordingId)) {
+                            startPrefetchInternal(nextShow, recordingId, "next+${index + 1}")
+                        } else {
+                            Logger.d(TAG, "Skipping next+${index + 1} prefetch: recordingId=$recordingId, alreadyPrefetching=${prefetchJobs.containsKey(recordingId ?: "")}")
+                        }
+                    }
+                }
+
+                // Prefetch previous 2 shows
+                var currentPrevDate = current.date
+                repeat(2) { index ->
+                    val previousShow = showRepository.getPreviousShowByDate(currentPrevDate)
+                    if (previousShow != null) {
+                        currentPrevDate = previousShow.date
+                        val recordingId = previousShow.bestRecordingId
+
+                        if (recordingId != null && !prefetchJobs.containsKey(recordingId)) {
+                            startPrefetchInternal(previousShow, recordingId, "previous+${index + 1}")
+                        } else {
+                            Logger.d(TAG, "Skipping previous+${index + 1} prefetch: recordingId=$recordingId, alreadyPrefetching=${prefetchJobs.containsKey(recordingId ?: "")}")
+                        }
+                    }
+                }
+
+            } catch (e: Exception) {
+                Logger.e(TAG, "Error in startAdjacentPrefetch", e)
+            }
+        }
+    }
+
+    /**
+     * Internal prefetch method - fetches tracks and writes to ArchiveService disk cache.
+     */
+    private fun startPrefetchInternal(show: Show, recordingId: String, priority: String) {
+        // Don't prefetch if already in progress
+        if (prefetchJobs[recordingId]?.isActive == true) {
+            Logger.d(TAG, "Prefetch already active for: $recordingId")
+            return
+        }
+
+        Logger.d(TAG, "Starting $priority prefetch for ${show.displayTitle} (recording: $recordingId)")
+
+        val job = serviceScope.launch {
+            try {
+                // Call ArchiveService which handles cache check and write
+                val result = archiveService.getRecordingTracks(recordingId)
+
+                if (result.isSuccess) {
+                    val tracks = result.getOrNull() ?: emptyList()
+                    Logger.d(TAG, "Prefetch completed for ${show.displayTitle}: ${tracks.size} tracks cached to disk")
+                } else {
+                    Logger.w(TAG, "Prefetch failed for ${show.displayTitle}: ${result.exceptionOrNull()}")
+                }
+
+            } catch (e: Exception) {
+                Logger.e(TAG, "Prefetch error for ${show.displayTitle}", e)
+            } finally {
+                // Remove from active prefetches when complete
+                prefetchJobs.remove(recordingId)
+            }
+        }
+
+        prefetchJobs[recordingId] = job
+    }
+
+    /**
+     * Cancel all active prefetch jobs.
+     */
+    private fun cancelAllPrefetches() {
+        Logger.d(TAG, "Canceling ${prefetchJobs.size} active prefetch jobs")
+        prefetchJobs.values.forEach { it.cancel() }
+        prefetchJobs.clear()
     }
 }
