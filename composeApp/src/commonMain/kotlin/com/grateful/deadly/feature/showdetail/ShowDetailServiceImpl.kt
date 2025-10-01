@@ -126,6 +126,10 @@ class ShowDetailServiceImpl(
             _currentRecording.value = recording
             Logger.d(TAG, "Recording loaded from database: ${recording.displayTitle}")
 
+            // Clear tracks immediately to prevent showing stale data during navigation
+            _currentTracks.value = emptyList()
+            Logger.d(TAG, "Cleared tracks for new show load")
+
             // Phase 4: Load tracks from Archive.org asynchronously (V2 pattern)
             loadTracksInBackground(targetRecordingId)
 
@@ -248,12 +252,20 @@ class ShowDetailServiceImpl(
                     onSuccess = { allTracks ->
                         Logger.d(TAG, "Loaded ${allTracks.size} tracks from Archive.org")
 
+                        // Race condition guard: Only update if this recording is still current
+                        if (_currentRecording.value?.identifier != recordingId) {
+                            Logger.d(TAG, "Discarding tracks for $recordingId (no longer current recording, keeping loading state)")
+                            // Don't clear loading flag - the NEW show is still loading
+                            return@fold
+                        }
+
                         // V2's Smart format selection with fallback
                         val selectedFormat = selectBestAvailableFormat(allTracks)
 
                         if (selectedFormat == null) {
                             Logger.w(TAG, "No compatible format found in loaded tracks")
                             _error.value = "No compatible audio format found"
+                            _isTracksLoading.value = false
                             return@fold
                         }
 
@@ -262,18 +274,31 @@ class ShowDetailServiceImpl(
                         Logger.d(TAG, "Using ${filteredTracks.size} tracks in format: $selectedFormat")
 
                         _currentTracks.value = filteredTracks
+                        _isTracksLoading.value = false
                     },
                     onFailure = { error ->
                         Logger.e(TAG, "Failed to load tracks from Archive.org: ${error.message}", error)
-                        _error.value = "Failed to load tracks: ${error.message}"
+
+                        // Only clear loading and set error if this is still the current recording
+                        if (_currentRecording.value?.identifier == recordingId) {
+                            _error.value = "Failed to load tracks: ${error.message}"
+                            _isTracksLoading.value = false
+                        } else {
+                            Logger.d(TAG, "Ignoring error for stale recording $recordingId")
+                        }
                     }
                 )
 
             } catch (e: Exception) {
                 Logger.e(TAG, "Error in background track loading", e)
-                _error.value = "Failed to load tracks: ${e.message}"
-            } finally {
-                _isTracksLoading.value = false
+
+                // Only clear loading and set error if this is still the current recording
+                if (_currentRecording.value?.identifier == recordingId) {
+                    _error.value = "Failed to load tracks: ${e.message}"
+                    _isTracksLoading.value = false
+                } else {
+                    Logger.d(TAG, "Ignoring exception for stale recording $recordingId")
+                }
             }
         }
     }
