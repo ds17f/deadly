@@ -86,6 +86,11 @@ endif
 	@echo "  clean-db-android        - Delete Android database only"
 	@echo "  clean-db-ios            - Delete iOS database only"
 	@echo ""
+	@echo "CACHE COMMANDS:"
+	@echo "  clean-cache             - Delete app caches on both platforms"
+	@echo "  clean-cache-android     - Delete Android app cache only"
+	@echo "  clean-cache-ios         - Delete iOS app cache only"
+	@echo ""
 	@echo "UTILITY COMMANDS:"
 	@echo "  clean                   - Clean all build outputs"
 	@echo "  clean-android          - Clean Android build outputs only"
@@ -442,3 +447,22 @@ clean-db-android:
 clean-db-ios:
 	@echo "🧹 Cleaning iOS database..."
 	./scripts/clean-db.sh ios
+
+# =============================================================================
+# CACHE COMMANDS
+# =============================================================================
+
+.PHONY: clean-cache
+clean-cache:
+	@echo "🧹 Cleaning app caches on both platforms..."
+	./scripts/clean-cache.sh all
+
+.PHONY: clean-cache-android
+clean-cache-android:
+	@echo "🧹 Cleaning Android app cache..."
+	./scripts/clean-cache.sh android
+
+.PHONY: clean-cache-ios
+clean-cache-ios:
+	@echo "🧹 Cleaning iOS app cache..."
+	./scripts/clean-cache.sh ios
