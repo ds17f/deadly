@@ -198,6 +198,11 @@ class ShowDetailServiceImpl(
     /**
      * Get adjacent shows for navigation.
      * Returns previous and next shows chronologically.
+     *
+     * Uses efficient DB queries (V2 pattern):
+     * - Crosses year boundaries (queries entire database by date)
+     * - Filters out shows without recordings (bestRecordingId NOT NULL)
+     * - Only fetches 2 shows from DB instead of loading all shows into memory
      */
     override suspend fun getAdjacentShows(): AdjacentShows {
         val currentShow = _currentShow.value
@@ -207,26 +212,11 @@ class ShowDetailServiceImpl(
         }
 
         try {
-            // Get shows for the same year to find adjacent ones
-            val year = currentShow.date.take(4).toIntOrNull()
-            if (year == null) {
-                Logger.w(TAG, "Invalid date format for adjacent search: ${currentShow.date}")
-                return AdjacentShows(null, null)
-            }
+            // Use efficient DB-level navigation queries (V2 pattern)
+            val previousShow = showRepository.getPreviousShowByDate(currentShow.date)
+            val nextShow = showRepository.getNextShowByDate(currentShow.date)
 
-            val yearShows = showRepository.getShowsByYear(year)
-                .sortedBy { it.date } // Sort chronologically
-
-            val currentIndex = yearShows.indexOfFirst { it.id == currentShow.id }
-            if (currentIndex == -1) {
-                Logger.w(TAG, "Current show not found in year shows")
-                return AdjacentShows(null, null)
-            }
-
-            val previousShow = if (currentIndex > 0) yearShows[currentIndex - 1] else null
-            val nextShow = if (currentIndex < yearShows.size - 1) yearShows[currentIndex + 1] else null
-
-            Logger.d(TAG, "Adjacent shows: previous=${previousShow?.id}, next=${nextShow?.id}")
+            Logger.d(TAG, "Adjacent shows: previous=${previousShow?.displayTitle}, next=${nextShow?.displayTitle}")
             return AdjacentShows(previousShow, nextShow)
 
         } catch (e: Exception) {

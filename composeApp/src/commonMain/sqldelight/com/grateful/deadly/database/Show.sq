@@ -122,6 +122,22 @@ ORDER BY
   date DESC
 LIMIT CASE WHEN :limit IS NULL THEN -1 ELSE :limit END;
 
+-- Navigation queries for efficient chronological traversal (V2 pattern)
+-- Only return shows with recordings (bestRecordingId NOT NULL)
+getNextShowByDate:
+SELECT * FROM Show
+WHERE date > ?
+  AND bestRecordingId IS NOT NULL
+ORDER BY date ASC
+LIMIT 1;
+
+getPreviousShowByDate:
+SELECT * FROM Show
+WHERE date < ?
+  AND bestRecordingId IS NOT NULL
+ORDER BY date DESC
+LIMIT 1;
+
 -- Statistical queries
 getShowCountByYear:
 SELECT year, COUNT(*) AS count

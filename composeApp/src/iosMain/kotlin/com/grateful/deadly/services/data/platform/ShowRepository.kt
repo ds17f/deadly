@@ -272,6 +272,24 @@ actual class ShowRepository actual constructor(
     actual suspend fun searchShows(query: String): List<Show> =
         getShows(ShowFilters(venueName = query, city = query, songName = query, memberName = query))
 
+    // === Navigation Queries (V2 Pattern) ===
+
+    actual suspend fun getNextShowByDate(currentDate: String): Show? = withContext(Dispatchers.Default) {
+        val showRow = database.showQueries.getNextShowByDate(currentDate).executeAsOneOrNull()
+        showRow?.let { row ->
+            val entity = mapRowToEntity(row)
+            showMappers.entityToDomain(entity)
+        }
+    }
+
+    actual suspend fun getPreviousShowByDate(currentDate: String): Show? = withContext(Dispatchers.Default) {
+        val showRow = database.showQueries.getPreviousShowByDate(currentDate).executeAsOneOrNull()
+        showRow?.let { row ->
+            val entity = mapRowToEntity(row)
+            showMappers.entityToDomain(entity)
+        }
+    }
+
     // === Statistics ===
 
     actual suspend fun getShowCountByYear(): Map<Int, Int> = withContext(Dispatchers.Default) {
@@ -302,6 +320,80 @@ actual class ShowRepository actual constructor(
      * Handles platform-specific type conversions (Long ↔ Int, Boolean mapping).
      */
     private fun mapRowToEntity(row: com.grateful.deadly.database.Show): ShowEntity {
+        return ShowEntity(
+            showId = row.showId,
+            date = row.date,
+            year = row.year.toInt(),
+            month = row.month.toInt(),
+            yearMonth = row.yearMonth,
+            band = row.band,
+            url = row.url,
+            venueName = row.venueName,
+            city = row.city,
+            state = row.state,
+            country = row.country,
+            locationRaw = row.locationRaw,
+            setlistStatus = row.setlistStatus,
+            setlistRaw = row.setlistRaw,
+            songList = row.songList,
+            lineupStatus = row.lineupStatus,
+            lineupRaw = row.lineupRaw,
+            memberList = row.memberList,
+            showSequence = row.showSequence.toInt(),
+            recordingsRaw = row.recordingsRaw,
+            recordingCount = row.recordingCount.toInt(),
+            bestRecordingId = row.bestRecordingId,
+            averageRating = row.averageRating,
+            totalReviews = row.totalReviews.toInt(),
+            isInLibrary = row.isInLibrary == 1L,
+            libraryAddedAt = row.libraryAddedAt,
+            createdAt = row.createdAt,
+            updatedAt = row.updatedAt
+        )
+    }
+
+    /**
+     * Mapper overload for GetNextShowByDate query result type.
+     * SQLDelight generates separate types for each query by design.
+     */
+    private fun mapRowToEntity(row: com.grateful.deadly.database.GetNextShowByDate): ShowEntity {
+        return ShowEntity(
+            showId = row.showId,
+            date = row.date,
+            year = row.year.toInt(),
+            month = row.month.toInt(),
+            yearMonth = row.yearMonth,
+            band = row.band,
+            url = row.url,
+            venueName = row.venueName,
+            city = row.city,
+            state = row.state,
+            country = row.country,
+            locationRaw = row.locationRaw,
+            setlistStatus = row.setlistStatus,
+            setlistRaw = row.setlistRaw,
+            songList = row.songList,
+            lineupStatus = row.lineupStatus,
+            lineupRaw = row.lineupRaw,
+            memberList = row.memberList,
+            showSequence = row.showSequence.toInt(),
+            recordingsRaw = row.recordingsRaw,
+            recordingCount = row.recordingCount.toInt(),
+            bestRecordingId = row.bestRecordingId,
+            averageRating = row.averageRating,
+            totalReviews = row.totalReviews.toInt(),
+            isInLibrary = row.isInLibrary == 1L,
+            libraryAddedAt = row.libraryAddedAt,
+            createdAt = row.createdAt,
+            updatedAt = row.updatedAt
+        )
+    }
+
+    /**
+     * Mapper overload for GetPreviousShowByDate query result type.
+     * SQLDelight generates separate types for each query by design.
+     */
+    private fun mapRowToEntity(row: com.grateful.deadly.database.GetPreviousShowByDate): ShowEntity {
         return ShowEntity(
             showId = row.showId,
             date = row.date,

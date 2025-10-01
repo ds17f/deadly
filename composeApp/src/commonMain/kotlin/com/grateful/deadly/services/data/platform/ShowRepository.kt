@@ -154,6 +154,22 @@ expect class ShowRepository(database: com.grateful.deadly.database.Database) {
      */
     suspend fun searchShows(query: String): List<Show>
 
+    // === Navigation Queries (V2 Pattern) ===
+
+    /**
+     * Get the next show chronologically after the given date.
+     * Only returns shows with recordings (bestRecordingId NOT NULL).
+     * Used for efficient show browsing that crosses year boundaries.
+     */
+    suspend fun getNextShowByDate(currentDate: String): Show?
+
+    /**
+     * Get the previous show chronologically before the given date.
+     * Only returns shows with recordings (bestRecordingId NOT NULL).
+     * Used for efficient show browsing that crosses year boundaries.
+     */
+    suspend fun getPreviousShowByDate(currentDate: String): Show?
+
     // === Recording Operations (V2 Single-Repository Pattern) ===
 
     /**
