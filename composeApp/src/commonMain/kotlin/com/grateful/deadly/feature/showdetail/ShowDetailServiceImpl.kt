@@ -346,13 +346,13 @@ class ShowDetailServiceImpl(
     }
 
     /**
-     * V2's Filter tracks to selected format only
-     * Used after format selection to get tracks for UI display
+     * Filter tracks to selected format only.
+     * Tracks are already sorted by filename from ArchiveService.
      */
     private fun filterTracksToFormat(tracks: List<Track>, selectedFormat: String): List<Track> {
         return tracks.filter { track ->
             track.format.equals(selectedFormat, ignoreCase = true)
-        }.sortedBy { it.trackNumber }
+        }
     }
 
     /**

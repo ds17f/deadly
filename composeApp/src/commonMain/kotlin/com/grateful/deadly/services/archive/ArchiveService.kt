@@ -215,7 +215,12 @@ class ArchiveService(
     }
 
     /**
-     * Convert Archive API response to list of Track domain models (V2's exact logic).
+     * Convert Archive API response to list of Track domain models.
+     *
+     * Sorts by filename (not trackNumber) because:
+     * - Archive.org track metadata is often missing or incorrect
+     * - Filenames encode disc/track info (e.g., d1t01, d2t15)
+     * - Lexicographic filename sort respects natural playback order
      */
     private fun mapToTracks(response: ArchiveMetadataResponse): List<Track> {
         return response.files
@@ -233,7 +238,7 @@ class ArchiveService(
                     isAudio = true
                 )
             }
-            .sortedBy { it.trackNumber }
+            .sortedBy { it.name } // Sort by filename for reliable ordering
     }
 
     /**
