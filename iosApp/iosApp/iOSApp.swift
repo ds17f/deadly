@@ -26,7 +26,7 @@ struct iOSApp: App {
             print("  Options: \(audioSession.categoryOptions)")
             print("  Is active: \(audioSession.isOtherAudioPlaying)")
 
-            try audioSession.setCategory(.playback, mode: .default, options: [])
+            try audioSession.setCategory(.playback, mode: .default, options: [.allowAirPlay])
             try audioSession.setActive(true)
 
             print("iOS Audio session after setup:")
