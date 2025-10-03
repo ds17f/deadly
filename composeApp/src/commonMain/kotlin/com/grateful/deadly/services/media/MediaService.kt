@@ -65,6 +65,62 @@ class MediaService(
                 }
             }
         }
+
+        // Restore saved playback state on iOS (Android uses MediaSessionService)
+        serviceScope.launch {
+            restorePlaybackState()
+        }
+    }
+
+    /**
+     * Restore saved playback state from platform storage (iOS only).
+     * Android doesn't need this - MediaSessionService persists state automatically.
+     */
+    private suspend fun restorePlaybackState() {
+        try {
+            // Use helper to get saved state (iOS returns state, Android returns null)
+            val savedState = getSavedPlaybackState(platformMediaPlayer)
+
+            if (savedState != null) {
+                Logger.d(TAG, "🎵 [RESTORE] Restoring playback state - track ${savedState.trackIndex}/${savedState.enrichedTracks.size}")
+
+                // Restore playlist and metadata
+                currentPlaylist = savedState.enrichedTracks.map { it.track }
+                currentTrackIndex = savedState.trackIndex
+                currentTrack = currentPlaylist.getOrNull(currentTrackIndex)
+                internalCurrentRecordingId = savedState.recordingId
+                _currentShowId.value = savedState.showId
+                _currentRecordingId.value = savedState.recordingId
+
+                // Get show metadata from first enriched track
+                val firstTrack = savedState.enrichedTracks.firstOrNull()
+                currentShowDate = firstTrack?.showDate
+                currentVenue = firstTrack?.venue
+                currentLocation = firstTrack?.location
+
+                // Restore playback using enriched playlist
+                platformMediaPlayer.loadAndPlayPlaylist(savedState.enrichedTracks, savedState.trackIndex)
+
+                // Seek to saved position
+                if (savedState.positionMs > 0) {
+                    platformMediaPlayer.seekTo(savedState.positionMs)
+                }
+
+                // Pause immediately - let user choose to resume
+                platformMediaPlayer.pause()
+
+                Logger.d(TAG, "🎵 [RESTORE] Playback state restored successfully")
+            }
+        } catch (e: Exception) {
+            Logger.e(TAG, "Failed to restore playback state", e)
+        }
+    }
+
+    /**
+     * Save current playback state (iOS only - for lifecycle events).
+     */
+    fun savePlaybackState() {
+        saveCurrentPlaybackState(platformMediaPlayer)
     }
 
     // Current playback context - Archive.org business knowledge

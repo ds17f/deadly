@@ -674,6 +674,48 @@ actual class PlatformMediaPlayer {
         }
     }
 
+    /**
+     * Save current playback state for restoration after app restart (iOS only).
+     * Uses PlaybackStatePersistenceBridge to save to UserDefaults via Swift.
+     */
+    fun saveCurrentPlaybackState() {
+        if (currentEnrichedTracks.isEmpty() || currentEnrichedTrackIndex < 0) {
+            return // No valid state to save
+        }
+
+        val currentTime = avPlayer.currentTime()
+        val positionMs = (CMTimeGetSeconds(currentTime) * 1000).toLong()
+
+        // Get show/recording IDs from current enriched track
+        val currentTrack = currentEnrichedTracks.getOrNull(currentEnrichedTrackIndex)
+        if (currentTrack != null) {
+            PlaybackStatePersistenceBridge.saveState(
+                enrichedTracks = currentEnrichedTracks,
+                trackIndex = currentEnrichedTrackIndex,
+                positionMs = positionMs,
+                showId = currentTrack.showId,
+                recordingId = currentTrack.recordingId,
+                format = currentTrack.format
+            )
+        }
+    }
+
+    /**
+     * Restore saved playback state from UserDefaults (iOS only).
+     * Returns SavedPlaybackState if valid state exists, null otherwise.
+     */
+    fun restoreSavedPlaybackState(): SavedPlaybackState? {
+        return PlaybackStatePersistenceBridge.restoreState()
+    }
+
+    /**
+     * Clear saved playback state (iOS only).
+     * Called when user explicitly stops playback.
+     */
+    fun clearSavedPlaybackState() {
+        PlaybackStatePersistenceBridge.clearState()
+    }
+
     private fun updatePlaybackState(update: PlatformPlaybackState.() -> PlatformPlaybackState) {
         _playbackState.value = _playbackState.value.update()
     }

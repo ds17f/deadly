@@ -8,6 +8,8 @@ struct iOSApp: App {
     init() {
         setupAudioSession()
         setupUnzipHandler()
+        setupPlaybackStatePersistence()
+        setupLifecycleObservers()
     }
 
     var body: some Scene {
@@ -65,6 +67,31 @@ struct iOSApp: App {
                     )
                 }
             }
+        }
+    }
+
+    private func setupPlaybackStatePersistence() {
+        // Register handlers for playback state persistence (iOS only)
+        AppPlatform.shared.registerPlaybackStateHandlers(
+            saveHandler: { stateJson in
+                PlaybackStatePersistence.shared.saveStateJson(stateJson)
+            },
+            getHandler: {
+                return PlaybackStatePersistence.shared.getStateJson()
+            }
+        )
+    }
+
+    private func setupLifecycleObservers() {
+        // Save playback state when app goes to background
+        NotificationCenter.default.addObserver(
+            forName: UIApplication.willResignActiveNotification,
+            object: nil,
+            queue: .main
+        ) { _ in
+            // Call MediaService via holder to save state
+            MediaServiceHolder.shared.savePlaybackState()
+            print("📱 [LIFECYCLE] Saved playback state on background")
         }
     }
 }

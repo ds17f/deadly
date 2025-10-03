@@ -1,6 +1,7 @@
 package com.grateful.deadly.services.media
 
 import com.grateful.deadly.services.archive.Track
+import kotlinx.serialization.Serializable
 
 /**
  * Enriched track data structure containing all V2 metadata fields.
@@ -11,6 +12,7 @@ import com.grateful.deadly.services.archive.Track
  * Based on V2's MediaMetadata extras pattern, this ensures both Android and iOS
  * have access to all the same metadata fields for consistent functionality.
  */
+@Serializable
 data class EnrichedTrack(
     // Original track data
     val track: Track,
