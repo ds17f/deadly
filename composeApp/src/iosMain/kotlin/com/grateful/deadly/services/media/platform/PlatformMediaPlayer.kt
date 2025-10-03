@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import platform.AVFoundation.*
+import platform.AVFAudio.*
 import platform.CoreMedia.*
 import platform.Foundation.*
 import platform.MediaPlayer.*
@@ -50,6 +51,8 @@ actual class PlatformMediaPlayer {
     actual val currentTrackIndex: Flow<Int> = _currentTrackIndex.asStateFlow()
 
     init {
+        configureAudioSession()
+        setupRemoteCommands()
         setupPlayerObservers()
         startPositionUpdates()
     }
@@ -62,6 +65,115 @@ actual class PlatformMediaPlayer {
     // Enriched track metadata for extraction and MPNowPlayingInfoCenter (V2 pattern)
     private var currentEnrichedTracks: List<EnrichedTrack> = emptyList()
     private var currentEnrichedTrackIndex: Int = -1
+
+    /**
+     * Configure AVAudioSession for background audio playback.
+     * Enables Control Center, lock screen controls, and AirPlay support.
+     */
+    private fun configureAudioSession() {
+        try {
+            val audioSession = AVAudioSession.sharedInstance()
+
+            memScoped {
+                val error = alloc<ObjCObjectVar<NSError?>>()
+
+                // Configure for background playback
+                audioSession.setCategory(
+                    AVAudioSessionCategoryPlayback,
+                    error = error.ptr
+                )
+
+                if (error.value == null) {
+                    // Activate the audio session
+                    audioSession.setActive(true, error = error.ptr)
+                }
+            }
+        } catch (e: Exception) {
+            // Failed to configure audio session - playback may work but without background support
+        }
+    }
+
+    /**
+     * Set up Remote Command Center for lock screen and Control Center controls.
+     * Enables play/pause/skip controls from iOS system UI.
+     */
+    private fun setupRemoteCommands() {
+        val commandCenter = MPRemoteCommandCenter.sharedCommandCenter()
+
+        // Play command
+        commandCenter.playCommand.setEnabled(true)
+        commandCenter.playCommand.addTargetWithHandler { _ ->
+            playerScope.launch {
+                resume()
+            }
+            MPRemoteCommandHandlerStatusSuccess
+        }
+
+        // Pause command
+        commandCenter.pauseCommand.setEnabled(true)
+        commandCenter.pauseCommand.addTargetWithHandler { _ ->
+            playerScope.launch {
+                pause()
+            }
+            MPRemoteCommandHandlerStatusSuccess
+        }
+
+        // Next track command
+        commandCenter.nextTrackCommand.setEnabled(true)
+        commandCenter.nextTrackCommand.addTargetWithHandler { _ ->
+            playerScope.launch {
+                nextTrack()
+            }
+            MPRemoteCommandHandlerStatusSuccess
+        }
+
+        // Previous track command
+        commandCenter.previousTrackCommand.setEnabled(true)
+        commandCenter.previousTrackCommand.addTargetWithHandler { _ ->
+            playerScope.launch {
+                previousTrack()
+            }
+            MPRemoteCommandHandlerStatusSuccess
+        }
+
+        // Skip forward command (optional - 15 seconds)
+        commandCenter.skipForwardCommand.setEnabled(true)
+        commandCenter.skipForwardCommand.setPreferredIntervals(listOf(NSNumber(15)))
+        commandCenter.skipForwardCommand.addTargetWithHandler { event ->
+            playerScope.launch {
+                val currentTime = avPlayer.currentTime()
+                val currentSeconds = CMTimeGetSeconds(currentTime)
+                val newTime = CMTimeMakeWithSeconds(currentSeconds + 15.0, 1000)
+                seekTo((CMTimeGetSeconds(newTime) * 1000).toLong())
+            }
+            MPRemoteCommandHandlerStatusSuccess
+        }
+
+        // Skip backward command (optional - 15 seconds)
+        commandCenter.skipBackwardCommand.setEnabled(true)
+        commandCenter.skipBackwardCommand.setPreferredIntervals(listOf(NSNumber(15)))
+        commandCenter.skipBackwardCommand.addTargetWithHandler { event ->
+            playerScope.launch {
+                val currentTime = avPlayer.currentTime()
+                val currentSeconds = CMTimeGetSeconds(currentTime)
+                val newTime = CMTimeMakeWithSeconds(maxOf(0.0, currentSeconds - 15.0), 1000)
+                seekTo((CMTimeGetSeconds(newTime) * 1000).toLong())
+            }
+            MPRemoteCommandHandlerStatusSuccess
+        }
+
+        // Change playback position command (for scrubbing)
+        commandCenter.changePlaybackPositionCommand.setEnabled(true)
+        commandCenter.changePlaybackPositionCommand.addTargetWithHandler { event ->
+            val positionEvent = event as? MPChangePlaybackPositionCommandEvent
+            positionEvent?.positionTime?.let { newPosition ->
+                playerScope.launch {
+                    seekTo((newPosition * 1000).toLong())
+                }
+            }
+            MPRemoteCommandHandlerStatusSuccess
+        }
+    }
 
     /**
      * Set track metadata for rich platform integrations.
