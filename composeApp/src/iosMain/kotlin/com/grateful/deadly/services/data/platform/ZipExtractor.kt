@@ -5,16 +5,15 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.cinterop.*
 import platform.Foundation.*
-import platform.posix.*
 
 /**
- * iOS implementation of ZIP extraction using native system unzip command.
+ * iOS implementation of ZIP extraction using callback bridge to host app.
  *
  * This is the platform tool that handles only iOS-specific ZIP operations.
  * All universal logic (progress, error handling, workflow) is in FileExtractionService.
  *
- * Uses the system's built-in `/usr/bin/unzip` command, then enumerates extracted
- * files using NSFileManager - same pattern as Android using java.util.zip.
+ * Uses PlatformUnzipBridge to request extraction from iOS app (which uses ZIPFoundation),
+ * then enumerates extracted files using NSFileManager - same pattern as Android using java.util.zip.
  */
 actual class ZipExtractor actual constructor() {
 
@@ -28,24 +27,17 @@ actual class ZipExtractor actual constructor() {
         val fileManager = NSFileManager.defaultManager
 
         try {
-            // Create output directory
-            val outputDirURL = NSURL.fileURLWithPath(outputDir)
-            fileManager.createDirectoryAtURL(
-                outputDirURL,
-                withIntermediateDirectories = true,
-                attributes = null,
-                error = null
-            )
-
             progressCallback?.invoke(0, 1)
 
-            // Use native system unzip command via POSIX popen - same approach as Android using java.util.zip
-            val command = "cd \"$outputDir\" && /usr/bin/unzip -o -q \"$zipPath\" 2>&1"
-            val result = executeUnzipCommand(command)
+            // Request unzip via callback bridge to iOS app
+            val result = PlatformUnzipBridge.requestUnzip(
+                sourcePath = zipPath,
+                destinationPath = outputDir,
+                overwrite = true
+            )
 
-            if (result.exitCode != 0) {
-                throw Exception("Native unzip command failed with status ${result.exitCode}: ${result.output}")
-            }
+            // Check if unzip succeeded
+            result.getOrThrow()
 
             // Enumerate all extracted files using NSFileManager
             extractedFiles.addAll(enumerateExtractedFiles(outputDir, outputDir, fileManager))
@@ -110,27 +102,4 @@ actual class ZipExtractor actual constructor() {
         return files
     }
 
-    /**
-     * Execute unzip command using POSIX popen() for Kotlin Native iOS.
-     */
-    @OptIn(ExperimentalForeignApi::class)
-    private fun executeUnzipCommand(command: String): CommandResult {
-        val fp = popen(command, "r") ?: throw Exception("Failed to execute command: $command")
-
-        val output = buildString {
-            val buffer = ByteArray(4096)
-            while (true) {
-                val input = fgets(buffer.refTo(0), buffer.size, fp) ?: break
-                append(input.toKString())
-            }
-        }
-
-        val exitCode = pclose(fp)
-        return CommandResult(exitCode, output.trim())
-    }
-
-    private data class CommandResult(
-        val exitCode: Int,
-        val output: String
-    )
 }
