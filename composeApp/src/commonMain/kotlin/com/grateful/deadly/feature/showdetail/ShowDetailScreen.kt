@@ -32,7 +32,6 @@ fun ShowDetailScreen(
     showId: String?,
     recordingId: String? = null,
     onNavigateBack: () -> Unit,
-    onNavigateToPlayer: () -> Unit,
     viewModel: ShowDetailViewModel,
     modifier: Modifier = Modifier
 ) {

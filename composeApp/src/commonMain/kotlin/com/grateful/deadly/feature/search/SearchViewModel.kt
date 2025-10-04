@@ -265,12 +265,7 @@ class SearchViewModel(
         Logger.i(TAG, "Navigate to search results for query: $query")
         _navigation.emit(NavigationEvent(AppScreen.SearchResults))
     }
-    
-    suspend fun onNavigateToPlayer(recordingId: String) {
-        Logger.i(TAG, "Navigate to player: $recordingId")
-        _navigation.emit(NavigationEvent(AppScreen.Player))
-    }
-    
+
     override fun onCleared() {
         super.onCleared()
         Logger.d(TAG, "SearchViewModel cleared")

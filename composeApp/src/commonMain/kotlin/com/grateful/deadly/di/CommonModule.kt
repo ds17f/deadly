@@ -8,8 +8,6 @@ import com.grateful.deadly.feature.player.PlayerViewModel
 import com.grateful.deadly.feature.home.HomeViewModel
 import com.grateful.deadly.services.search.SearchServiceImpl
 import com.grateful.deadly.services.home.HomeServiceImpl
-import com.grateful.deadly.data.search.SearchRepository
-import com.grateful.deadly.data.search.SearchRepositoryImpl
 // New architecture imports
 import com.grateful.deadly.services.data.DataSyncOrchestrator
 import com.grateful.deadly.services.data.FileExtractionService
@@ -208,11 +206,7 @@ val commonModule = module {
         )
     }
 
-    // Data Layer
-    single<SearchRepository> {
-        Logger.d("CommonModule", "Creating SearchRepository instance")
-        SearchRepositoryImpl(get())
-    }
+    // Data Layer (SearchRepository removed - functionality moved to ShowService)
 
 
     // Services

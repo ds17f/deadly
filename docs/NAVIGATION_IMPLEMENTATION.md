@@ -175,8 +175,7 @@ All navigation checkpoints have been successfully implemented and tested on both
        
        suspend fun onNavigateToPlayer(recordingId: String) {
            Logger.i("SearchViewModel", "Navigate to player: $recordingId")
-           // TODO: Emit AppScreen.Player when implemented
-           _navigation.emit(NavigationEvent(AppScreen.Home))
+           _navigation.emit(NavigationEvent(AppScreen.Player))
        }
    }
    ```

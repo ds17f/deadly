@@ -95,11 +95,6 @@ class HomeViewModel(
         _navigation.emit(NavigationEvent(AppScreen.ShowDetail(showId)))
     }
 
-    suspend fun onNavigateToPlayer(recordingId: String) {
-        Logger.d(TAG, "Navigate to player: $recordingId")
-        // TODO: Add recording context to player navigation
-        _navigation.emit(NavigationEvent(AppScreen.Player))
-    }
 
     suspend fun onNavigateToCollection(collectionId: String) {
         Logger.d(TAG, "Navigate to collection: $collectionId")

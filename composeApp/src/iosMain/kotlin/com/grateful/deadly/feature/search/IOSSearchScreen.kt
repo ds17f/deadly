@@ -11,7 +11,6 @@ private object IOSDIHelper : KoinComponent
  */
 @Composable
 fun IOSSearchScreen(
-    onNavigateToPlayer: (String) -> Unit,
     onNavigateToShow: (String) -> Unit,
     onNavigateToSearchResults: () -> Unit,
     initialEra: String? = null
@@ -20,7 +19,6 @@ fun IOSSearchScreen(
     
     SearchScreen(
         viewModel = viewModel,
-        onNavigateToPlayer = onNavigateToPlayer,
         onNavigateToShow = onNavigateToShow,
         onNavigateToSearchResults = onNavigateToSearchResults,
         initialEra = initialEra

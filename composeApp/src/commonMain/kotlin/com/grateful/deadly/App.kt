@@ -128,11 +128,6 @@ fun App() {
 
                 com.grateful.deadly.feature.home.HomeScreen(
                     viewModel = homeViewModel,
-                    onNavigateToPlayer = { recordingId ->
-                        coroutineScope.launch {
-                            homeViewModel.onNavigateToPlayer(recordingId)
-                        }
-                    },
                     onNavigateToShow = { showId ->
                         coroutineScope.launch {
                             homeViewModel.onNavigateToShow(showId)
@@ -156,11 +151,6 @@ fun App() {
                 com.grateful.deadly.feature.search.SearchScreen(
                     viewModel = searchViewModel,
                     // All callbacks now trigger ViewModel navigation methods that emit NavigationEvent
-                    onNavigateToPlayer = { recordingId -> 
-                        coroutineScope.launch {
-                            searchViewModel.onNavigateToPlayer(recordingId)
-                        }
-                    },
                     onNavigateToShow = { showId ->
                         coroutineScope.launch {
                             searchViewModel.onSearchResultSelected(showId)
@@ -181,10 +171,6 @@ fun App() {
                 com.grateful.deadly.feature.library.LibraryScreen(
                     onNavigateToShow = { showId ->
                         navigationController.navigate(AppScreen.ShowDetail(showId))
-                    },
-                    onNavigateToPlayer = { recordingId ->
-                        // TODO Phase 5: Navigate to player with specific recording
-                        navigationController.navigate(AppScreen.Player)
                     },
                     onNavigateBack = {
                         navigationController.navigateUp()
@@ -214,11 +200,6 @@ fun App() {
                             searchViewModel.onSearchResultSelected(showId)
                         }
                     },
-                    onNavigateToPlayer = { recordingId ->
-                        coroutineScope.launch {
-                            searchViewModel.onNavigateToPlayer(recordingId)
-                        }
-                    }
                 )
             }
             
@@ -257,10 +238,6 @@ fun App() {
                     showId = showId,
                     recordingId = null,
                     onNavigateBack = { navigationController.navigateUp() },
-                    onNavigateToPlayer = {
-                        // TODO Phase 5: Implement player navigation with MediaService integration
-                        Logger.d("App", "Player navigation not yet implemented")
-                    },
                     viewModel = showDetailViewModel
                 )
             }
@@ -287,10 +264,6 @@ fun App() {
                     showId = showId,
                     recordingId = recordingId,
                     onNavigateBack = { navigationController.navigateUp() },
-                    onNavigateToPlayer = {
-                        // TODO Phase 5: Implement player navigation with MediaService integration
-                        Logger.d("App", "Player navigation not yet implemented")
-                    },
                     viewModel = showDetailViewModel
                 )
             }

@@ -8,7 +8,6 @@ import org.koin.androidx.compose.koinViewModel
  */
 @Composable
 fun AndroidSearchScreen(
-    onNavigateToPlayer: (String) -> Unit,
     onNavigateToShow: (String) -> Unit,
     onNavigateToSearchResults: () -> Unit,
     initialEra: String? = null,
@@ -16,7 +15,6 @@ fun AndroidSearchScreen(
 ) {
     SearchScreen(
         viewModel = viewModel,
-        onNavigateToPlayer = onNavigateToPlayer,
         onNavigateToShow = onNavigateToShow,
         onNavigateToSearchResults = onNavigateToSearchResults,
         initialEra = initialEra

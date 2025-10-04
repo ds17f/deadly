@@ -17,8 +17,7 @@ fun SearchResultsSection(
     searchResults: List<SearchResultShow>,
     searchStatus: SearchStatus,
     searchStats: SearchStats,
-    onShowSelected: (String) -> Unit,
-    onRecordingSelected: (String) -> Unit
+    onShowSelected: (String) -> Unit
 ) {
     Column {
         // Results header with stats

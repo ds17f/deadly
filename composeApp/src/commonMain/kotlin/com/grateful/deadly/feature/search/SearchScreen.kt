@@ -29,7 +29,6 @@ import com.grateful.deadly.feature.search.components.QrScannerComingSoonDialog
 @Composable
 fun SearchScreen(
     viewModel: SearchViewModel,
-    onNavigateToPlayer: (String) -> Unit,
     onNavigateToShow: (String) -> Unit,
     onNavigateToSearchResults: () -> Unit,
     initialEra: String? = null

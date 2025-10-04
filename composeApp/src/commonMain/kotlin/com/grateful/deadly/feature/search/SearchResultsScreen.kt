@@ -26,7 +26,6 @@ fun SearchResultsScreen(
     initialQuery: String = "",
     onNavigateBack: () -> Unit,
     onNavigateToShow: (String) -> Unit,
-    onNavigateToPlayer: (String) -> Unit,
     viewModel: SearchViewModel
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -67,7 +66,6 @@ fun SearchResultsScreen(
                         searchStatus = uiState.searchStatus,
                         searchStats = uiState.searchStats,
                         onShowSelected = onNavigateToShow,
-                        onRecordingSelected = onNavigateToPlayer
                     )
                 }
             }

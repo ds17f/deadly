@@ -884,7 +884,7 @@ composable(AppScreen.Library) {
             navigationController.navigate(AppScreen.ShowDetail(showId))
         },
         onNavigateToPlayer = { recordingId ->
-            // TODO: Player navigation
+            navigationController.navigate(AppScreen.Player)
         }
     )
 }

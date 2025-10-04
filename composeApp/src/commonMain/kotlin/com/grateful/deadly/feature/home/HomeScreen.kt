@@ -26,7 +26,6 @@ import com.grateful.deadly.feature.home.components.RecentShowsGrid
  */
 @Composable
 fun HomeScreen(
-    onNavigateToPlayer: (String) -> Unit,
     onNavigateToShow: (String) -> Unit,
     onNavigateToSearch: () -> Unit,
     onNavigateToCollection: (String) -> Unit,

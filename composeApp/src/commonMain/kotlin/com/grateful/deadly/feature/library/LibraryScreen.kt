@@ -36,7 +36,6 @@ import com.grateful.deadly.core.logging.Logger
 @Composable
 fun LibraryScreen(
     onNavigateToShow: (String) -> Unit = {},
-    onNavigateToPlayer: (String) -> Unit = {},
     onNavigateBack: () -> Unit = {},
     viewModel: LibraryViewModel
 ) {
@@ -112,7 +111,6 @@ fun LibraryScreen(
                     shows = filteredAndSortedShows,
                     displayMode = displayMode,
                     onShowClick = onNavigateToShow,
-                    onPlayClick = onNavigateToPlayer,
                     onShowLongPress = { show -> selectedShowForActions = show },
                     modifier = Modifier.weight(1f)
                 )
@@ -180,7 +178,6 @@ private fun LibraryContent(
     shows: List<LibraryShowViewModel>,
     displayMode: LibraryDisplayMode,
     onShowClick: (String) -> Unit,
-    onPlayClick: (String) -> Unit,
     onShowLongPress: (LibraryShowViewModel) -> Unit,
     modifier: Modifier = Modifier
 ) {
