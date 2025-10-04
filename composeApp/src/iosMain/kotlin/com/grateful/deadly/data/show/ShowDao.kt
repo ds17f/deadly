@@ -301,4 +301,8 @@ actual class ShowDao actual constructor(
             .executeAsList()
             .map { it.venueName to it.count.toInt() }
     }
+
+    actual suspend fun getShowsForDate(month: Int, day: Int): List<com.grateful.deadly.database.Show> = withContext(Dispatchers.Default) {
+        database.showQueries.getShowsForDate(month.toLong(), day.toLong()).executeAsList()
+    }
 }

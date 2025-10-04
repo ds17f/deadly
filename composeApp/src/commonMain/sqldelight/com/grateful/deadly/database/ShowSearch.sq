@@ -16,9 +16,11 @@ INSERT OR REPLACE INTO show_search (showId, searchText)
 VALUES (?, ?);
 
 -- FTS4 search query - returns show IDs with relevance ranking
--- This is the core query that SearchService will use (following V2 pattern)
+-- Only returns shows that have recordings (INNER JOIN with Recording table)
 searchShows:
-SELECT showId FROM show_search
+SELECT DISTINCT show_search.showId
+FROM show_search
+INNER JOIN Recording ON show_search.showId = Recording.showId
 WHERE show_search MATCH ?;
 
 -- Alternative FTS4 search with relevance score (for future use)

@@ -176,4 +176,10 @@ expect class ShowDao(database: Database) {
      * Get show count by venue (raw database operation)
      */
     suspend fun getShowCountByVenue(): List<Pair<String, Int>>
+
+    /**
+     * Get shows for a specific month and day across all years (raw database operation).
+     * Uses INNER JOIN with Recording table to only return shows with recordings.
+     */
+    suspend fun getShowsForDate(month: Int, day: Int): List<com.grateful.deadly.database.Show>
 }

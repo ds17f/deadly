@@ -183,28 +183,16 @@ class ShowService(
 
     /**
      * Get shows for a specific month and day across all years (for "Today in History").
-     * Returns shows sorted by year descending (most recent first).
-     * Universal business logic: date parsing and filtering.
+     * Returns shows sorted by year ascending (oldest first).
+     * Uses SQL query with INNER JOIN to only return shows that have recordings.
      */
     suspend fun getShowsForDate(month: Int, day: Int): List<Show> {
-        // Universal business logic: format month/day to match date strings
-        val monthStr = month.toString().padStart(2, '0')
-        val dayStr = day.toString().padStart(2, '0')
-
-        val allShows = getAllShowEntities()
-        return allShows.filter { row ->
-            // Universal business logic: date matching
-            val parts = row.date.split("-")
-            if (parts.size >= 3) {
-                val showMonth = parts[1].toIntOrNull()
-                val showDay = parts[2].toIntOrNull()
-                showMonth == month && showDay == day
-            } else false
-        }.sortedByDescending { it.year }
-         .map { row ->
+        // Delegate to DAO which uses SQL query with Recording INNER JOIN
+        val showRows = showDao.getShowsForDate(month, day)
+        return showRows.map { row ->
             val entity = mapShowRowToEntity(row)
             showMappers.entityToDomain(entity)
-         }
+        }
     }
 
     /**
