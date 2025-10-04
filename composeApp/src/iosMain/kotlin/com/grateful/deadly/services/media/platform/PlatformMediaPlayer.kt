@@ -46,6 +46,9 @@ actual class PlatformMediaPlayer {
     private var timeObserver: Any? = null
     private var playerItemEndObserver: Any? = null
 
+    // Next track prefetching for gapless playback
+    private var nextPlayerItem: AVPlayerItem? = null
+
     private val _playbackState = MutableStateFlow(PlatformPlaybackState())
     actual val playbackState: Flow<PlatformPlaybackState> = _playbackState.asStateFlow()
 
@@ -54,6 +57,9 @@ actual class PlatformMediaPlayer {
     actual val currentTrackIndex: Flow<Int> = _currentTrackIndex.asStateFlow()
 
     init {
+        // Disable automatic stalling for smoother gapless playback
+        avPlayer.automaticallyWaitsToMinimizeStalling = false
+
         configureAudioSession()
         setupRemoteCommands()
         setupPlayerObservers()
@@ -192,7 +198,7 @@ actual class PlatformMediaPlayer {
 
     /**
      * Load and play a playlist of enriched tracks with V2 metadata.
-     * iOS implementation: Manual navigation with enhanced MPNowPlayingInfoCenter integration.
+     * iOS implementation: Load current track + prefetch next for gapless playback.
      */
     actual suspend fun loadAndPlayPlaylist(enrichedTracks: List<EnrichedTrack>, startIndex: Int): Result<Unit> {
         return try {
@@ -207,12 +213,19 @@ actual class PlatformMediaPlayer {
             // Update track index flow
             _currentTrackIndex.value = startIndex
 
-            // For iOS, set metadata and load the starting track using EnrichedTrack data
+            // Set metadata and load the starting track
             val startEnrichedTrack = enrichedTracks[startIndex]
             setTrackMetadata(startEnrichedTrack.track, startEnrichedTrack.recordingId)
 
-            // Use EnrichedTrack's computed URL
-            loadAndPlay(startEnrichedTrack.trackUrl)
+            // Load current track
+            val result = loadAndPlay(startEnrichedTrack.trackUrl)
+
+            // Prefetch next track in background for gapless playback
+            if (result.isSuccess) {
+                prefetchNextTrack()
+            }
+
+            result
 
         } catch (e: Exception) {
             Result.failure(e)
@@ -220,7 +233,8 @@ actual class PlatformMediaPlayer {
     }
 
     /**
-     * Skip to next track (iOS manual navigation with EnrichedTrack)
+     * Skip to next track (iOS manual navigation with EnrichedTrack).
+     * Clears prefetch since user manually skipped.
      */
     actual suspend fun nextTrack(): Result<Unit> {
         return try {
@@ -242,7 +256,14 @@ actual class PlatformMediaPlayer {
             _currentTrackIndex.value = nextIndex
             setTrackMetadata(nextEnrichedTrack.track, nextEnrichedTrack.recordingId)
 
-            loadAndPlay(nextEnrichedTrack.trackUrl)
+            val result = loadAndPlay(nextEnrichedTrack.trackUrl)
+
+            // Prefetch new next track after manual skip
+            if (result.isSuccess) {
+                prefetchNextTrack()
+            }
+
+            result
 
         } catch (e: Exception) {
             Result.failure(e)
@@ -250,7 +271,8 @@ actual class PlatformMediaPlayer {
     }
 
     /**
-     * Skip to previous track (iOS manual navigation with EnrichedTrack)
+     * Skip to previous track (iOS manual navigation with EnrichedTrack).
+     * Resets prefetch for new position in playlist.
      */
     actual suspend fun previousTrack(): Result<Unit> {
         return try {
@@ -272,7 +294,14 @@ actual class PlatformMediaPlayer {
             _currentTrackIndex.value = prevIndex
             setTrackMetadata(prevEnrichedTrack.track, prevEnrichedTrack.recordingId)
 
-            loadAndPlay(prevEnrichedTrack.trackUrl)
+            val result = loadAndPlay(prevEnrichedTrack.trackUrl)
+
+            // Prefetch new next track after going back
+            if (result.isSuccess) {
+                prefetchNextTrack()
+            }
+
+            result
 
         } catch (e: Exception) {
             Result.failure(e)
@@ -443,6 +472,7 @@ actual class PlatformMediaPlayer {
 
     /**
      * Handle track completion - auto-advance to next track if available.
+     * Uses prefetched next item for gapless playback.
      */
     private suspend fun handleTrackCompletion() {
         try {
@@ -451,12 +481,39 @@ actual class PlatformMediaPlayer {
 
             // Check if there's a next track
             if (enrichedTracks.isNotEmpty() && currentIndex < enrichedTracks.size - 1) {
-                // Auto-advance to next track
-                val nextResult = nextTrack()
-                if (nextResult.isSuccess) {
-                    Logger.d(TAG, "🎵 [AUTO-ADVANCE] Successfully advanced to next track")
+                // Use prefetched item if available for instant playback
+                val prefetchedItem = nextPlayerItem
+                if (prefetchedItem != null) {
+                    Logger.d(TAG, "🎵 [AUTO-ADVANCE] Using prefetched item for gapless playback")
+
+                    // Swap to prefetched item (instant, no loading)
+                    // Already on Main thread from notification callback - no withContext needed
+                    avPlayer.replaceCurrentItemWithPlayerItem(prefetchedItem)
+                    avPlayer.play()
+                    nextPlayerItem = null // Clear used prefetch
+
+                    // Update tracking
+                    val nextIndex = currentIndex + 1
+                    currentEnrichedTrackIndex = nextIndex
+                    _currentTrackIndex.value = nextIndex
+
+                    val nextTrack = enrichedTracks[nextIndex]
+                    setTrackMetadata(nextTrack.track, nextTrack.recordingId)
+                    updateNowPlayingInfo()
+
+                    // Prefetch the new next track
+                    prefetchNextTrack()
+
+                    // Re-register completion observer for new item
+                    // Already on Main thread - no withContext needed
+                    setupTrackCompletionObserver()
                 } else {
-                    Logger.w(TAG, "🎵 [AUTO-ADVANCE] Failed to advance to next track")
+                    // Fallback: no prefetch available, use regular nextTrack()
+                    Logger.w(TAG, "🎵 [AUTO-ADVANCE] No prefetch available, using regular advance")
+                    val nextResult = nextTrack()
+                    if (!nextResult.isSuccess) {
+                        Logger.w(TAG, "🎵 [AUTO-ADVANCE] Failed to advance to next track")
+                    }
                 }
             } else {
                 // No more tracks - playback complete
@@ -467,6 +524,35 @@ actual class PlatformMediaPlayer {
             }
         } catch (e: Exception) {
             Logger.e(TAG, "Failed to handle track completion", e)
+        }
+    }
+
+    /**
+     * Prefetch next track in background for gapless playback.
+     * Creates AVPlayerItem with 30-second buffer to prepare seamless transition.
+     */
+    private fun prefetchNextTrack() {
+        playerScope.launch {
+            try {
+                val nextIndex = currentEnrichedTrackIndex + 1
+                if (nextIndex < currentEnrichedTracks.size) {
+                    val nextTrack = currentEnrichedTracks[nextIndex]
+                    val nsUrl = NSURL.URLWithString(nextTrack.trackUrl)
+                    if (nsUrl != null) {
+                        val item = AVPlayerItem.playerItemWithURL(nsUrl)
+                        // Set preferred buffer duration for smooth prefetch
+                        item.preferredForwardBufferDuration = 60.0 // 60 seconds for gapless playback
+                        nextPlayerItem = item
+                        Logger.d(TAG, "🎵 [PREFETCH] Next track prepared: ${nextTrack.displayTitle}")
+                    }
+                } else {
+                    nextPlayerItem = null
+                    Logger.d(TAG, "🎵 [PREFETCH] No next track to prefetch")
+                }
+            } catch (e: Exception) {
+                Logger.e(TAG, "Failed to prefetch next track", e)
+                nextPlayerItem = null
+            }
         }
     }
 
