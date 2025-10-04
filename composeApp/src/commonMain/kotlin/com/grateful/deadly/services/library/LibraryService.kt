@@ -8,7 +8,7 @@ import kotlinx.coroutines.flow.StateFlow
  * Library service interface (V2 pattern)
  *
  * Provides reactive StateFlow for UI state management and Result-based operations.
- * All business logic is universal - delegates to platform LibraryRepository.
+ * All business logic is universal - delegates to platform LibraryDao.
  * This is the service layer in Universal Service + Platform Tool pattern.
  */
 interface LibraryService {

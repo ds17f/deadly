@@ -31,8 +31,8 @@ import com.grateful.deadly.feature.showdetail.ShowDetailService
 import com.grateful.deadly.feature.showdetail.ShowDetailServiceImpl
 import com.grateful.deadly.feature.splash.SplashService
 import com.grateful.deadly.feature.splash.SplashViewModel
-// Library system imports (V2 pattern)
-import com.grateful.deadly.services.library.platform.LibraryRepository
+// Library system imports (Universal Service + Platform Tool pattern)
+import com.grateful.deadly.data.library.LibraryDao
 import com.grateful.deadly.services.library.LibraryService
 import com.grateful.deadly.services.library.LibraryServiceImpl
 import com.grateful.deadly.feature.library.LibraryViewModel
@@ -189,16 +189,16 @@ val commonModule = module {
         )
     }
 
-    // Library system (V2 pattern) - Platform Tool + Universal Service
-    single<LibraryRepository> {
-        Logger.d("CommonModule", "Creating LibraryRepository platform tool")
-        LibraryRepository(database = get()) // Gets Database
+    // Library system (Universal Service + Platform Tool pattern) - Simple DAO + Universal Service
+    single<LibraryDao> {
+        Logger.d("CommonModule", "Creating LibraryDao platform tool")
+        LibraryDao(database = get()) // Gets Database
     }
 
     single<LibraryService> {
-        Logger.d("CommonModule", "Creating LibraryService")
+        Logger.d("CommonModule", "Creating LibraryService with universal business logic")
         LibraryServiceImpl(
-            libraryRepository = get(),
+            libraryDao = get(),
             coroutineScope = get()
         )
     }
