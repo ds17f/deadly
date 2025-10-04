@@ -134,6 +134,7 @@ class HomeServiceImpl(
             Logger.d(TAG, "🗓️ Getting TIGDH shows for ${today.monthNumber}/${today.dayOfMonth}")
 
             val todayInHistoryShows = showService.getShowsForDate(today.monthNumber, today.dayOfMonth)
+                .sortedBy { it.date }  // Ensure oldest→newest regardless of SQL implementation
 
             Logger.d(TAG, "🗓️ Found ${todayInHistoryShows.size} shows for today in history (${today.monthNumber}/${today.dayOfMonth})")
 
