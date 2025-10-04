@@ -1,8 +1,8 @@
 package com.grateful.deadly.services.data
 
 import com.grateful.deadly.domain.models.Show
-import com.grateful.deadly.services.data.platform.ShowRepository
-import com.grateful.deadly.services.data.platform.RecentShowsStats
+import com.grateful.deadly.services.show.ShowService
+import com.grateful.deadly.services.show.RecentShowsStats
 import com.grateful.deadly.services.media.MediaService
 import com.grateful.deadly.services.media.PlaybackStatus
 import com.grateful.deadly.core.logging.Logger
@@ -11,7 +11,7 @@ import kotlinx.coroutines.flow.*
 import kotlinx.datetime.Clock
 
 class RecentShowsServiceImpl(
-    private val showRepository: ShowRepository,
+    private val showService: ShowService,
     private val mediaService: MediaService,
     private val applicationScope: CoroutineScope
 ) : RecentShowsService {
@@ -57,7 +57,7 @@ class RecentShowsServiceImpl(
         Logger.d(TAG, "📱 Starting database observation for recent shows...")
         applicationScope.launch {
             // Convert database flow to StateFlow (matches V2)
-            showRepository.getRecentShowsFlow(DEFAULT_RECENT_LIMIT)
+            showService.getRecentShowsFlow(DEFAULT_RECENT_LIMIT)
                 .flowOn(Dispatchers.IO)
                 .collect { shows ->
                     Logger.d(TAG, "📱 Database updated: ${shows.size} recent shows")
@@ -135,28 +135,28 @@ class RecentShowsServiceImpl(
 
     override suspend fun recordShowPlay(showId: String, playTimestamp: Long) {
         Logger.d(TAG, "📱 Recording show play: $showId at timestamp $playTimestamp")
-        showRepository.recordShowPlay(showId, playTimestamp)
+        showService.recordShowPlay(showId, playTimestamp)
         Logger.d(TAG, "📱 Show play recorded successfully")
     }
 
     override suspend fun getRecentShows(limit: Int): List<Show> {
-        return showRepository.getRecentShows(limit)
+        return showService.getRecentShows(limit)
     }
 
     override suspend fun isShowInRecent(showId: String): Boolean {
-        return showRepository.isShowInRecent(showId)
+        return showService.isShowInRecent(showId)
     }
 
     override suspend fun removeShow(showId: String) {
-        showRepository.removeRecentShow(showId)
+        showService.removeRecentShow(showId)
     }
 
     override suspend fun clearRecentShows() {
-        showRepository.clearAllRecentShows()
+        showService.clearAllRecentShows()
     }
 
     override suspend fun getRecentShowsStats(): Map<String, Any> {
-        val stats = showRepository.getRecentShowsStats()
+        val stats = showService.getRecentShowsStats()
         return mapOf(
             "totalShows" to stats.totalShows,
             "avgPlayCount" to stats.avgPlayCount,

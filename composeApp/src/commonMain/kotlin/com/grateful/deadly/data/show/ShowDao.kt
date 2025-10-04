@@ -1,0 +1,179 @@
+package com.grateful.deadly.data.show
+
+import com.grateful.deadly.database.Database
+import com.grateful.deadly.services.data.models.RecordingEntity
+import com.grateful.deadly.services.data.models.ShowEntity
+import kotlinx.coroutines.flow.Flow
+
+/**
+ * Platform-specific show database operations (Universal Service + Platform Tool pattern)
+ *
+ * This is the platform tool - handles only low-level database operations.
+ * Business logic (queries, filtering, entity-to-domain mapping) belongs in ShowService.
+ * Only platform difference should be Dispatchers.IO vs Dispatchers.Default.
+ */
+expect class ShowDao(database: Database) {
+
+    // === Raw Database Operations ===
+
+    /**
+     * Insert a show entity (raw database operation)
+     */
+    suspend fun insertShow(show: ShowEntity)
+
+    /**
+     * Insert multiple shows in a transaction (raw database operation)
+     */
+    suspend fun insertShows(shows: List<ShowEntity>)
+
+    /**
+     * Get raw show entity by ID (raw database operation)
+     */
+    suspend fun getShowEntityById(showId: String): com.grateful.deadly.database.Show?
+
+    /**
+     * Get raw show entities by list of IDs (raw database operation)
+     */
+    suspend fun getShowEntitiesByIds(showIds: List<String>): List<com.grateful.deadly.database.Show>
+
+    /**
+     * Get all raw show entities (raw database operation)
+     */
+    suspend fun getAllShowEntities(): List<com.grateful.deadly.database.Show>
+
+    /**
+     * Get show count (raw database operation)
+     */
+    suspend fun getShowCount(): Long
+
+    /**
+     * Delete all shows (raw database operation)
+     */
+    suspend fun deleteAllShows()
+
+    /**
+     * Update show library status (raw database operation)
+     */
+    suspend fun updateShowLibraryStatus(showId: String, isInLibrary: Boolean, addedAt: Long?)
+
+    // === Raw Recording Database Operations ===
+
+    /**
+     * Insert a recording entity (raw database operation)
+     */
+    suspend fun insertRecording(recording: RecordingEntity)
+
+    /**
+     * Insert multiple recordings (raw database operation)
+     */
+    suspend fun insertRecordings(recordings: List<RecordingEntity>)
+
+    /**
+     * Get raw recording entity by ID (raw database operation)
+     */
+    suspend fun getRecordingEntityById(identifier: String): com.grateful.deadly.database.Recording?
+
+    /**
+     * Get raw recording entities for show (raw database operation)
+     */
+    suspend fun getRecordingEntitiesForShow(showId: String): List<com.grateful.deadly.database.Recording>
+
+    /**
+     * Get recording count (raw database operation)
+     */
+    suspend fun getRecordingCount(): Long
+
+    /**
+     * Delete all recordings (raw database operation)
+     */
+    suspend fun deleteAllRecordings()
+
+    /**
+     * Delete recordings for show (raw database operation)
+     */
+    suspend fun deleteRecordingsForShow(showId: String)
+
+    // === Raw Recent Shows Database Operations ===
+
+    /**
+     * Record a show play (raw database operation)
+     */
+    suspend fun recordShowPlay(showId: String, playTimestamp: Long)
+
+    /**
+     * Get recent show entities (raw database operation)
+     */
+    suspend fun getRecentShowEntities(limit: Int): List<com.grateful.deadly.database.Show>
+
+    /**
+     * Get recent show entities flow (raw database operation)
+     */
+    fun getRecentShowEntitiesFlow(limit: Int): Flow<List<com.grateful.deadly.database.Show>>
+
+    /**
+     * Remove recent show (raw database operation)
+     */
+    suspend fun removeRecentShow(showId: String)
+
+    /**
+     * Clear all recent shows (raw database operation)
+     */
+    suspend fun clearAllRecentShows()
+
+    /**
+     * Clean up old recent shows (raw database operation)
+     */
+    suspend fun cleanupOldRecentShows(keepCount: Int)
+
+    // === Raw Query Operations (SQLDelight direct) ===
+
+    /**
+     * Execute flexible show query with filters (raw database operation)
+     * Returns raw database entities for business logic processing
+     */
+    suspend fun executeShowQuery(
+        yearFilter: Pair<Int, Int>? = null,
+        monthFilter: Int? = null,
+        venueFilter: String? = null,
+        cityFilter: String? = null,
+        stateFilter: String? = null,
+        hasSetlist: Boolean? = null,
+        hasLineup: Boolean? = null,
+        hasRecordings: Boolean? = null,
+        isInLibrary: Boolean? = null,
+        minRating: Double? = null,
+        minReviews: Int? = null,
+        songFilter: String? = null,
+        memberFilter: String? = null,
+        orderBy: String = "date",
+        ascending: Boolean = true,
+        limit: Int? = null
+    ): List<com.grateful.deadly.database.Show>
+
+    /**
+     * Get show count with filters (raw database operation)
+     */
+    suspend fun getShowCountWithFilters(
+        yearFilter: Pair<Int, Int>? = null,
+        monthFilter: Int? = null,
+        venueFilter: String? = null,
+        cityFilter: String? = null,
+        stateFilter: String? = null,
+        hasSetlist: Boolean? = null,
+        hasLineup: Boolean? = null,
+        hasRecordings: Boolean? = null,
+        isInLibrary: Boolean? = null,
+        minRating: Double? = null,
+        minReviews: Int? = null
+    ): Long
+
+    /**
+     * Get show count by year (raw database operation)
+     */
+    suspend fun getShowCountByYear(): List<Pair<Int, Int>>
+
+    /**
+     * Get show count by venue (raw database operation)
+     */
+    suspend fun getShowCountByVenue(): List<Pair<String, Int>>
+}

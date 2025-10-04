@@ -2,7 +2,7 @@ package com.grateful.deadly.services.search
 
 import com.grateful.deadly.domain.search.*
 import com.grateful.deadly.domain.models.Show
-import com.grateful.deadly.services.data.platform.ShowRepository
+import com.grateful.deadly.services.show.ShowService
 import com.grateful.deadly.services.search.platform.ShowSearchDao
 import com.grateful.deadly.core.util.Logger
 import com.russhwolf.settings.Settings
@@ -26,7 +26,7 @@ import kotlinx.coroutines.Dispatchers
  * while providing enhanced search capabilities with BM25 relevance ranking.
  */
 class SearchServiceImpl(
-    private val showRepository: ShowRepository,    // Domain models (like V2)
+    private val showService: ShowService,    // Domain models (like V2)
     private val showSearchDao: ShowSearchDao,      // FTS4 queries (like V2)
     private val settings: Settings
 ) : SearchService {
@@ -83,7 +83,7 @@ class SearchServiceImpl(
             Logger.d(TAG, "FTS4 returned ${showIds.size} show IDs")
 
             // Get full Show domain models for matching IDs
-            val shows = showRepository.getShowsByIds(showIds)
+            val shows = showService.getShowsByIds(showIds)
             Logger.d(TAG, "Retrieved ${shows.size} full shows")
 
             // Convert to SearchResultShow with FTS4 relevance scoring
@@ -187,7 +187,7 @@ class SearchServiceImpl(
                 if (partialQuery.isNotBlank()) {
                     // Use FTS4 for suggestion generation
                     val showIds = showSearchDao.searchShows(partialQuery).take(10)
-                    val shows = showRepository.getShowsByIds(showIds)
+                    val shows = showService.getShowsByIds(showIds)
 
                     // Venue suggestions
                     val venueMatches = shows

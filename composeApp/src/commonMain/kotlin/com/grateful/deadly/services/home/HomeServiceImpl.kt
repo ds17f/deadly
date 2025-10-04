@@ -7,7 +7,7 @@ import com.grateful.deadly.domain.models.Show
 import com.grateful.deadly.domain.models.Collection
 import com.grateful.deadly.domain.models.Venue
 import com.grateful.deadly.domain.models.Location
-import com.grateful.deadly.services.data.platform.ShowRepository
+import com.grateful.deadly.services.show.ShowService
 import com.grateful.deadly.services.data.RecentShowsService
 import com.grateful.deadly.services.media.MediaService
 import kotlinx.coroutines.CoroutineScope
@@ -36,7 +36,7 @@ import kotlinx.datetime.todayIn
  * Uses reactive StateFlow for real-time UI updates following V2 patterns.
  */
 class HomeServiceImpl(
-    private val showRepository: ShowRepository,
+    private val showService: ShowService,
     private val recentShowsService: RecentShowsService,
     private val mediaService: MediaService
 ) : HomeService {
@@ -133,7 +133,7 @@ class HomeServiceImpl(
             val today = Clock.System.todayIn(TimeZone.currentSystemDefault())
             Logger.d(TAG, "🗓️ Getting TIGDH shows for ${today.monthNumber}/${today.dayOfMonth}")
 
-            val todayInHistoryShows = showRepository.getShowsForDate(today.monthNumber, today.dayOfMonth)
+            val todayInHistoryShows = showService.getShowsForDate(today.monthNumber, today.dayOfMonth)
 
             Logger.d(TAG, "🗓️ Found ${todayInHistoryShows.size} shows for today in history (${today.monthNumber}/${today.dayOfMonth})")
 
@@ -144,7 +144,7 @@ class HomeServiceImpl(
                 }
             } else {
                 Logger.w(TAG, "🗓️ No TIGDH shows found - checking if any shows exist in database...")
-                val totalShows = showRepository.getShowCount()
+                val totalShows = showService.getShowCount()
                 Logger.d(TAG, "🗓️ Total shows in database: $totalShows")
             }
 

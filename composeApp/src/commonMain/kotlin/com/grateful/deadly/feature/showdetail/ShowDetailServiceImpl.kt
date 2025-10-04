@@ -3,7 +3,7 @@ package com.grateful.deadly.feature.showdetail
 import com.grateful.deadly.domain.models.Show
 import com.grateful.deadly.domain.models.Recording
 import com.grateful.deadly.services.archive.Track
-import com.grateful.deadly.services.data.platform.ShowRepository
+import com.grateful.deadly.services.show.ShowService
 import com.grateful.deadly.services.archive.ArchiveService
 import com.grateful.deadly.core.logging.Logger
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -28,7 +28,7 @@ import kotlinx.coroutines.Job
  * Follows Universal Service + Platform Tool pattern with reactive StateFlow programming.
  */
 class ShowDetailServiceImpl(
-    private val showRepository: ShowRepository,
+    private val showService: ShowService,
     private val archiveService: ArchiveService
 ) : ShowDetailService {
 
@@ -85,7 +85,7 @@ class ShowDetailServiceImpl(
         try {
             // Phase 1: Load show data from database immediately (V2 pattern)
             Logger.d(TAG, "Loading show from database: $showId")
-            val show = showRepository.getShowById(showId)
+            val show = showService.getShowById(showId)
 
             if (show == null) {
                 Logger.w(TAG, "Show not found in database: $showId")
@@ -110,7 +110,7 @@ class ShowDetailServiceImpl(
                 else -> {
                     Logger.d(TAG, "No best recording found, loading first available")
                     // Fallback: get first available recording for this show
-                    val recordings = showRepository.getRecordingsForShow(showId)
+                    val recordings = showService.getRecordingsForShow(showId)
                     recordings.firstOrNull()?.identifier
                 }
             }
@@ -123,7 +123,7 @@ class ShowDetailServiceImpl(
 
             // Phase 3: Load recording from database
             Logger.d(TAG, "Loading recording from database: $targetRecordingId")
-            val recording = showRepository.getRecordingById(targetRecordingId)
+            val recording = showService.getRecordingById(targetRecordingId)
 
             if (recording == null) {
                 Logger.w(TAG, "Recording not found in database: $targetRecordingId")
@@ -157,7 +157,7 @@ class ShowDetailServiceImpl(
 
         try {
             // Load recording from database
-            val recording = showRepository.getRecordingById(recordingId)
+            val recording = showService.getRecordingById(recordingId)
 
             if (recording == null) {
                 Logger.w(TAG, "Recording not found: $recordingId")
@@ -225,8 +225,8 @@ class ShowDetailServiceImpl(
 
         try {
             // Use efficient DB-level navigation queries (V2 pattern)
-            val previousShow = showRepository.getPreviousShowByDate(currentShow.date)
-            val nextShow = showRepository.getNextShowByDate(currentShow.date)
+            val previousShow = showService.getPreviousShowByDate(currentShow.date)
+            val nextShow = showService.getNextShowByDate(currentShow.date)
 
             Logger.d(TAG, "Adjacent shows: previous=${previousShow?.displayTitle}, next=${nextShow?.displayTitle}")
             return AdjacentShows(previousShow, nextShow)
@@ -373,7 +373,7 @@ class ShowDetailServiceImpl(
                 // Prefetch next 2 shows
                 var currentNextDate = current.date
                 repeat(2) { index ->
-                    val nextShow = showRepository.getNextShowByDate(currentNextDate)
+                    val nextShow = showService.getNextShowByDate(currentNextDate)
                     if (nextShow != null) {
                         currentNextDate = nextShow.date
                         val recordingId = nextShow.bestRecordingId
@@ -389,7 +389,7 @@ class ShowDetailServiceImpl(
                 // Prefetch previous 2 shows
                 var currentPrevDate = current.date
                 repeat(2) { index ->
-                    val previousShow = showRepository.getPreviousShowByDate(currentPrevDate)
+                    val previousShow = showService.getPreviousShowByDate(currentPrevDate)
                     if (previousShow != null) {
                         currentPrevDate = previousShow.date
                         val recordingId = previousShow.bestRecordingId

@@ -2,7 +2,7 @@ package com.grateful.deadly.services.data
 
 import com.grateful.deadly.core.logging.Logger
 import com.grateful.deadly.services.data.models.*
-import com.grateful.deadly.services.data.platform.ShowRepository
+import com.grateful.deadly.services.show.ShowService
 import com.grateful.deadly.services.search.platform.ShowSearchDao
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
@@ -25,7 +25,7 @@ import okio.Path.Companion.toPath
  * Platform-specific database operations are delegated to the ShowRepository platform tool.
  */
 class DataImportService(
-    private val showRepository: ShowRepository,
+    private val showService: ShowService,
     private val showSearchDao: ShowSearchDao,
     private val fileSystem: FileSystem = FileSystem.SYSTEM,
     private val json: Json = Json {
@@ -180,7 +180,7 @@ class DataImportService(
 
                 // Delegate batch database operations to platform tool
                 if (showEntities.isNotEmpty()) {
-                    showRepository.insertShows(showEntities)
+                    showService.insertShows(showEntities)
 
                     // Generate and insert FTS search data for each show
                     val searchRecords = showEntities.map { showEntity ->
@@ -291,7 +291,7 @@ class DataImportService(
 
                             // Process in batches to avoid memory issues
                             if (recordingEntities.size >= RECORDING_BATCH_SIZE) {
-                                showRepository.insertRecordings(recordingEntities)
+                                showService.insertRecordings(recordingEntities)
                                 Logger.d(TAG, "Inserted recording batch: ${recordingEntities.size} recordings")
                                 recordingEntities.clear()
                             }
@@ -309,7 +309,7 @@ class DataImportService(
 
             // Insert final batch
             if (recordingEntities.isNotEmpty()) {
-                showRepository.insertRecordings(recordingEntities)
+                showService.insertRecordings(recordingEntities)
                 Logger.d(TAG, "Inserted final recording batch: ${recordingEntities.size} recordings")
             }
 
@@ -333,14 +333,14 @@ class DataImportService(
      * Get the current show count from the database.
      */
     suspend fun getShowCount(): Long {
-        return showRepository.getShowCount()
+        return showService.getShowCount()
     }
 
     /**
      * Get the current recording count from the database.
      */
     suspend fun getRecordingCount(): Long {
-        return showRepository.getRecordingCount()
+        return showService.getRecordingCount()
     }
 
     /**
@@ -348,7 +348,7 @@ class DataImportService(
      */
     suspend fun clearAllShows(): Boolean {
         return try {
-            showRepository.deleteAllShows()
+            showService.deleteAllShows()
             Logger.d(TAG, "All shows cleared from database")
             true
         } catch (e: Exception) {
@@ -362,7 +362,7 @@ class DataImportService(
      */
     suspend fun clearAllRecordings(): Boolean {
         return try {
-            showRepository.deleteAllRecordings()
+            showService.deleteAllRecordings()
             Logger.d(TAG, "All recordings cleared from database")
             true
         } catch (e: Exception) {
@@ -376,7 +376,7 @@ class DataImportService(
      */
     suspend fun deleteDatabaseFile(): Boolean {
         return try {
-            val success = showRepository.deleteDatabaseFile()
+            val success = showService.deleteDatabaseFile()
             if (success) {
                 Logger.d(TAG, "Database file deleted and recreated")
             } else {

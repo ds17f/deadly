@@ -17,7 +17,8 @@ import com.grateful.deadly.services.data.DataImportService as NewDataImportServi
 import com.grateful.deadly.services.data.DownloadService
 import com.grateful.deadly.services.data.FileDiscoveryService
 import com.grateful.deadly.services.data.platform.ZipExtractor
-import com.grateful.deadly.services.data.platform.ShowRepository
+import com.grateful.deadly.data.show.ShowDao
+import com.grateful.deadly.services.show.ShowService
 import com.grateful.deadly.services.search.platform.ShowSearchDao
 // Phase 3: Universal Services + Platform Tools
 import com.grateful.deadly.services.archive.platform.NetworkClient
@@ -85,9 +86,13 @@ val commonModule = module {
         ZipExtractor()
     }
 
-    single<ShowRepository> {
-        Logger.d("CommonModule", "Creating ShowRepository platform tool")
-        ShowRepository(get()) // Gets Database
+    single<ShowDao> {
+        Logger.d("CommonModule", "Creating ShowDao platform tool")
+        ShowDao(get()) // Gets Database
+    }
+    single<ShowService> {
+        Logger.d("CommonModule", "Creating ShowService universal service")
+        ShowService(get()) // Gets ShowDao
     }
 
     single<ShowSearchDao> {
@@ -124,7 +129,7 @@ val commonModule = module {
     single<NewDataImportService> {
         Logger.d("CommonModule", "Creating DataImportService")
         NewDataImportService(
-            showRepository = get(),
+            showService = get(),
             showSearchDao = get()
         )
     }
@@ -168,7 +173,7 @@ val commonModule = module {
     single<RecentShowsService> {
         Logger.d("CommonModule", "Creating RecentShowsService")
         RecentShowsServiceImpl(
-            showRepository = get(),
+            showService = get(),
             mediaService = get(),
             applicationScope = get()
         )
@@ -177,7 +182,7 @@ val commonModule = module {
     single<ShowDetailService> {
         Logger.d("CommonModule", "Creating ShowDetailService")
         ShowDetailServiceImpl(
-            showRepository = get(),
+            showService = get(),
             archiveService = get()
         )
     }
@@ -214,7 +219,7 @@ val commonModule = module {
     single<SearchService> {
         Logger.d("CommonModule", "Creating SearchService (using V2 pattern)")
         SearchServiceImpl(
-            showRepository = get(),
+            showService = get(),
             showSearchDao = get(),
             settings = get()
         )
@@ -223,7 +228,7 @@ val commonModule = module {
     single<HomeService> {
         Logger.d("CommonModule", "Creating HomeService")
         HomeServiceImpl(
-            showRepository = get(),
+            showService = get(),
             recentShowsService = get(),
             mediaService = get()
         )
