@@ -1,5 +1,6 @@
 package com.grateful.deadly.services.media.platform
 
+import com.grateful.deadly.core.util.Logger
 import com.grateful.deadly.services.media.EnrichedTrack
 import kotlinx.cinterop.*
 import kotlinx.coroutines.CoroutineScope
@@ -30,6 +31,7 @@ import platform.AudioToolbox.*
 actual class PlatformMediaPlayer {
 
     companion object {
+        private const val TAG = "PlatformMediaPlayer"
         private const val POSITION_UPDATE_INTERVAL_MS = 1000L
         private const val MAX_RETRIES = 3
     }
@@ -42,6 +44,7 @@ actual class PlatformMediaPlayer {
     // AVPlayer instance
     private val avPlayer = AVPlayer()
     private var timeObserver: Any? = null
+    private var playerItemEndObserver: Any? = null
 
     private val _playbackState = MutableStateFlow(PlatformPlaybackState())
     actual val playbackState: Flow<PlatformPlaybackState> = _playbackState.asStateFlow()
@@ -302,6 +305,9 @@ actual class PlatformMediaPlayer {
             // Reset retry count on new load
             retryCount = 0
 
+            // Re-register track completion observer (CRITICAL: observer is bound to AVPlayerItem, not AVPlayer)
+            setupTrackCompletionObserver()
+
             // Update MPNowPlayingInfoCenter
             updateNowPlayingInfo()
 
@@ -390,17 +396,77 @@ actual class PlatformMediaPlayer {
                 avPlayer.removeTimeObserver(observer)
                 timeObserver = null
             }
+
+            // Clean up track completion observer
+            playerItemEndObserver?.let { observer ->
+                NSNotificationCenter.defaultCenter().removeObserver(observer)
+                playerItemEndObserver = null
+            }
         }
     }
 
     /**
      * Set up AVPlayer observers for state changes.
+     * Observes AVPlayerItemDidPlayToEndTimeNotification for auto-advance.
      */
     private fun setupPlayerObservers() {
-        // Set up KVO observers for rate (playing state)
-        playerScope.launch {
-            // This is a simplified approach - in a production app you'd want proper KVO
-            // For now, we'll rely on periodic status checks
+        // Observe track completion for auto-advance
+        setupTrackCompletionObserver()
+    }
+
+    /**
+     * Set up notification observer for track completion.
+     * When a track finishes, automatically advance to next track if available.
+     *
+     * IMPORTANT: This must be called each time replaceCurrentItemWithPlayerItem() is called,
+     * because iOS notifications are bound to specific AVPlayerItem objects, not the player itself.
+     */
+    private fun setupTrackCompletionObserver() {
+        // Clean up old observer first
+        playerItemEndObserver?.let { observer ->
+            NSNotificationCenter.defaultCenter().removeObserver(observer)
+            playerItemEndObserver = null
+        }
+
+        val currentItem = avPlayer.currentItem ?: return
+
+        playerItemEndObserver = NSNotificationCenter.defaultCenter().addObserverForName(
+            name = AVPlayerItemDidPlayToEndTimeNotification,
+            `object` = currentItem,
+            queue = NSOperationQueue.mainQueue()
+        ) { _ ->
+            playerScope.launch {
+                handleTrackCompletion()
+            }
+        }
+    }
+
+    /**
+     * Handle track completion - auto-advance to next track if available.
+     */
+    private suspend fun handleTrackCompletion() {
+        try {
+            val enrichedTracks = currentEnrichedTracks
+            val currentIndex = currentEnrichedTrackIndex
+
+            // Check if there's a next track
+            if (enrichedTracks.isNotEmpty() && currentIndex < enrichedTracks.size - 1) {
+                // Auto-advance to next track
+                val nextResult = nextTrack()
+                if (nextResult.isSuccess) {
+                    Logger.d(TAG, "🎵 [AUTO-ADVANCE] Successfully advanced to next track")
+                } else {
+                    Logger.w(TAG, "🎵 [AUTO-ADVANCE] Failed to advance to next track")
+                }
+            } else {
+                // No more tracks - playback complete
+                Logger.d(TAG, "🎵 [AUTO-ADVANCE] Playlist complete - no more tracks")
+                updatePlaybackState {
+                    copy(isPlaying = false)
+                }
+            }
+        } catch (e: Exception) {
+            Logger.e(TAG, "Failed to handle track completion", e)
         }
     }
 
