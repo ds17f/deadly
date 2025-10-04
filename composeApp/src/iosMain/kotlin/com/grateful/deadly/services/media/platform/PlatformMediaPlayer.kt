@@ -34,6 +34,8 @@ actual class PlatformMediaPlayer {
         private const val TAG = "PlatformMediaPlayer"
         private const val POSITION_UPDATE_INTERVAL_MS = 1000L
         private const val MAX_RETRIES = 3
+        private const val QUEUE_WINDOW_SIZE = 3
+        private const val PREVIOUS_TRACK_THRESHOLD_SECONDS = 3.0
     }
 
     private val playerScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
@@ -41,13 +43,10 @@ actual class PlatformMediaPlayer {
     private var retryCount = 0
     private var currentUrl: String? = null
 
-    // AVPlayer instance
-    private val avPlayer = AVPlayer()
+    // AVQueuePlayer instance
+    private val queuePlayer = AVQueuePlayer()
     private var timeObserver: Any? = null
     private var playerItemEndObserver: Any? = null
-
-    // Next track prefetching for gapless playback
-    private var nextPlayerItem: AVPlayerItem? = null
 
     private val _playbackState = MutableStateFlow(PlatformPlaybackState())
     actual val playbackState: Flow<PlatformPlaybackState> = _playbackState.asStateFlow()
@@ -58,7 +57,7 @@ actual class PlatformMediaPlayer {
 
     init {
         // Disable automatic stalling for smoother gapless playback
-        avPlayer.automaticallyWaitsToMinimizeStalling = false
+        queuePlayer.automaticallyWaitsToMinimizeStalling = false
 
         configureAudioSession()
         setupRemoteCommands()
@@ -74,6 +73,50 @@ actual class PlatformMediaPlayer {
     // Enriched track metadata for extraction and MPNowPlayingInfoCenter (V2 pattern)
     private var currentEnrichedTracks: List<EnrichedTrack> = emptyList()
     private var currentEnrichedTrackIndex: Int = -1
+
+    /**
+     * Build queue window from given index.
+     * Creates AVPlayerItems for current track + next N tracks for gapless playback.
+     */
+    private fun buildQueueWindow(fromIndex: Int, windowSize: Int = QUEUE_WINDOW_SIZE): List<AVPlayerItem> {
+        val endIndex = minOf(fromIndex + windowSize, currentEnrichedTracks.size)
+        return (fromIndex until endIndex).map { index ->
+            val track = currentEnrichedTracks[index]
+            val url = NSURL.URLWithString(track.trackUrl)!!
+            AVPlayerItem.playerItemWithURL(url)
+        }
+    }
+
+    /**
+     * Rebuild queue from given index.
+     * Removes all items and builds fresh queue window.
+     */
+    private suspend fun rebuildQueue(fromIndex: Int) = withContext(Dispatchers.Main) {
+        queuePlayer.removeAllItems()
+        val items = buildQueueWindow(fromIndex)
+        items.forEach { item ->
+            queuePlayer.insertItem(item, afterItem = null)
+        }
+    }
+
+    /**
+     * Extend queue if approaching end of window.
+     * Adds next track to queue for seamless playback.
+     */
+    private suspend fun extendQueueIfNeeded() = withContext(Dispatchers.Main) {
+        val itemsInQueue = queuePlayer.items().size
+        val remainingInPlaylist = currentEnrichedTracks.size - currentEnrichedTrackIndex
+
+        // If only 1 item left in queue and more tracks available, add next
+        if (itemsInQueue <= 1 && remainingInPlaylist > 1) {
+            val nextIndex = currentEnrichedTrackIndex + 1
+            val nextTrack = currentEnrichedTracks[nextIndex]
+            val url = NSURL.URLWithString(nextTrack.trackUrl)!!
+            val item = AVPlayerItem.playerItemWithURL(url)
+            queuePlayer.insertItem(item, afterItem = null)
+            Logger.d(TAG, "🎵 [QUEUE] Extended queue with track ${nextIndex}: ${nextTrack.displayTitle}")
+        }
+    }
 
     /**
      * Configure AVAudioSession for background audio playback.
@@ -150,7 +193,7 @@ actual class PlatformMediaPlayer {
         commandCenter.skipForwardCommand.setPreferredIntervals(listOf(NSNumber(15)))
         commandCenter.skipForwardCommand.addTargetWithHandler { event ->
             playerScope.launch {
-                val currentTime = avPlayer.currentTime()
+                val currentTime = queuePlayer.currentTime()
                 val currentSeconds = CMTimeGetSeconds(currentTime)
                 val newTime = CMTimeMakeWithSeconds(currentSeconds + 15.0, 1000)
                 seekTo((CMTimeGetSeconds(newTime) * 1000).toLong())
@@ -163,7 +206,7 @@ actual class PlatformMediaPlayer {
         commandCenter.skipBackwardCommand.setPreferredIntervals(listOf(NSNumber(15)))
         commandCenter.skipBackwardCommand.addTargetWithHandler { event ->
             playerScope.launch {
-                val currentTime = avPlayer.currentTime()
+                val currentTime = queuePlayer.currentTime()
                 val currentSeconds = CMTimeGetSeconds(currentTime)
                 val newTime = CMTimeMakeWithSeconds(maxOf(0.0, currentSeconds - 15.0), 1000)
                 seekTo((CMTimeGetSeconds(newTime) * 1000).toLong())
@@ -198,164 +241,171 @@ actual class PlatformMediaPlayer {
 
     /**
      * Load and play a playlist of enriched tracks with V2 metadata.
-     * iOS implementation: Load current track + prefetch next for gapless playback.
+     * iOS implementation: Build queue window and start playback.
      */
-    actual suspend fun loadAndPlayPlaylist(enrichedTracks: List<EnrichedTrack>, startIndex: Int): Result<Unit> {
-        return try {
+    actual suspend fun loadAndPlayPlaylist(enrichedTracks: List<EnrichedTrack>, startIndex: Int): Result<Unit> = withContext(Dispatchers.Main) {
+        try {
             if (enrichedTracks.isEmpty() || startIndex !in enrichedTracks.indices) {
-                return Result.failure(Exception("Invalid enriched playlist or start index"))
+                return@withContext Result.failure(Exception("Invalid enriched playlist or start index"))
             }
 
             // Store enriched tracks for metadata extraction and navigation
             currentEnrichedTracks = enrichedTracks
             currentEnrichedTrackIndex = startIndex
 
-            // Update track index flow
+            // CRITICAL: Emit to flow for UI sync
             _currentTrackIndex.value = startIndex
 
-            // Set metadata and load the starting track
+            // Set metadata
             val startEnrichedTrack = enrichedTracks[startIndex]
             setTrackMetadata(startEnrichedTrack.track, startEnrichedTrack.recordingId)
 
-            // Load current track
-            val result = loadAndPlay(startEnrichedTrack.trackUrl)
-
-            // Prefetch next track in background for gapless playback
-            if (result.isSuccess) {
-                prefetchNextTrack()
+            // Build queue window from start index
+            queuePlayer.removeAllItems()
+            val items = buildQueueWindow(fromIndex = startIndex)
+            items.forEach { item ->
+                queuePlayer.insertItem(item, afterItem = null)
             }
 
-            result
+            Logger.d(TAG, "🎵 [PLAYLIST] Loaded ${items.size} tracks starting at index $startIndex")
+
+            // Play
+            queuePlayer.play()
+
+            // Setup completion observer for first item
+            setupTrackCompletionObserver()
+
+            Result.success(Unit)
 
         } catch (e: Exception) {
+            Logger.e(TAG, "Failed to load playlist", e)
             Result.failure(e)
         }
     }
 
     /**
      * Skip to next track (iOS manual navigation with EnrichedTrack).
-     * Clears prefetch since user manually skipped.
+     * Uses AVQueuePlayer.advanceToNextItem() for native queue management.
      */
-    actual suspend fun nextTrack(): Result<Unit> {
-        return try {
-            val enrichedTracks = currentEnrichedTracks
+    actual suspend fun nextTrack(): Result<Unit> = withContext(Dispatchers.Main) {
+        try {
             val currentIndex = currentEnrichedTrackIndex
 
-            if (enrichedTracks.isEmpty()) {
-                return Result.failure(Exception("No enriched playlist loaded"))
+            if (currentEnrichedTracks.isEmpty()) {
+                return@withContext Result.failure(Exception("No enriched playlist loaded"))
             }
 
-            if (currentIndex >= enrichedTracks.size - 1) {
-                return Result.failure(Exception("No next track available"))
+            if (currentIndex >= currentEnrichedTracks.size - 1) {
+                return@withContext Result.failure(Exception("No next track available"))
             }
 
+            // Advance to next item (AVQueuePlayer handles this natively)
+            queuePlayer.advanceToNextItem()
+
+            // CRITICAL: Update index and emit to flow for UI sync
             val nextIndex = currentIndex + 1
-            val nextEnrichedTrack = enrichedTracks[nextIndex]
-
             currentEnrichedTrackIndex = nextIndex
             _currentTrackIndex.value = nextIndex
-            setTrackMetadata(nextEnrichedTrack.track, nextEnrichedTrack.recordingId)
 
-            val result = loadAndPlay(nextEnrichedTrack.trackUrl)
+            // Update metadata for platform integrations
+            val nextTrack = currentEnrichedTracks[nextIndex]
+            setTrackMetadata(nextTrack.track, nextTrack.recordingId)
+            updateNowPlayingInfo()
 
-            // Prefetch new next track after manual skip
-            if (result.isSuccess) {
-                prefetchNextTrack()
-            }
+            Logger.d(TAG, "🎵 [NEXT] Skipped to track $nextIndex: ${nextTrack.displayTitle}")
 
-            result
+            // Extend queue if needed (approaching end of window)
+            extendQueueIfNeeded()
+
+            // Setup observer for new current item
+            setupTrackCompletionObserver()
+
+            Result.success(Unit)
 
         } catch (e: Exception) {
+            Logger.e(TAG, "Failed to skip to next track", e)
             Result.failure(e)
         }
     }
 
     /**
      * Skip to previous track (iOS manual navigation with EnrichedTrack).
-     * Resets prefetch for new position in playlist.
+     * Implements restart vs go-back behavior:
+     * - >3 seconds into track: restart current track
+     * - ≤3 seconds into track: go to previous track
      */
-    actual suspend fun previousTrack(): Result<Unit> {
-        return try {
-            val enrichedTracks = currentEnrichedTracks
+    actual suspend fun previousTrack(): Result<Unit> = withContext(Dispatchers.Main) {
+        try {
+            if (currentEnrichedTracks.isEmpty()) {
+                return@withContext Result.failure(Exception("No enriched playlist loaded"))
+            }
+
+            // Check current position
+            val currentTime = queuePlayer.currentTime()
+            val currentSeconds = CMTimeGetSeconds(currentTime)
+
+            // If more than threshold seconds in, restart current track
+            if (currentSeconds > PREVIOUS_TRACK_THRESHOLD_SECONDS) {
+                Logger.d(TAG, "🎵 [PREV] Restarting current track (${currentSeconds.toInt()}s > ${PREVIOUS_TRACK_THRESHOLD_SECONDS.toInt()}s)")
+                seekTo(0)
+                return@withContext Result.success(Unit)
+            }
+
+            // Otherwise go to actual previous track
             val currentIndex = currentEnrichedTrackIndex
-
-            if (enrichedTracks.isEmpty()) {
-                return Result.failure(Exception("No enriched playlist loaded"))
-            }
-
             if (currentIndex <= 0) {
-                return Result.failure(Exception("No previous track available"))
+                // At first track, just restart it
+                Logger.d(TAG, "🎵 [PREV] At first track, restarting")
+                seekTo(0)
+                return@withContext Result.success(Unit)
             }
 
-            val prevIndex = currentIndex - 1
-            val prevEnrichedTrack = enrichedTracks[prevIndex]
+            // Show loading state
+            updatePlaybackState { copy(isLoading = true) }
 
+            // Calculate previous index
+            val prevIndex = currentIndex - 1
+
+            // Rebuild queue from previous index
+            queuePlayer.removeAllItems()
+            val items = buildQueueWindow(fromIndex = prevIndex)
+            items.forEach { item ->
+                queuePlayer.insertItem(item, afterItem = null)
+            }
+
+            // CRITICAL: Update index and emit to flow for UI sync
             currentEnrichedTrackIndex = prevIndex
             _currentTrackIndex.value = prevIndex
-            setTrackMetadata(prevEnrichedTrack.track, prevEnrichedTrack.recordingId)
 
-            val result = loadAndPlay(prevEnrichedTrack.trackUrl)
-
-            // Prefetch new next track after going back
-            if (result.isSuccess) {
-                prefetchNextTrack()
-            }
-
-            result
-
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
-    }
-
-    /**
-     * Load and play an audio URL using AVPlayer.
-     */
-    actual suspend fun loadAndPlay(url: String): Result<Unit> = withContext(Dispatchers.Main) {
-        try {
-            updatePlaybackState {
-                copy(isLoading = true, error = null, isBuffering = false)
-            }
-
-            currentUrl = url
-
-            // Create AVPlayerItem from URL
-            val nsUrl = NSURL.URLWithString(url)
-            if (nsUrl == null) {
-                throw Exception("Invalid URL: $url")
-            }
-
-            val playerItem = AVPlayerItem.playerItemWithURL(nsUrl)
-
-            // Replace current item and play
-            avPlayer.replaceCurrentItemWithPlayerItem(playerItem)
-            avPlayer.play()
-
-            // Reset retry count on new load
-            retryCount = 0
-
-            // Re-register track completion observer (CRITICAL: observer is bound to AVPlayerItem, not AVPlayer)
-            setupTrackCompletionObserver()
-
-            // Update MPNowPlayingInfoCenter
+            // Update metadata for platform integrations
+            val prevTrack = currentEnrichedTracks[prevIndex]
+            setTrackMetadata(prevTrack.track, prevTrack.recordingId)
             updateNowPlayingInfo()
+
+            Logger.d(TAG, "🎵 [PREV] Went back to track $prevIndex: ${prevTrack.displayTitle}")
+
+            // Play
+            queuePlayer.play()
+
+            // Clear loading state
+            updatePlaybackState { copy(isLoading = false) }
+
+            // Setup observer for new current item
+            setupTrackCompletionObserver()
 
             Result.success(Unit)
 
         } catch (e: Exception) {
-            updatePlaybackState {
-                copy(
-                    isLoading = false,
-                    error = e.message ?: "Failed to load media"
-                )
-            }
+            Logger.e(TAG, "Failed to go to previous track", e)
+            updatePlaybackState { copy(isLoading = false, error = e.message) }
             Result.failure(e)
         }
     }
 
+
     actual suspend fun pause(): Result<Unit> = withContext(Dispatchers.Main) {
         try {
-            avPlayer.pause()
+            queuePlayer.pause()
 
             // Update MPNowPlayingInfoCenter
             updateNowPlayingInfo()
@@ -368,7 +418,7 @@ actual class PlatformMediaPlayer {
 
     actual suspend fun resume(): Result<Unit> = withContext(Dispatchers.Main) {
         try {
-            avPlayer.play()
+            queuePlayer.play()
 
             // Update MPNowPlayingInfoCenter
             updateNowPlayingInfo()
@@ -384,7 +434,7 @@ actual class PlatformMediaPlayer {
             val timeValue = positionMs / 1000.0 // Convert to seconds
             val cmTime = CMTimeMakeWithSeconds(timeValue, 1000)
 
-            avPlayer.seekToTime(cmTime)
+            queuePlayer.seekToTime(cmTime)
 
             // Update MPNowPlayingInfoCenter with new position
             updateNowPlayingInfo()
@@ -397,8 +447,8 @@ actual class PlatformMediaPlayer {
 
     actual suspend fun stop(): Result<Unit> = withContext(Dispatchers.Main) {
         try {
-            avPlayer.pause()
-            avPlayer.replaceCurrentItemWithPlayerItem(null)
+            queuePlayer.pause()
+            queuePlayer.removeAllItems()
 
             updatePlaybackState {
                 copy(
@@ -422,7 +472,7 @@ actual class PlatformMediaPlayer {
 
         playerScope.launch {
             timeObserver?.let { observer ->
-                avPlayer.removeTimeObserver(observer)
+                queuePlayer.removeTimeObserver(observer)
                 timeObserver = null
             }
 
@@ -445,9 +495,9 @@ actual class PlatformMediaPlayer {
 
     /**
      * Set up notification observer for track completion.
-     * When a track finishes, automatically advance to next track if available.
+     * When a track finishes, AVQueuePlayer auto-advances and we sync our state.
      *
-     * IMPORTANT: This must be called each time replaceCurrentItemWithPlayerItem() is called,
+     * IMPORTANT: This must be called each time the current item changes,
      * because iOS notifications are bound to specific AVPlayerItem objects, not the player itself.
      */
     private fun setupTrackCompletionObserver() {
@@ -457,7 +507,7 @@ actual class PlatformMediaPlayer {
             playerItemEndObserver = null
         }
 
-        val currentItem = avPlayer.currentItem ?: return
+        val currentItem = queuePlayer.currentItem ?: return
 
         playerItemEndObserver = NSNotificationCenter.defaultCenter().addObserverForName(
             name = AVPlayerItemDidPlayToEndTimeNotification,
@@ -472,89 +522,47 @@ actual class PlatformMediaPlayer {
 
     /**
      * Handle track completion - auto-advance to next track if available.
-     * Uses prefetched next item for gapless playback.
+     * AVQueuePlayer automatically advances, we just sync our state and UI.
      */
     private suspend fun handleTrackCompletion() {
         try {
-            val enrichedTracks = currentEnrichedTracks
             val currentIndex = currentEnrichedTrackIndex
 
             // Check if there's a next track
-            if (enrichedTracks.isNotEmpty() && currentIndex < enrichedTracks.size - 1) {
-                // Use prefetched item if available for instant playback
-                val prefetchedItem = nextPlayerItem
-                if (prefetchedItem != null) {
-                    Logger.d(TAG, "🎵 [AUTO-ADVANCE] Using prefetched item for gapless playback")
+            if (currentIndex < currentEnrichedTracks.size - 1) {
+                // AVQueuePlayer automatically advances to next item
+                // We need to sync our state and UI
 
-                    // Swap to prefetched item (instant, no loading)
-                    // Already on Main thread from notification callback - no withContext needed
-                    avPlayer.replaceCurrentItemWithPlayerItem(prefetchedItem)
-                    avPlayer.play()
-                    nextPlayerItem = null // Clear used prefetch
-
-                    // Update tracking
+                withContext(Dispatchers.Main) {
                     val nextIndex = currentIndex + 1
+
+                    // CRITICAL: Update index and emit to flow for UI sync
                     currentEnrichedTrackIndex = nextIndex
                     _currentTrackIndex.value = nextIndex
 
-                    val nextTrack = enrichedTracks[nextIndex]
+                    // Update metadata for all platform integrations
+                    val nextTrack = currentEnrichedTracks[nextIndex]
                     setTrackMetadata(nextTrack.track, nextTrack.recordingId)
                     updateNowPlayingInfo()
 
-                    // Prefetch the new next track
-                    prefetchNextTrack()
+                    Logger.d(TAG, "🎵 [AUTO-ADVANCE] Advanced to track $nextIndex: ${nextTrack.displayTitle}")
 
-                    // Re-register completion observer for new item
-                    // Already on Main thread - no withContext needed
+                    // Extend queue if needed
+                    extendQueueIfNeeded()
+
+                    // Setup observer for new current item
                     setupTrackCompletionObserver()
-                } else {
-                    // Fallback: no prefetch available, use regular nextTrack()
-                    Logger.w(TAG, "🎵 [AUTO-ADVANCE] No prefetch available, using regular advance")
-                    val nextResult = nextTrack()
-                    if (!nextResult.isSuccess) {
-                        Logger.w(TAG, "🎵 [AUTO-ADVANCE] Failed to advance to next track")
-                    }
                 }
             } else {
-                // No more tracks - playback complete
-                Logger.d(TAG, "🎵 [AUTO-ADVANCE] Playlist complete - no more tracks")
-                updatePlaybackState {
-                    copy(isPlaying = false)
-                }
+                // End of playlist
+                Logger.d(TAG, "🎵 [AUTO-ADVANCE] Playlist complete")
+                updatePlaybackState { copy(isPlaying = false) }
             }
         } catch (e: Exception) {
             Logger.e(TAG, "Failed to handle track completion", e)
         }
     }
 
-    /**
-     * Prefetch next track in background for gapless playback.
-     * Creates AVPlayerItem with 30-second buffer to prepare seamless transition.
-     */
-    private fun prefetchNextTrack() {
-        playerScope.launch {
-            try {
-                val nextIndex = currentEnrichedTrackIndex + 1
-                if (nextIndex < currentEnrichedTracks.size) {
-                    val nextTrack = currentEnrichedTracks[nextIndex]
-                    val nsUrl = NSURL.URLWithString(nextTrack.trackUrl)
-                    if (nsUrl != null) {
-                        val item = AVPlayerItem.playerItemWithURL(nsUrl)
-                        // Set preferred buffer duration for smooth prefetch
-                        item.preferredForwardBufferDuration = 60.0 // 60 seconds for gapless playback
-                        nextPlayerItem = item
-                        Logger.d(TAG, "🎵 [PREFETCH] Next track prepared: ${nextTrack.displayTitle}")
-                    }
-                } else {
-                    nextPlayerItem = null
-                    Logger.d(TAG, "🎵 [PREFETCH] No next track to prefetch")
-                }
-            } catch (e: Exception) {
-                Logger.e(TAG, "Failed to prefetch next track", e)
-                nextPlayerItem = null
-            }
-        }
-    }
 
     /**
      * Start periodic position updates and state monitoring.
@@ -563,10 +571,10 @@ actual class PlatformMediaPlayer {
         positionUpdateJob = playerScope.launch {
             while (true) {
                 try {
-                    val currentItem = avPlayer.currentItem
+                    val currentItem = queuePlayer.currentItem
                     if (currentItem != null) {
                         // Get current position
-                        val currentTime = avPlayer.currentTime()
+                        val currentTime = queuePlayer.currentTime()
                         val currentPositionMs = (CMTimeGetSeconds(currentTime) * 1000).toLong()
 
                         // Get duration
@@ -577,14 +585,14 @@ actual class PlatformMediaPlayer {
                         } else 0L
 
                         // Get playback rate to determine if playing
-                        val isPlaying = avPlayer.rate > 0.0f
+                        val isPlaying = queuePlayer.rate > 0.0f
 
                         // Get player status for loading/buffering states
                         val status = currentItem.status
                         val isLoading = status == AVPlayerItemStatusUnknown
                         // Only consider buffering when media is loading but not yet ready
                         // Don't confuse paused state with buffering - paused means user explicitly stopped playback
-                        val isBuffering = false // iOS AVPlayer handles buffering internally, no need to expose it
+                        val isBuffering = false // iOS AVQueuePlayer handles buffering internally, no need to expose it
 
 
                         updatePlaybackState {
@@ -661,26 +669,22 @@ actual class PlatformMediaPlayer {
             delay(delayMs)
 
             try {
-                val currentPositionMs = (CMTimeGetSeconds(avPlayer.currentTime()) * 1000).toLong()
-                val wasPlaying = avPlayer.rate > 0.0f
+                val currentPositionMs = (CMTimeGetSeconds(queuePlayer.currentTime()) * 1000).toLong()
+                val wasPlaying = queuePlayer.rate > 0.0f
 
-                // Retry by reloading the current URL
-                currentUrl?.let { url ->
-                    val nsUrl = NSURL.URLWithString(url)
-                    if (nsUrl != null) {
-                        val playerItem = AVPlayerItem.playerItemWithURL(nsUrl)
-                        avPlayer.replaceCurrentItemWithPlayerItem(playerItem)
+                // Retry by rebuilding queue from current index
+                if (currentEnrichedTracks.isNotEmpty() && currentEnrichedTrackIndex >= 0) {
+                    rebuildQueue(fromIndex = currentEnrichedTrackIndex)
 
-                        // Seek to previous position if it was significant
-                        if (currentPositionMs > 0) {
-                            val timeValue = currentPositionMs / 1000.0
-                            val cmTime = CMTimeMakeWithSeconds(timeValue, 1000)
-                            avPlayer.seekToTime(cmTime)
-                        }
+                    // Seek to previous position if it was significant
+                    if (currentPositionMs > 0) {
+                        val timeValue = currentPositionMs / 1000.0
+                        val cmTime = CMTimeMakeWithSeconds(timeValue, 1000)
+                        queuePlayer.seekToTime(cmTime)
+                    }
 
-                        if (wasPlaying) {
-                            avPlayer.play()
-                        }
+                    if (wasPlaying) {
+                        queuePlayer.play()
                     }
                 }
 
@@ -775,21 +779,21 @@ actual class PlatformMediaPlayer {
             }
 
             // Current playback info
-            val currentTime = avPlayer.currentTime()
+            val currentTime = queuePlayer.currentTime()
             val currentSeconds = CMTimeGetSeconds(currentTime)
             if (currentSeconds.isFinite() && currentSeconds >= 0) {
                 nowPlayingInfo[MPNowPlayingInfoPropertyElapsedPlaybackTime] = currentSeconds
             }
 
             // Playback rate (1.0 = playing, 0.0 = paused)
-            val playbackRate = if (avPlayer.rate > 0.0f) 1.0 else 0.0
+            val playbackRate = if (queuePlayer.rate > 0.0f) 1.0 else 0.0
             nowPlayingInfo[MPNowPlayingInfoPropertyPlaybackRate] = playbackRate
 
             // Set the now playing info
             MPNowPlayingInfoCenter.defaultCenter().setNowPlayingInfo(nowPlayingInfo as Map<Any?, *>)
 
             // Set playback state
-            val playbackState = if (avPlayer.rate > 0.0f) {
+            val playbackState = if (queuePlayer.rate > 0.0f) {
                 MPNowPlayingPlaybackStatePlaying
             } else {
                 MPNowPlayingPlaybackStatePaused
@@ -835,7 +839,7 @@ actual class PlatformMediaPlayer {
             return // No valid state to save
         }
 
-        val currentTime = avPlayer.currentTime()
+        val currentTime = queuePlayer.currentTime()
         val positionMs = (CMTimeGetSeconds(currentTime) * 1000).toLong()
 
         // Get show/recording IDs from current enriched track

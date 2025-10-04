@@ -90,17 +90,6 @@ expect class PlatformMediaPlayer {
     suspend fun previousTrack(): Result<Unit>
 
     /**
-     * Load and start playing an audio URL.
-     *
-     * This method has NO knowledge of Archive.org URLs, track formats, or show context.
-     * It simply loads and plays any audio URL provided by universal services.
-     *
-     * @param url Complete audio URL to play
-     * @return Result with success or error
-     */
-    suspend fun loadAndPlay(url: String): Result<Unit>
-
-    /**
      * Pause current playback.
      * Maintains current position for resume.
      */

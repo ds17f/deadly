@@ -61,32 +61,6 @@ actual class PlatformMediaPlayer(
         currentRecordingId = recordingId
     }
 
-    /**
-     * Load and play an audio URL using MediaSession.
-     * Enables notifications, Android Auto, and Wear support automatically.
-     */
-    actual suspend fun loadAndPlay(url: String): Result<Unit> {
-        return try {
-            Log.d(TAG, "🎵 [MEDIA] Loading and playing URL: $url")
-
-            // Use MediaControllerRepository with rich metadata if available
-            val track = currentTrack
-            val recordingId = currentRecordingId
-
-            if (track != null && recordingId != null) {
-                // Use MediaSession with rich metadata for notifications/Auto/Wear
-                mediaControllerRepository.loadAndPlay(url, track, recordingId)
-            } else {
-                // Fallback: could create a dummy track, but this shouldn't happen
-                Log.w(TAG, "No track metadata available - MediaSession features may be limited")
-                Result.failure(Exception("Track metadata required for MediaSession integration"))
-            }
-
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to load and play URL: $url", e)
-            Result.failure(e)
-        }
-    }
 
     /**
      * Load and play a playlist of enriched tracks with V2 metadata.
