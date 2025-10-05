@@ -10,7 +10,7 @@ import UIKit
     // MARK: - Private Properties
 
     private let queuePlayer = AVQueuePlayer()
-    private var playerItems: [AVPlayerItem] = []
+    private var urls: [String] = []
     private var currentIndex = 0
     private var endObserver: NSObjectProtocol?
 
@@ -31,13 +31,9 @@ import UIKit
     public init(urls: [String], startIndex: Int = 0) {
         super.init()
 
-        // Convert URLs to AVPlayerItems
-        self.playerItems = urls.compactMap { urlString in
-            guard let url = URL(string: urlString) else { return nil }
-            return AVPlayerItem(url: url)
-        }
-
-        self.currentIndex = max(0, min(startIndex, playerItems.count - 1))
+        // Store URLs for creating fresh AVPlayerItems as needed
+        self.urls = urls
+        self.currentIndex = max(0, min(startIndex, urls.count - 1))
 
         // Configure AVQueuePlayer for gapless playback
         queuePlayer.automaticallyWaitsToMinimizeStalling = false
@@ -70,7 +66,7 @@ import UIKit
     /// - Returns: true if successfully advanced, false if at end of playlist
     @discardableResult
     public func playNext() -> Bool {
-        guard currentIndex < playerItems.count - 1 else {
+        guard currentIndex < urls.count - 1 else {
             // At end of playlist
             return false
         }
@@ -152,19 +148,29 @@ import UIKit
 
     /// Get total number of tracks
     public var trackCount: Int {
-        return playerItems.count
+        return urls.count
     }
 
     // MARK: - Private Queue Management
+
+    /// Create a fresh AVPlayerItem for the given index
+    /// - Parameter index: Track index
+    /// - Returns: New AVPlayerItem or nil if invalid index/URL
+    private func createPlayerItem(for index: Int) -> AVPlayerItem? {
+        guard index >= 0 && index < urls.count else { return nil }
+        guard let url = URL(string: urls[index]) else { return nil }
+        return AVPlayerItem(url: url)
+    }
 
     private func setupQueue() {
         queuePlayer.removeAllItems()
 
         // Add current track + next 2 tracks for gapless playback
-        let endIndex = min(currentIndex + 3, playerItems.count)
+        let endIndex = min(currentIndex + 3, urls.count)
         for i in currentIndex..<endIndex {
-            let item = playerItems[i]
-            queuePlayer.insert(item, after: nil)
+            if let item = createPlayerItem(for: i) {
+                queuePlayer.insert(item, after: nil)
+            }
         }
     }
 
@@ -172,10 +178,11 @@ import UIKit
         let queueSize = queuePlayer.items().count
 
         // If only 1 item left in queue and more tracks available, add next track
-        if queueSize <= 1 && currentIndex + queueSize < playerItems.count {
+        if queueSize <= 1 && currentIndex + queueSize < urls.count {
             let nextIndex = currentIndex + queueSize
-            let nextItem = playerItems[nextIndex]
-            queuePlayer.insert(nextItem, after: nil)
+            if let nextItem = createPlayerItem(for: nextIndex) {
+                queuePlayer.insert(nextItem, after: nil)
+            }
         }
     }
 
@@ -184,12 +191,15 @@ import UIKit
         queuePlayer.removeAllItems()
 
         // Add up to 3 tracks starting from the new index
-        let endIndex = min(index + 3, playerItems.count)
+        let endIndex = min(index + 3, urls.count)
         for i in index..<endIndex {
-            let item = playerItems[i]
-            queuePlayer.insert(item, after: nil)
+            if let item = createPlayerItem(for: i) {
+                queuePlayer.insert(item, after: nil)
+            }
         }
 
+        // Seek to beginning of track before playing
+        queuePlayer.seek(to: CMTime.zero)
         queuePlayer.play()
     }
 
@@ -212,7 +222,7 @@ import UIKit
         }
 
         // Auto-advance to next track
-        if currentIndex < playerItems.count - 1 {
+        if currentIndex < urls.count - 1 {
             currentIndex += 1
             extendQueueIfNeeded()
             onTrackChanged?(currentIndex)
@@ -305,7 +315,7 @@ import UIKit
     // MARK: - Now Playing Info Center
 
     private func updateNowPlayingInfo() {
-        guard currentIndex < playerItems.count else { return }
+        guard currentIndex < urls.count else { return }
 
         var nowPlayingInfo: [String: Any] = [:]
 
@@ -321,25 +331,31 @@ import UIKit
 
         // Track position
         nowPlayingInfo[MPNowPlayingInfoPropertyPlaybackQueueIndex] = currentIndex
-        nowPlayingInfo[MPNowPlayingInfoPropertyPlaybackQueueCount] = playerItems.count
+        nowPlayingInfo[MPNowPlayingInfoPropertyPlaybackQueueCount] = urls.count
 
         MPNowPlayingInfoCenter.default().nowPlayingInfo = nowPlayingInfo
     }
 
     private func extractTitle() -> String? {
-        guard currentIndex < playerItems.count else { return nil }
-        let item = playerItems[currentIndex]
+        guard currentIndex < urls.count else { return nil }
+        guard let url = URL(string: urls[currentIndex]) else { return nil }
 
-        // Try to extract title from URL filename
-        if let url = (item.asset as? AVURLAsset)?.url {
-            let filename = url.lastPathComponent
-            let nameWithoutExtension = (filename as NSString).deletingPathExtension
+        let filename = url.lastPathComponent
+        let nameWithoutExtension = (filename as NSString).deletingPathExtension
 
-            // Clean up common filename patterns
-            return nameWithoutExtension.replacingOccurrences(of: "_", with: " ")
+        // Clean up common filename patterns for Grateful Dead tracks
+        var cleanTitle = nameWithoutExtension
+            .replacingOccurrences(of: "_", with: " ")
+            .replacingOccurrences(of: "-", with: " ")
+
+        // Extract track title from common patterns like "01 Dark Star" or "gd1977-05-08d1t01"
+        if let trackMatch = cleanTitle.range(of: #"\d+\s+(.+)"#, options: .regularExpression) {
+            cleanTitle = String(cleanTitle[trackMatch]).trimmingCharacters(in: .whitespaces)
+            // Remove leading track number
+            cleanTitle = cleanTitle.replacingOccurrences(of: #"^\d+\s+"#, with: "", options: .regularExpression)
         }
 
-        return nil
+        return cleanTitle.isEmpty ? "Unknown Track" : cleanTitle
     }
 
     // MARK: - Cleanup
