@@ -72,15 +72,29 @@ class RecordingSelectionViewModel(
 
     /**
      * Handles user actions in the recording selection modal
+     *
+     * Follows V2's pattern of separating temporary switches from permanent preferences:
+     * - SelectRecording: UI state only (visual feedback)
+     * - SwitchToRecording: Temporary recording change (session-only)
+     * - SetAsDefault: Permanent preference (persisted)
      */
     fun handleAction(action: RecordingSelectionAction) {
         when (action) {
             is RecordingSelectionAction.SelectRecording -> {
+                // Update UI selection state only (for visual feedback)
                 selectRecording(action.recordingId)
             }
 
+            is RecordingSelectionAction.SwitchToRecording -> {
+                // V2 pattern: Temporary recording switch (clicking a card)
+                selectRecording(action.recordingId)  // Update UI state
+                onRecordingChanged?.invoke(action.recordingId)  // Switch recording immediately
+                // Note: Does NOT persist - session-only change
+            }
+
             is RecordingSelectionAction.SetAsDefault -> {
-                setRecordingAsDefault(action.recordingId)
+                // V2 pattern: Permanent preference (clicking "Set as Default" button)
+                setRecordingAsDefault(action.recordingId)  // Persist + change
             }
 
             is RecordingSelectionAction.ResetToRecommended -> {

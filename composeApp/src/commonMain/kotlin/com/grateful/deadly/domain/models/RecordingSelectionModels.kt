@@ -126,11 +126,34 @@ sealed class RecordingOptionsResult {
  * RecordingSelectionAction - Actions that can be performed on recordings
  *
  * Encapsulates the different actions users can take when selecting recordings.
+ * Follows V2's pattern of separating temporary selection from permanent preference.
  */
 sealed class RecordingSelectionAction {
+    /**
+     * Update UI selection state only (for visual feedback)
+     */
     data class SelectRecording(val recordingId: String) : RecordingSelectionAction()
+
+    /**
+     * Temporarily switch to a different recording (session-only, not persisted)
+     * V2 pattern: Clicking a recording card switches immediately but doesn't persist
+     */
+    data class SwitchToRecording(val recordingId: String) : RecordingSelectionAction()
+
+    /**
+     * Set recording as default and persist preference (permanent choice)
+     * V2 pattern: "Set as Default Recording" button saves to database
+     */
     data class SetAsDefault(val recordingId: String) : RecordingSelectionAction()
+
+    /**
+     * Reset to the show's recommended recording
+     */
     object ResetToRecommended : RecordingSelectionAction()
+
+    /**
+     * Dismiss the recording selection modal
+     */
     object DismissSelection : RecordingSelectionAction()
 }
 

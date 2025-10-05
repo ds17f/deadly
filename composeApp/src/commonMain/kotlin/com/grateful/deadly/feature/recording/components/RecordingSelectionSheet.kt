@@ -220,7 +220,8 @@ private fun RecordingListContent(
                 RecordingOptionCard(
                     recordingOption = currentRecording,
                     onClick = {
-                        onAction(RecordingSelectionAction.SelectRecording(currentRecording.identifier))
+                        // V2 pattern: Clicking a card switches recording temporarily (session-only)
+                        onAction(RecordingSelectionAction.SwitchToRecording(currentRecording.identifier))
                     }
                 )
             }
@@ -234,7 +235,8 @@ private fun RecordingListContent(
             RecordingOptionCard(
                 recordingOption = recording,
                 onClick = {
-                    onAction(RecordingSelectionAction.SelectRecording(recording.identifier))
+                    // V2 pattern: Clicking a card switches recording temporarily (session-only)
+                    onAction(RecordingSelectionAction.SwitchToRecording(recording.identifier))
                 }
             )
         }
