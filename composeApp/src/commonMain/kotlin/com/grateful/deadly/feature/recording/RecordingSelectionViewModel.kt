@@ -100,17 +100,30 @@ class RecordingSelectionViewModel(
 
     private fun selectRecording(recordingId: String) {
         val currentState = _state.value
-        val updatedRecordings = currentState.allRecordings.map { recording ->
+
+        // Update selection state immediately (V2 pattern)
+        val updatedCurrentRecording = currentState.currentRecording?.copy(
+            isSelected = currentState.currentRecording.identifier == recordingId
+        )
+
+        val updatedAlternatives = currentState.alternativeRecordings.map { recording ->
             recording.copy(isSelected = recording.identifier == recordingId)
         }
 
-        val newCurrentRecording = updatedRecordings.find { it.isCurrent }
-        val newAlternatives = updatedRecordings.filter { !it.isCurrent }
-
         _state.value = currentState.copy(
-            currentRecording = newCurrentRecording,
-            alternativeRecordings = newAlternatives
+            currentRecording = updatedCurrentRecording,
+            alternativeRecordings = updatedAlternatives
         )
+
+        // Also update service state for persistence
+        viewModelScope.launch {
+            try {
+                recordingSelectionService.selectRecording(recordingId)
+            } catch (e: Exception) {
+                // Log error but don't revert UI state - user should see selection
+                println("Error selecting recording in service: ${e.message}")
+            }
+        }
     }
 
     private fun setRecordingAsDefault(recordingId: String) {

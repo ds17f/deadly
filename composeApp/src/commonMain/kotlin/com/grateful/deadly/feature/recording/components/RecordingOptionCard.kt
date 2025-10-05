@@ -19,6 +19,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.grateful.deadly.core.design.icons.AppIcon
 import com.grateful.deadly.core.design.icons.Render
+import com.grateful.deadly.core.design.components.CompactStarRating
 import com.grateful.deadly.domain.models.RecordingOptionViewModel
 
 /**
@@ -61,59 +62,76 @@ fun RecordingOptionCard(
         ) {
             // Main content column
             Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
+                modifier = Modifier.weight(1f)
             ) {
-                // Line 1: Source type (bold) + Star rating (compact)
+                // Line 1: Source type (bold) + Star rating (compact) - V2 exact
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
                         text = recordingOption.sourceType,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold
                     )
 
-                    // Compact star rating (like V2)
-                    recordingOption.displayRating?.let { rating ->
-                        Text(
-                            text = rating,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            fontSize = MaterialTheme.typography.bodySmall.fontSize * 0.9
+                    // Compact star rating like V2
+                    recordingOption.rating?.let { rating ->
+                        CompactStarRating(
+                            rating = rating,
+                            starSize = 12.dp
                         )
                     }
                 }
 
-                // Line 2: Taper info (if available)
+                // Line 2: Taper info (only when we have actual taper name data) - V2 logic
                 recordingOption.taperInfo?.let { taper ->
-                    Text(
-                        text = taper,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
+                    // Check if we have actual content after "Taper: "
+                    val taperName = if (taper.startsWith("Taper: ")) {
+                        taper.substring(7).trim()
+                    } else {
+                        taper.trim()
+                    }
+
+                    val hasValidTaper = taperName.isNotBlank() &&
+                                       !taperName.equals("unknown", ignoreCase = true) &&
+                                       !taperName.equals("n/a", ignoreCase = true) &&
+                                       taperName.length > 0
+
+                    if (hasValidTaper) {
+                        Text(
+                            text = taper,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
                 }
 
-                // Line 3: Technical details (if available)
+                // Line 3: Technical details (equipment, quality) - V2 logic
                 recordingOption.technicalDetails?.let { details ->
-                    Text(
-                        text = details,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
+                    val cleanDetails = details
+                        .replace(Regex("<[^>]*>"), "") // Strip HTML tags
+                        .replace(Regex("\\s+"), " ") // Normalize whitespace
+                        .trim()
+
+                    if (cleanDetails.isNotBlank()) {
+                        Text(
+                            text = cleanDetails,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
                 }
 
-                // Line 4: Archive ID (red-tinted, muted - like V2)
+                // Line 4: Archive ID (red-tinted, muted - V2 exact)
                 Text(
-                    text = recordingOption.displayIdentifier,
+                    text = recordingOption.identifier,
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                    color = MaterialTheme.colorScheme.error.copy(alpha = 0.7f),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -132,10 +150,10 @@ fun RecordingOptionCard(
                 }
             }
 
-            // Selected check icon (like V2)
+            // Selected check icon (V2 exact: 24.dp size)
             if (recordingOption.isSelected) {
                 AppIcon.CheckCircle.Render(
-                    size = 20.dp,
+                    size = 24.dp,
                     tint = MaterialTheme.colorScheme.primary
                 )
             }

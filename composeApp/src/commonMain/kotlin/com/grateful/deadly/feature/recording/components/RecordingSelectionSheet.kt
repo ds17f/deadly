@@ -8,10 +8,12 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -61,7 +63,8 @@ fun RecordingSelectionSheet(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(16.dp)
+                    .padding(horizontal = 16.dp)
+                    .padding(top = 16.dp, bottom = 32.dp) // More bottom padding for safe area
             ) {
                 // Header with close button and show info
                 Row(
@@ -101,7 +104,7 @@ fun RecordingSelectionSheet(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // Content based on state
+                // Content based on state - with proper weight distribution
                 when {
                     state.isLoading -> {
                         LoadingContent()
@@ -115,23 +118,30 @@ fun RecordingSelectionSheet(
                     }
 
                     else -> {
-                        RecordingListContent(
-                            state = state,
-                            onAction = onAction
-                        )
+                        // Recording list with constrained height
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .weight(1f, fill = false) // Don't fill remaining space
+                                .heightIn(max = 400.dp) // Max height constraint
+                        ) {
+                            RecordingListContent(
+                                state = state,
+                                onAction = onAction,
+                                onDismiss = onDismiss
+                            )
+                        }
                     }
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(24.dp))
 
-                // Action buttons
+                // Action buttons - always visible at bottom
                 ActionButtons(
                     state = state,
-                    onAction = onAction
+                    onAction = onAction,
+                    onDismiss = onDismiss
                 )
-
-                // Bottom padding for safe area
-                Spacer(modifier = Modifier.height(16.dp))
             }
         }
     }
@@ -195,14 +205,30 @@ private fun ErrorContent(
 @Composable
 private fun RecordingListContent(
     state: RecordingSelectionState,
-    onAction: (RecordingSelectionAction) -> Unit
+    onAction: (RecordingSelectionAction) -> Unit,
+    onDismiss: () -> Unit
 ) {
     LazyColumn(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .selectableGroup() // V2 pattern for radio-button behavior
+            .fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
+        // Current recording first (V2 pattern)
+        state.currentRecording?.let { currentRecording ->
+            item {
+                RecordingOptionCard(
+                    recordingOption = currentRecording,
+                    onClick = {
+                        onAction(RecordingSelectionAction.SelectRecording(currentRecording.identifier))
+                    }
+                )
+            }
+        }
+
+        // Alternative recordings
         items(
-            items = state.allRecordings,
+            items = state.alternativeRecordings,
             key = { it.identifier }
         ) { recording ->
             RecordingOptionCard(
@@ -236,40 +262,66 @@ private fun RecordingListContent(
 @Composable
 private fun ActionButtons(
     state: RecordingSelectionState,
-    onAction: (RecordingSelectionAction) -> Unit
+    onAction: (RecordingSelectionAction) -> Unit,
+    onDismiss: () -> Unit
 ) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    // V2 Logic: Check for recommended recording and current status
+    val selectedRecording = state.selectedRecording
+    val recommendedRecording = state.alternativeRecordings.find {
+        it.isRecommended && it.matchReason == "Recommended"
+    } ?: state.currentRecording?.takeIf { it.isRecommended && it.matchReason == "Recommended" }
+
+    val currentIsRecommended = state.currentRecording?.isRecommended == true &&
+        state.currentRecording?.matchReason == "Recommended"
+
+    // Ensure buttons are always visible with proper spacing
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp) // Extra padding around buttons
     ) {
-        // Reset to Recommended button
-        if (state.shouldShowResetToRecommended) {
+        // Reset to Recommended button (V2 logic)
+        if (recommendedRecording != null && !currentIsRecommended) {
             OutlinedButton(
-                onClick = { onAction(RecordingSelectionAction.ResetToRecommended) },
-                modifier = Modifier.weight(1f)
+                onClick = {
+                    onAction(RecordingSelectionAction.ResetToRecommended)
+                    onDismiss() // V2 pattern: dismiss after action
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(48.dp) // Consistent button height
             ) {
+                AppIcon.Star.Render(
+                    size = 16.dp,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.width(8.dp))
                 Text("Reset to Recommended")
             }
+
+            Spacer(modifier = Modifier.height(12.dp))
         }
 
-        // Set as Default button
-        if (state.shouldShowSetAsDefault) {
-            val selectedRecording = state.selectedRecording
-            if (selectedRecording != null) {
+        // Set as Default button (V2 logic: only when different recording selected)
+        selectedRecording?.let { selected ->
+            if (selected.identifier != state.currentRecording?.identifier) {
                 Button(
                     onClick = {
-                        onAction(RecordingSelectionAction.SetAsDefault(selectedRecording.identifier))
+                        onAction(RecordingSelectionAction.SetAsDefault(selected.identifier))
+                        onDismiss() // V2 pattern: dismiss after action
                     },
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp) // Consistent button height
                 ) {
-                    Text("Set as Default")
+                    AppIcon.Star.Render(
+                        size = 20.dp,
+                        tint = MaterialTheme.colorScheme.onPrimary
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Set as Default Recording")
                 }
             }
-        }
-
-        // If no action buttons are shown, add spacer
-        if (!state.shouldShowResetToRecommended && !state.shouldShowSetAsDefault) {
-            Spacer(modifier = Modifier.width(1.dp))
         }
     }
 }

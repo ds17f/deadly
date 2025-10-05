@@ -24,6 +24,7 @@ class RecordingSelectionService(
     // Session-only state (like V2's PlaylistService)
     private var currentShowId: String? = null
     private var currentRecordingId: String? = null
+    private var selectedRecordingId: String? = null // Track user selection
 
     /**
      * Get recording options for a show with UI-friendly formatting
@@ -103,6 +104,9 @@ class RecordingSelectionService(
             recording.lineage
         ).joinToString(", ").takeIf { it.isNotEmpty() }
 
+        // Determine selection state - use selectedRecordingId if set, otherwise current
+        val isSelected = selectedRecordingId?.let { it == recording.identifier } ?: isCurrent
+
         return RecordingOptionViewModel(
             identifier = recording.identifier,
             sourceType = recording.sourceType.displayName,
@@ -112,7 +116,7 @@ class RecordingSelectionService(
             reviewCount = if (recording.reviewCount > 0) recording.reviewCount else null,
             rawSource = recording.source,
             rawLineage = recording.lineage,
-            isSelected = isCurrent, // For now, selected = current
+            isSelected = isSelected,
             isCurrent = isCurrent,
             isRecommended = isRecommended,
             matchReason = matchReason
@@ -122,25 +126,24 @@ class RecordingSelectionService(
     /**
      * Select a recording (session-only like V2)
      *
-     * Updates the current recording ID for this session.
-     * In V2, this triggers track cache clearing and reload.
+     * Updates the selected recording ID for this session.
+     * This is separate from currentRecordingId until "Set as Default" is called.
      */
     fun selectRecording(recordingId: String) {
-        currentRecordingId = recordingId
-        // TODO: In full implementation, this would:
-        // - Clear track cache
-        // - Trigger track reload
-        // - Update playback state
+        selectedRecordingId = recordingId
+        // Note: Don't update currentRecordingId until setRecordingAsDefault is called
+        // This matches V2's pattern of temporary selection vs permanent change
     }
 
     /**
      * Set recording as default (future implementation)
      *
      * In V2, this would persist the preference to user settings.
-     * For now, same as selectRecording.
+     * This makes the temporary selection permanent.
      */
     fun setRecordingAsDefault(recordingId: String) {
-        selectRecording(recordingId)
+        selectedRecordingId = recordingId
+        currentRecordingId = recordingId // Make selection permanent
         // TODO: Save to user preferences
         // - Update user's default recording preference for this show
         // - Persist to local storage
@@ -170,5 +173,6 @@ class RecordingSelectionService(
     fun clearSelection() {
         currentShowId = null
         currentRecordingId = null
+        selectedRecordingId = null
     }
 }
