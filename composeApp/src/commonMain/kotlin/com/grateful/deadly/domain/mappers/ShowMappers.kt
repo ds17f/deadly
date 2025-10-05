@@ -81,6 +81,29 @@ class ShowMappers(
         entities.map(::recordingEntityToDomain)
 
     /**
+     * Convert SQLDelight Recording row to Recording domain model
+     */
+    fun recordingRowToDomain(row: com.grateful.deadly.database.Recording): Recording {
+        return Recording(
+            identifier = row.identifier,
+            showId = row.showId,
+            sourceType = RecordingSourceType.fromString(row.sourceType),
+            rating = row.rating,
+            reviewCount = row.reviewCount.toInt(),
+            taper = row.taper,
+            source = row.source,
+            lineage = row.lineage,
+            sourceTypeString = row.sourceTypeString
+        )
+    }
+
+    /**
+     * Convert list of SQLDelight Recording rows to Recording domain models
+     */
+    fun recordingRowsToDomain(rows: List<com.grateful.deadly.database.Recording>): List<Recording> =
+        rows.map(::recordingRowToDomain)
+
+    /**
      * Parse setlist JSON with error handling
      */
     private fun parseSetlist(json: String?, status: String?): Setlist? {

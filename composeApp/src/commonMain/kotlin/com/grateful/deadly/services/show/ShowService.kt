@@ -341,8 +341,7 @@ class ShowService(
     suspend fun getRecordingById(identifier: String): Recording? {
         val recordingRow = showDao.getRecordingEntityById(identifier)
         return recordingRow?.let { row ->
-            val entity = mapRecordingRowToEntity(row)
-            showMappers.recordingEntityToDomain(entity)
+            showMappers.recordingRowToDomain(row)
         }
     }
 
@@ -353,8 +352,7 @@ class ShowService(
     suspend fun getRecordingsForShow(showId: String): List<Recording> {
         val recordingRows = showDao.getRecordingEntitiesForShow(showId)
         return recordingRows.map { row ->
-            val entity = mapRecordingRowToEntity(row)
-            showMappers.recordingEntityToDomain(entity)
+            showMappers.recordingRowToDomain(row)
         }.sortedByDescending { it.rating }
     }
 
@@ -377,8 +375,7 @@ class ShowService(
         val allRecordings = getAllRecordingEntities()
         return allRecordings.filter { it.source?.contains(sourceType, true) == true }
             .map { row ->
-                val entity = mapRecordingRowToEntity(row)
-                showMappers.recordingEntityToDomain(entity)
+                showMappers.recordingRowToDomain(row)
             }
     }
 
@@ -393,8 +390,7 @@ class ShowService(
             .sortedByDescending { it.rating }
             .take(limit)
             .map { row ->
-                val entity = mapRecordingRowToEntity(row)
-                showMappers.recordingEntityToDomain(entity)
+                showMappers.recordingRowToDomain(row)
             }
     }
 
