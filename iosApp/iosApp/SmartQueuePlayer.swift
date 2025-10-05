@@ -77,11 +77,9 @@ import ComposeApp
             return false
         }
 
-        queuePlayer.advanceToNextItem()
+        // Go to actual next track using immediate rebuild approach
         currentIndex += 1
-
-        // Extend queue if needed
-        extendQueueIfNeeded()
+        rebuildQueue(from: currentIndex)
 
         // Notify callback and AppPlatform
         onTrackChanged?(currentIndex)
