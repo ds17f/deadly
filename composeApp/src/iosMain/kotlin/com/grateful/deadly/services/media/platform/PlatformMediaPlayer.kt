@@ -2,6 +2,7 @@ package com.grateful.deadly.services.media.platform
 
 import com.grateful.deadly.core.util.Logger
 import com.grateful.deadly.services.media.EnrichedTrack
+import com.grateful.deadly.services.media.platform.TrackMetadata
 import kotlinx.cinterop.*
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -79,9 +80,23 @@ actual class PlatformMediaPlayer {
             // Extract URLs from enriched tracks
             val urls = enrichedTracks.map { it.trackUrl }
 
+            // Create rich metadata for iOS notifications
+            val metadata = enrichedTracks.map { enrichedTrack ->
+                TrackMetadata(
+                    title = enrichedTrack.displayTitle,
+                    artist = "Grateful Dead",
+                    album = enrichedTrack.showId,
+                    venue = enrichedTrack.venue ?: "Unknown Venue",
+                    date = enrichedTrack.showDate ?: "Unknown Date",
+                    duration = null, // Will be filled in during playback
+                    recordingId = enrichedTrack.recordingId,
+                    showId = enrichedTrack.showId
+                )
+            }
+
             // Replace playlist with new URLs using single instance pattern
             // This automatically stops any existing playback to prevent double-playing
-            SmartQueuePlayerBridge.replacePlaylist(urls, startIndex)
+            SmartQueuePlayerBridge.replacePlaylist(urls, metadata, startIndex)
 
             // Set up callbacks (no longer need player ID)
             SmartQueuePlayerBridge.setTrackChangedCallback("trackChanged_global")

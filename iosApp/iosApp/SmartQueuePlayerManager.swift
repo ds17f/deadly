@@ -64,11 +64,14 @@ import Foundation
             return "error: missing urls or startIndex"
         }
 
+        // Extract metadata if available
+        let metadata = command["trackMetadata"] as? [[String: Any]] ?? []
+
         // Stop existing player if any
         globalPlayer?.pause()
 
-        // Create new global player instance
-        let player = SmartQueuePlayer(urls: urls, startIndex: startIndex)
+        // Create new global player instance with metadata
+        let player = SmartQueuePlayer(urls: urls, startIndex: startIndex, metadata: metadata)
         globalPlayer = player
 
         // Set up internal callbacks to route to registered Kotlin callbacks
@@ -89,11 +92,18 @@ import Foundation
             return "error: missing urls or startIndex"
         }
 
+        // Extract metadata if available
+        let metadata = command["trackMetadata"] as? [[String: Any]] ?? []
+        print("📱 [METADATA] Received \(metadata.count) metadata items")
+        if !metadata.isEmpty {
+            print("📱 [METADATA] First item: \(metadata[0])")
+        }
+
         // Stop existing player if any
         globalPlayer?.pause()
 
-        // Create new global player instance
-        let player = SmartQueuePlayer(urls: urls, startIndex: startIndex)
+        // Create new global player instance with metadata
+        let player = SmartQueuePlayer(urls: urls, startIndex: startIndex, metadata: metadata)
         globalPlayer = player
 
         // Set up internal callbacks to route to registered Kotlin callbacks

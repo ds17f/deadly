@@ -20,17 +20,19 @@ object SmartQueuePlayerBridge {
     }
 
     /**
-     * Replace current playlist with new URLs and start playback.
+     * Replace current playlist with new URLs and metadata, start playback.
      * Stops any existing playback and creates new global player instance.
      *
      * @param urls List of track URLs (can be remote https:// or local file://)
+     * @param metadata List of rich track metadata for professional notifications
      * @param startIndex Index to start playback from
      */
-    fun replacePlaylist(urls: List<String>, startIndex: Int) {
+    fun replacePlaylist(urls: List<String>, metadata: List<TrackMetadata>, startIndex: Int) {
         val command = SmartPlayerCommand(
             action = "replacePlaylist",
             playerId = "global", // Fixed ID since we use single instance
             urls = urls,
+            trackMetadata = metadata,
             startIndex = startIndex
         )
         val commandJson = json.encodeToString(command)
@@ -168,9 +170,25 @@ data class SmartPlayerCommand(
     val action: String,
     val playerId: String,
     val urls: List<String>? = null,
+    val trackMetadata: List<TrackMetadata>? = null,
     val startIndex: Int? = null,
     val positionMs: Long? = null,
     val callbackId: String? = null
+)
+
+/**
+ * Rich metadata for tracks passed to iOS for professional notification display.
+ */
+@Serializable
+data class TrackMetadata(
+    val title: String,
+    val artist: String = "Grateful Dead",
+    val album: String,  // "May 8, 1977 - Barton Hall"
+    val venue: String,
+    val date: String,
+    val duration: Long?,
+    val recordingId: String,
+    val showId: String
 )
 
 /**

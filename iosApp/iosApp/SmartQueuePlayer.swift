@@ -11,6 +11,7 @@ import UIKit
 
     private let queuePlayer = AVQueuePlayer()
     private var urls: [String] = []
+    private var trackMetadata: [[String: Any]] = []
     private var currentIndex = 0
     private var endObserver: NSObjectProtocol?
 
@@ -28,11 +29,13 @@ import UIKit
     /// - Parameters:
     ///   - urls: Array of track URLs (can be remote https:// or local file://)
     ///   - startIndex: Index to start playback from (default: 0)
-    public init(urls: [String], startIndex: Int = 0) {
+    ///   - metadata: Optional array of track metadata dictionaries
+    public init(urls: [String], startIndex: Int = 0, metadata: [[String: Any]] = []) {
         super.init()
 
         // Store URLs for creating fresh AVPlayerItems as needed
         self.urls = urls
+        self.trackMetadata = metadata
         self.currentIndex = max(0, min(startIndex, urls.count - 1))
 
         // Configure AVQueuePlayer for gapless playback
@@ -319,10 +322,35 @@ import UIKit
 
         var nowPlayingInfo: [String: Any] = [:]
 
-        // Basic track info (can be enhanced with metadata if available)
-        nowPlayingInfo[MPMediaItemPropertyTitle] = extractTitle() ?? "Unknown Title"
-        nowPlayingInfo[MPMediaItemPropertyArtist] = "Grateful Dead"
-        nowPlayingInfo[MPMediaItemPropertyAlbumTitle] = "Live Performance"
+        // Rich metadata if available, otherwise fallback to extracted title
+        if currentIndex < trackMetadata.count && !trackMetadata[currentIndex].isEmpty {
+            let metadata = trackMetadata[currentIndex]
+
+            print("📱 [NOW_PLAYING] Using rich metadata for track \(currentIndex): \(metadata)")
+
+            // Use rich metadata for professional notifications
+            nowPlayingInfo[MPMediaItemPropertyTitle] = metadata["title"] ?? extractTitle() ?? "Unknown Title"
+            nowPlayingInfo[MPMediaItemPropertyArtist] = metadata["artist"] ?? "Grateful Dead"
+
+            // Enhanced album title with venue and date for context
+            if let venue = metadata["venue"] as? String, let date = metadata["date"] as? String {
+                nowPlayingInfo[MPMediaItemPropertyAlbumTitle] = "\(venue) • \(date)"
+                print("📱 [NOW_PLAYING] Set album to: \"\(venue) • \(date)\"")
+            } else {
+                nowPlayingInfo[MPMediaItemPropertyAlbumTitle] = metadata["album"] ?? "Live Performance"
+            }
+
+            // Additional context in comments field
+            if let recordingInfo = metadata["recordingInfo"] as? String {
+                nowPlayingInfo[MPMediaItemPropertyComments] = recordingInfo
+            }
+        } else {
+            // Fallback to basic info
+            print("📱 [NOW_PLAYING] Using fallback metadata for track \(currentIndex) (metadata count: \(trackMetadata.count))")
+            nowPlayingInfo[MPMediaItemPropertyTitle] = extractTitle() ?? "Unknown Title"
+            nowPlayingInfo[MPMediaItemPropertyArtist] = "Grateful Dead"
+            nowPlayingInfo[MPMediaItemPropertyAlbumTitle] = "Live Performance"
+        }
 
         // Playback info
         nowPlayingInfo[MPNowPlayingInfoPropertyElapsedPlaybackTime] = currentTime
@@ -373,6 +401,11 @@ import UIKit
     /// Create SmartQueuePlayer from array of URL strings
     @objc public static func create(urls: [String], startIndex: Int) -> SmartQueuePlayer {
         return SmartQueuePlayer(urls: urls, startIndex: startIndex)
+    }
+
+    /// Create SmartQueuePlayer with rich metadata
+    @objc public static func createWithMetadata(urls: [String], startIndex: Int, metadata: [[String: Any]]) -> SmartQueuePlayer {
+        return SmartQueuePlayer(urls: urls, startIndex: startIndex, metadata: metadata)
     }
 
     /// Set track changed callback
