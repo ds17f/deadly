@@ -6,6 +6,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.grateful.deadly.core.design.PlatformDimens
 import com.grateful.deadly.core.design.icons.AppIcon
 import com.grateful.deadly.core.design.icons.Render
 
@@ -27,11 +28,11 @@ fun PlayerSecondaryControls(
     onQueue: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
-    // V2 Exact: Row with SpaceBetween arrangement, 24dp horizontal, 12dp vertical padding
+    // Row with SpaceBetween arrangement, platform-specific horizontal padding, 12dp vertical padding
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 24.dp, vertical = 12.dp),
+            .padding(horizontal = PlatformDimens.playerHorizontalPadding, vertical = 12.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {

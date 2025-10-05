@@ -6,6 +6,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.grateful.deadly.core.design.AppDimens
+import com.grateful.deadly.core.design.PlatformDimens
 import com.grateful.deadly.services.media.MediaPlaybackState
 
 /**
@@ -31,11 +32,11 @@ fun PlayerProgressControl(
     val displayProgress = if (isDragging) dragProgress else playbackState.progress
     val hasTrack = playbackState.currentTrack != null
 
-    // V2 Exact: Column with 2dp vertical spacing, 24dp horizontal padding
+    // Column with 2dp vertical spacing, platform-specific horizontal padding
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 24.dp),
+            .padding(horizontal = PlatformDimens.playerHorizontalPadding),
         verticalArrangement = Arrangement.spacedBy(2.dp)
     ) {
         // V2 Exact: Slider with 2dp vertical padding

@@ -12,6 +12,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.grateful.deadly.core.design.AppDimens
+import com.grateful.deadly.core.design.PlatformDimens
 import com.grateful.deadly.core.design.icons.AppIcon
 import com.grateful.deadly.core.design.icons.Render
 import com.grateful.deadly.services.media.MediaPlaybackState
@@ -37,11 +38,11 @@ fun PlayerEnhancedControls(
     onRepeat: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
-    // V2 Exact: Row with full width, center vertical alignment
+    // Row with full width, center vertical alignment, platform-specific padding
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 24.dp),
+            .padding(horizontal = PlatformDimens.playerHorizontalPadding),
         verticalAlignment = Alignment.CenterVertically
     ) {
         // V2 Exact: Shuffle button (40dp) on far left
