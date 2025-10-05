@@ -1,16 +1,16 @@
 import Foundation
 
 /**
- * Manager for SmartQueuePlayer instances to handle commands from Kotlin.
- * Manages multiple player instances and routes commands to the correct player.
+ * Manager for single SmartQueuePlayer instance to handle commands from Kotlin.
+ * Uses single global player to prevent double-playing audio streams.
  */
 @objc public class SmartQueuePlayerManager: NSObject {
 
     @objc public static let shared = SmartQueuePlayerManager()
 
-    private var players: [String: SmartQueuePlayer] = [:]
-    private var trackCallbacks: [String: (Int) -> Void] = [:]
-    private var endCallbacks: [String: () -> Void] = [:]
+    private var globalPlayer: SmartQueuePlayer?
+    private var trackCallback: ((Int) -> Void)?
+    private var endCallback: (() -> Void)?
 
     private override init() {
         super.init()
@@ -60,57 +60,61 @@ import Foundation
             return "error: missing urls or startIndex"
         }
 
+        // Stop existing player if any
+        globalPlayer?.pause()
+
+        // Create new global player instance
         let player = SmartQueuePlayer(urls: urls, startIndex: startIndex)
-        players[playerId] = player
+        globalPlayer = player
 
         // Set up internal callbacks to route to registered Kotlin callbacks
         player.onTrackChanged = { [weak self] newIndex in
-            self?.trackCallbacks[playerId]?(newIndex)
+            self?.trackCallback?(newIndex)
         }
 
         player.onPlaylistEnded = { [weak self] in
-            self?.endCallbacks[playerId]?()
+            self?.endCallback?()
         }
 
         return "success"
     }
 
     private func handlePlay(playerId: String) -> String {
-        guard let player = players[playerId] else {
-            return "error: player not found"
+        guard let player = globalPlayer else {
+            return "error: no active player"
         }
         player.play()
         return "success"
     }
 
     private func handlePause(playerId: String) -> String {
-        guard let player = players[playerId] else {
-            return "error: player not found"
+        guard let player = globalPlayer else {
+            return "error: no active player"
         }
         player.pause()
         return "success"
     }
 
     private func handlePlayNext(playerId: String) -> String {
-        guard let player = players[playerId] else {
-            return "error: player not found"
+        guard let player = globalPlayer else {
+            return "error: no active player"
         }
         let success = player.playNext()
         return success ? "true" : "false"
     }
 
     private func handlePlayPrevious(playerId: String) -> String {
-        guard let player = players[playerId] else {
-            return "error: player not found"
+        guard let player = globalPlayer else {
+            return "error: no active player"
         }
         let success = player.playPrevious()
         return success ? "true" : "false"
     }
 
     private func handleSeek(playerId: String, command: [String: Any]) -> String {
-        guard let player = players[playerId],
+        guard let player = globalPlayer,
               let positionMs = command["positionMs"] as? Int else {
-            return "error: player not found or missing positionMs"
+            return "error: no active player or missing positionMs"
         }
         let positionSeconds = Double(positionMs) / 1000.0
         player.seek(to: positionSeconds)
@@ -118,7 +122,7 @@ import Foundation
     }
 
     private func handleGetState(playerId: String) -> String {
-        guard let player = players[playerId] else {
+        guard let player = globalPlayer else {
             return "{\"isPlaying\":false,\"currentTime\":0,\"duration\":0,\"trackIndex\":0,\"trackCount\":0}"
         }
 
@@ -144,9 +148,9 @@ import Foundation
         }
 
         // Store callback that will notify Kotlin when track changes
-        trackCallbacks[playerId] = { newIndex in
+        trackCallback = { newIndex in
             // TODO: Notify Kotlin via callback mechanism
-            print("Track changed for player \(playerId): \(newIndex)")
+            print("Track changed: \(newIndex)")
         }
 
         return "success"
@@ -158,18 +162,19 @@ import Foundation
         }
 
         // Store callback that will notify Kotlin when playlist ends
-        endCallbacks[playerId] = {
+        endCallback = {
             // TODO: Notify Kotlin via callback mechanism
-            print("Playlist ended for player \(playerId)")
+            print("Playlist ended")
         }
 
         return "success"
     }
 
     private func handleRelease(playerId: String) -> String {
-        players.removeValue(forKey: playerId)
-        trackCallbacks.removeValue(forKey: playerId)
-        endCallbacks.removeValue(forKey: playerId)
+        globalPlayer?.pause()
+        globalPlayer = nil
+        trackCallback = nil
+        endCallback = nil
         return "success"
     }
 }
