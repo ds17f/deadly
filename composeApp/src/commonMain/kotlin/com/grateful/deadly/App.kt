@@ -226,9 +226,12 @@ fun App() {
                         libraryService = DIHelper.get()
                     )
                 }
-                val recordingSelectionViewModel = remember {
+                val recordingSelectionViewModel = remember(showDetailViewModel) {
                     com.grateful.deadly.feature.recording.RecordingSelectionViewModel(
-                        recordingSelectionService = DIHelper.get()
+                        recordingSelectionService = DIHelper.get(),
+                        onRecordingChanged = { recordingId ->
+                            showDetailViewModel.selectRecording(recordingId)
+                        }
                     )
                 }
 
@@ -258,9 +261,12 @@ fun App() {
                         libraryService = DIHelper.get()
                     )
                 }
-                val recordingSelectionViewModel = remember {
+                val recordingSelectionViewModel = remember(showDetailViewModel) {
                     com.grateful.deadly.feature.recording.RecordingSelectionViewModel(
-                        recordingSelectionService = DIHelper.get()
+                        recordingSelectionService = DIHelper.get(),
+                        onRecordingChanged = { recordingId ->
+                            showDetailViewModel.selectRecording(recordingId)
+                        }
                     )
                 }
 

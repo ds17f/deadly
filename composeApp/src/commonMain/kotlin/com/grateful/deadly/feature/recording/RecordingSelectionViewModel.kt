@@ -18,9 +18,11 @@ import kotlinx.coroutines.launch
  * - UI state management with StateFlow
  * - Business logic delegation to RecordingSelectionService
  * - Action-based state updates for testability
+ * - Callback-based recording changes to update parent view
  */
 class RecordingSelectionViewModel(
-    private val recordingSelectionService: RecordingSelectionService
+    private val recordingSelectionService: RecordingSelectionService,
+    private val onRecordingChanged: ((String) -> Unit)? = null
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(RecordingSelectionState())
@@ -130,8 +132,11 @@ class RecordingSelectionViewModel(
         viewModelScope.launch {
             try {
                 recordingSelectionService.setRecordingAsDefault(recordingId)
+
+                // Notify parent view to update its recording (V2 pattern - update in place)
+                onRecordingChanged?.invoke(recordingId)
+
                 // Refresh the recording options to reflect the change
-                val currentState = _state.value
                 refreshRecordingOptions()
             } catch (e: Exception) {
                 _state.value = _state.value.copy(
@@ -145,6 +150,17 @@ class RecordingSelectionViewModel(
         viewModelScope.launch {
             try {
                 recordingSelectionService.resetToRecommended()
+
+                // Get the recommended recording ID to notify parent
+                val recommendedRecording = _state.value.alternativeRecordings.find {
+                    it.isRecommended && it.matchReason == "Recommended"
+                } ?: _state.value.currentRecording?.takeIf {
+                    it.isRecommended && it.matchReason == "Recommended"
+                }
+
+                // Notify parent view to update its recording (V2 pattern - update in place)
+                recommendedRecording?.let { onRecordingChanged?.invoke(it.identifier) }
+
                 // Refresh the recording options to reflect the change
                 refreshRecordingOptions()
             } catch (e: Exception) {
