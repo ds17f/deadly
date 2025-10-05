@@ -1,0 +1,239 @@
+package com.grateful.deadly.feature.recording.components
+
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import com.grateful.deadly.core.design.icons.AppIcon
+import com.grateful.deadly.core.design.icons.Render
+import com.grateful.deadly.domain.models.RecordingOptionViewModel
+
+/**
+ * RecordingOptionCard - Individual recording display with V2-style selection states
+ *
+ * Follows V2's design patterns:
+ * - Card with conditional border (2dp primary border when selected)
+ * - Background color coding (selected, recommended, normal)
+ * - Check icon for selected recordings
+ * - 4-line layout: source type, taper, technical details, identifier
+ * - Compact star rating (12dp) without text
+ */
+@Composable
+fun RecordingOptionCard(
+    recordingOption: RecordingOptionViewModel,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        onClick = onClick,
+        modifier = modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = when {
+                recordingOption.isSelected -> MaterialTheme.colorScheme.primaryContainer
+                recordingOption.isRecommended -> MaterialTheme.colorScheme.tertiaryContainer
+                else -> MaterialTheme.colorScheme.surface
+            }
+        ),
+        border = if (recordingOption.isSelected) {
+            BorderStroke(width = 2.dp, color = MaterialTheme.colorScheme.primary)
+        } else null,
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.Top
+        ) {
+            // Main content column
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                // Line 1: Source type (bold) + Star rating (compact)
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = recordingOption.sourceType,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+
+                    // Compact star rating (like V2)
+                    recordingOption.displayRating?.let { rating ->
+                        Text(
+                            text = rating,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontSize = MaterialTheme.typography.bodySmall.fontSize * 0.9
+                        )
+                    }
+                }
+
+                // Line 2: Taper info (if available)
+                recordingOption.taperInfo?.let { taper ->
+                    Text(
+                        text = taper,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+
+                // Line 3: Technical details (if available)
+                recordingOption.technicalDetails?.let { details ->
+                    Text(
+                        text = details,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+
+                // Line 4: Archive ID (red-tinted, muted - like V2)
+                Text(
+                    text = recordingOption.displayIdentifier,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+
+                // Match reason badge (if available)
+                recordingOption.matchReason?.let { reason ->
+                    Text(
+                        text = reason,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = when {
+                            recordingOption.isRecommended -> MaterialTheme.colorScheme.tertiary
+                            else -> MaterialTheme.colorScheme.primary
+                        },
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+            }
+
+            // Selected check icon (like V2)
+            if (recordingOption.isSelected) {
+                AppIcon.CheckCircle.Render(
+                    size = 20.dp,
+                    tint = MaterialTheme.colorScheme.primary
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Preview functions for visual testing
+ */
+@Composable
+fun RecordingOptionCard_Preview_Selected() {
+    MaterialTheme {
+        RecordingOptionCard(
+            recordingOption = RecordingOptionViewModel(
+                identifier = "gd1977-05-08.sbd.hicks.4982.sbeok.shnf",
+                sourceType = "SBD",
+                taperInfo = "Taper: Betty Cantor",
+                technicalDetails = "Soundboard, DAT → CD → FLAC",
+                rating = 4.8f,
+                reviewCount = 23,
+                rawSource = "Betty Soundboard",
+                rawLineage = "SBD > DAT > CD > FLAC",
+                isSelected = true,
+                isCurrent = true,
+                isRecommended = true,
+                matchReason = "Recommended"
+            ),
+            onClick = {}
+        )
+    }
+}
+
+@Composable
+fun RecordingOptionCard_Preview_Recommended() {
+    MaterialTheme {
+        RecordingOptionCard(
+            recordingOption = RecordingOptionViewModel(
+                identifier = "gd1977-05-08.aud.miller.23456.flac16",
+                sourceType = "AUD",
+                taperInfo = "Taper: Mike Miller",
+                technicalDetails = "Audience, Nak 700 → Cassette → DAT",
+                rating = 4.2f,
+                reviewCount = 12,
+                rawSource = "Audience",
+                rawLineage = "AUD > Cassette > DAT > FLAC",
+                isSelected = false,
+                isCurrent = false,
+                isRecommended = true,
+                matchReason = "Recommended"
+            ),
+            onClick = {}
+        )
+    }
+}
+
+@Composable
+fun RecordingOptionCard_Preview_Normal() {
+    MaterialTheme {
+        RecordingOptionCard(
+            recordingOption = RecordingOptionViewModel(
+                identifier = "gd1977-05-08.aud.smith.98765.flac24",
+                sourceType = "AUD",
+                taperInfo = "Taper: John Smith",
+                technicalDetails = null,
+                rating = 3.8f,
+                reviewCount = 5,
+                rawSource = "Audience Recording",
+                rawLineage = null,
+                isSelected = false,
+                isCurrent = false,
+                isRecommended = false,
+                matchReason = "Popular Choice"
+            ),
+            onClick = {}
+        )
+    }
+}
+
+@Composable
+fun RecordingOptionCard_Preview_NoRating() {
+    MaterialTheme {
+        RecordingOptionCard(
+            recordingOption = RecordingOptionViewModel(
+                identifier = "gd1977-05-08.mtx.jones.11111",
+                sourceType = "Matrix",
+                taperInfo = null,
+                technicalDetails = "Matrix blend of SBD + AUD",
+                rating = null,
+                reviewCount = null,
+                rawSource = null,
+                rawLineage = null,
+                isSelected = false,
+                isCurrent = false,
+                isRecommended = false,
+                matchReason = null
+            ),
+            onClick = {}
+        )
+    }
+}

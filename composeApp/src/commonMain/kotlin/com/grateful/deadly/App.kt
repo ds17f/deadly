@@ -226,6 +226,11 @@ fun App() {
                         libraryService = DIHelper.get()
                     )
                 }
+                val recordingSelectionViewModel = remember {
+                    com.grateful.deadly.feature.recording.RecordingSelectionViewModel(
+                        recordingSelectionService = DIHelper.get()
+                    )
+                }
 
                 // Collect navigation events from ShowDetailViewModel
                 LaunchedEffect(showDetailViewModel) {
@@ -238,7 +243,8 @@ fun App() {
                     showId = showId,
                     recordingId = null,
                     onNavigateBack = { navigationController.navigateUp() },
-                    viewModel = showDetailViewModel
+                    viewModel = showDetailViewModel,
+                    recordingSelectionViewModel = recordingSelectionViewModel
                 )
             }
 
@@ -250,6 +256,11 @@ fun App() {
                         showDetailService = DIHelper.get(),
                         mediaService = DIHelper.get(),
                         libraryService = DIHelper.get()
+                    )
+                }
+                val recordingSelectionViewModel = remember {
+                    com.grateful.deadly.feature.recording.RecordingSelectionViewModel(
+                        recordingSelectionService = DIHelper.get()
                     )
                 }
 
@@ -264,7 +275,8 @@ fun App() {
                     showId = showId,
                     recordingId = recordingId,
                     onNavigateBack = { navigationController.navigateUp() },
-                    viewModel = showDetailViewModel
+                    viewModel = showDetailViewModel,
+                    recordingSelectionViewModel = recordingSelectionViewModel
                 )
             }
             }

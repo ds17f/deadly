@@ -17,6 +17,7 @@ import com.grateful.deadly.services.data.FileDiscoveryService
 import com.grateful.deadly.services.data.platform.ZipExtractor
 import com.grateful.deadly.data.show.ShowDao
 import com.grateful.deadly.services.show.ShowService
+import com.grateful.deadly.services.recording.RecordingSelectionService
 import com.grateful.deadly.services.search.platform.ShowSearchDao
 // Phase 3: Universal Services + Platform Tools
 import com.grateful.deadly.services.archive.platform.NetworkClient
@@ -36,6 +37,7 @@ import com.grateful.deadly.services.library.LibraryService
 import com.grateful.deadly.services.library.LibraryServiceImpl
 import com.grateful.deadly.feature.library.LibraryViewModel
 import com.grateful.deadly.feature.showdetail.ShowDetailViewModel
+import com.grateful.deadly.feature.recording.RecordingSelectionViewModel
 
 import com.grateful.deadly.core.design.theme.ThemeManager
 import okio.FileSystem
@@ -219,6 +221,13 @@ val commonModule = module {
         )
     }
 
+    single<RecordingSelectionService> {
+        Logger.d("CommonModule", "Creating RecordingSelectionService")
+        RecordingSelectionService(
+            showService = get()
+        )
+    }
+
     single<HomeService> {
         Logger.d("CommonModule", "Creating HomeService")
         HomeServiceImpl(
@@ -266,6 +275,13 @@ val commonModule = module {
             showDetailService = get(),
             mediaService = get(),
             libraryService = get()
+        )
+    }
+
+    factory {
+        Logger.d("CommonModule", "Creating RecordingSelectionViewModel instance")
+        RecordingSelectionViewModel(
+            recordingSelectionService = get()
         )
     }
 }

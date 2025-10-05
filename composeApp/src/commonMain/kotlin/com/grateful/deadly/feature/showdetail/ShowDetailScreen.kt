@@ -14,6 +14,8 @@ import com.grateful.deadly.feature.showdetail.components.ShowDetailInteractiveRa
 import com.grateful.deadly.feature.showdetail.components.ShowDetailActionRow
 import com.grateful.deadly.feature.showdetail.components.ShowDetailTrackList
 import com.grateful.deadly.feature.showdetail.components.ShowDetailHeader
+import com.grateful.deadly.feature.recording.RecordingSelectionViewModel
+import com.grateful.deadly.feature.recording.components.RecordingSelectionSheet
 
 /**
  * ShowDetailScreen - V2-level rich UI implementation
@@ -33,11 +35,13 @@ fun ShowDetailScreen(
     recordingId: String? = null,
     onNavigateBack: () -> Unit,
     viewModel: ShowDetailViewModel,
+    recordingSelectionViewModel: RecordingSelectionViewModel,
     modifier: Modifier = Modifier
 ) {
     Logger.d("ShowDetailScreen", "=== SHOW DETAIL SCREEN LOADED === showId: $showId, recordingId: $recordingId")
 
     val uiState by viewModel.enhancedUiState.collectAsState()
+    val recordingSelectionState by recordingSelectionViewModel.state.collectAsState()
 
     // Load show data when screen opens
     LaunchedEffect(showId, recordingId) {
@@ -159,8 +163,15 @@ fun ShowDetailScreen(
                                     Logger.d("ShowDetailScreen", "Show collections")
                                 },
                                 onShowMenu = {
-                                    // TODO Phase 5: Show menu modal
-                                    Logger.d("ShowDetailScreen", "Show menu")
+                                    // Show recording selection modal
+                                    Logger.d("ShowDetailScreen", "Show recording selection modal")
+                                    showId?.let { id ->
+                                        recordingSelectionViewModel.showRecordingSelection(
+                                            showId = id,
+                                            showTitle = showData.displayTitle,
+                                            showDate = showData.date
+                                        )
+                                    }
                                 },
                                 onTogglePlayback = {
                                     viewModel.togglePlayback()
@@ -209,9 +220,18 @@ fun ShowDetailScreen(
         }
     }
 
-    // TODO Phase 5: Add modal sheets
+    // Recording Selection Modal
+    RecordingSelectionSheet(
+        state = recordingSelectionState,
+        onAction = { action ->
+            recordingSelectionViewModel.handleAction(action)
+        },
+        onDismiss = {
+            recordingSelectionViewModel.dismissSelection()
+        }
+    )
+
+    // TODO Phase 5: Add other modal sheets
     // - Reviews modal
-    // - Menu modal
-    // - Recording selection modal
     // - Setlist modal
 }
