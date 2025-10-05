@@ -33,7 +33,6 @@ actual class PlatformMediaPlayer {
 
     private val playerScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var positionUpdateJob: Job? = null
-    private var playerId: String? = null
 
     private val _playbackState = MutableStateFlow(PlatformPlaybackState())
     actual val playbackState: Flow<PlatformPlaybackState> = _playbackState.asStateFlow()
@@ -81,6 +80,7 @@ actual class PlatformMediaPlayer {
             val urls = enrichedTracks.map { it.trackUrl }
 
             // Replace playlist with new URLs using single instance pattern
+            // This automatically stops any existing playback to prevent double-playing
             SmartQueuePlayerBridge.replacePlaylist(urls, startIndex)
 
             // Set up callbacks (no longer need player ID)
@@ -188,7 +188,6 @@ actual class PlatformMediaPlayer {
     actual suspend fun stop(): Result<Unit> = withContext(Dispatchers.Main) {
         try {
             SmartQueuePlayerBridge.stop()
-            playerId = null
 
             updatePlaybackState {
                 copy(
@@ -210,7 +209,6 @@ actual class PlatformMediaPlayer {
     actual fun release() {
         positionUpdateJob?.cancel()
         SmartQueuePlayerBridge.releasePlayer()
-        playerId = null
     }
 
     /**
