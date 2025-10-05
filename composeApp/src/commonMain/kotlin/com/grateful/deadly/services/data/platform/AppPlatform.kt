@@ -10,6 +10,7 @@ object AppPlatform {
     private var unzipHandler: UnzipRequestHandler? = null
     private var savePlaybackStateHandler: SavePlaybackStateHandler? = null
     private var getPlaybackStateHandler: GetPlaybackStateHandler? = null
+    private var smartPlayerHandler: SmartPlayerRequestHandler? = null
 
     /**
      * Register a handler for unzip requests from Kotlin.
@@ -29,6 +30,14 @@ object AppPlatform {
     ) {
         savePlaybackStateHandler = saveHandler
         getPlaybackStateHandler = getHandler
+    }
+
+    /**
+     * Register handler for SmartQueuePlayer requests (iOS only).
+     * Should be called during app initialization by the host app.
+     */
+    fun registerSmartPlayerHandler(handler: SmartPlayerRequestHandler) {
+        smartPlayerHandler = handler
     }
 
     /**
@@ -60,6 +69,17 @@ object AppPlatform {
         val handler = getPlaybackStateHandler ?: return null // Not registered - Android doesn't need this
         return handler()
     }
+
+    /**
+     * Send SmartQueuePlayer command to platform handler.
+     * Called internally by SmartQueuePlayerBridge.
+     * Returns result string from platform handler.
+     */
+    internal fun sendSmartPlayerCommand(commandJson: String): String {
+        val handler = smartPlayerHandler
+            ?: throw IllegalStateException("No SmartPlayer handler registered. Call registerSmartPlayerHandler() in app startup.")
+        return handler(commandJson)
+    }
 }
 
 /**
@@ -76,3 +96,9 @@ typealias SavePlaybackStateHandler = (stateJson: String) -> Unit
  * Handler for retrieving saved playback state from platform storage.
  */
 typealias GetPlaybackStateHandler = () -> String?
+
+/**
+ * Handler for SmartQueuePlayer commands from Kotlin to host platform.
+ * Takes JSON command string and returns JSON result string.
+ */
+typealias SmartPlayerRequestHandler = (commandJson: String) -> String

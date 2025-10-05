@@ -9,6 +9,7 @@ struct iOSApp: App {
         setupAudioSession()
         setupUnzipHandler()
         setupPlaybackStatePersistence()
+        setupSmartQueuePlayerHandler()
         setupLifecycleObservers()
     }
 
@@ -80,6 +81,13 @@ struct iOSApp: App {
                 return PlaybackStatePersistence.shared.getStateJson()
             }
         )
+    }
+
+    private func setupSmartQueuePlayerHandler() {
+        // Register handler for SmartQueuePlayer commands from Kotlin
+        AppPlatform.shared.registerSmartPlayerHandler { commandJson in
+            return SmartQueuePlayerManager.shared.handleCommand(commandJson)
+        }
     }
 
     private func setupLifecycleObservers() {
