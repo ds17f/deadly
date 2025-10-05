@@ -20,30 +20,40 @@ object SmartQueuePlayerBridge {
     }
 
     /**
-     * Create and initialize SmartQueuePlayer with playlist URLs.
+     * Replace current playlist with new URLs and start playback.
+     * Stops any existing playback and creates new global player instance.
      *
      * @param urls List of track URLs (can be remote https:// or local file://)
      * @param startIndex Index to start playback from
-     * @return Player ID for subsequent operations
      */
-    fun createPlayer(urls: List<String>, startIndex: Int): String {
-        val playerId = "player_${Clock.System.now().toEpochMilliseconds()}"
+    fun replacePlaylist(urls: List<String>, startIndex: Int) {
         val command = SmartPlayerCommand(
-            action = "create",
-            playerId = playerId,
+            action = "replacePlaylist",
+            playerId = "global", // Fixed ID since we use single instance
             urls = urls,
             startIndex = startIndex
         )
         val commandJson = json.encodeToString(command)
         AppPlatform.sendSmartPlayerCommand(commandJson)
-        return playerId
+    }
+
+    /**
+     * Stop playback and release player resources.
+     */
+    fun stop() {
+        val command = SmartPlayerCommand(
+            action = "stop",
+            playerId = "global"
+        )
+        val commandJson = json.encodeToString(command)
+        AppPlatform.sendSmartPlayerCommand(commandJson)
     }
 
     /**
      * Start or resume playback.
      */
-    fun play(playerId: String) {
-        val command = SmartPlayerCommand(action = "play", playerId = playerId)
+    fun play() {
+        val command = SmartPlayerCommand(action = "play", playerId = "global")
         val commandJson = json.encodeToString(command)
         AppPlatform.sendSmartPlayerCommand(commandJson)
     }
@@ -51,8 +61,8 @@ object SmartQueuePlayerBridge {
     /**
      * Pause playback.
      */
-    fun pause(playerId: String) {
-        val command = SmartPlayerCommand(action = "pause", playerId = playerId)
+    fun pause() {
+        val command = SmartPlayerCommand(action = "pause", playerId = "global")
         val commandJson = json.encodeToString(command)
         AppPlatform.sendSmartPlayerCommand(commandJson)
     }
@@ -62,8 +72,8 @@ object SmartQueuePlayerBridge {
      *
      * @return true if successfully advanced, false if at end of playlist
      */
-    fun playNext(playerId: String): Boolean {
-        val command = SmartPlayerCommand(action = "playNext", playerId = playerId)
+    fun playNext(): Boolean {
+        val command = SmartPlayerCommand(action = "playNext", playerId = "global")
         val commandJson = json.encodeToString(command)
         val result = AppPlatform.sendSmartPlayerCommand(commandJson)
         return result == "true"
@@ -74,8 +84,8 @@ object SmartQueuePlayerBridge {
      *
      * @return true if action was successful
      */
-    fun playPrevious(playerId: String): Boolean {
-        val command = SmartPlayerCommand(action = "playPrevious", playerId = playerId)
+    fun playPrevious(): Boolean {
+        val command = SmartPlayerCommand(action = "playPrevious", playerId = "global")
         val commandJson = json.encodeToString(command)
         val result = AppPlatform.sendSmartPlayerCommand(commandJson)
         return result == "true"
@@ -86,10 +96,10 @@ object SmartQueuePlayerBridge {
      *
      * @param positionMs Position in milliseconds
      */
-    fun seekTo(playerId: String, positionMs: Long) {
+    fun seekTo(positionMs: Long) {
         val command = SmartPlayerCommand(
             action = "seek",
-            playerId = playerId,
+            playerId = "global",
             positionMs = positionMs
         )
         val commandJson = json.encodeToString(command)
@@ -101,8 +111,8 @@ object SmartQueuePlayerBridge {
      *
      * @return SmartPlayerState with current playback info
      */
-    fun getPlaybackState(playerId: String): SmartPlayerState {
-        val command = SmartPlayerCommand(action = "getState", playerId = playerId)
+    fun getPlaybackState(): SmartPlayerState {
+        val command = SmartPlayerCommand(action = "getState", playerId = "global")
         val commandJson = json.encodeToString(command)
         val resultJson = AppPlatform.sendSmartPlayerCommand(commandJson)
 
@@ -117,10 +127,10 @@ object SmartQueuePlayerBridge {
      * Set track changed callback ID.
      * The actual callback will be handled via Swift and routed back through AppPlatform.
      */
-    fun setTrackChangedCallback(playerId: String, callbackId: String) {
+    fun setTrackChangedCallback(callbackId: String) {
         val command = SmartPlayerCommand(
             action = "setTrackCallback",
-            playerId = playerId,
+            playerId = "global",
             callbackId = callbackId
         )
         val commandJson = json.encodeToString(command)
@@ -130,10 +140,10 @@ object SmartQueuePlayerBridge {
     /**
      * Set playlist ended callback ID.
      */
-    fun setPlaylistEndedCallback(playerId: String, callbackId: String) {
+    fun setPlaylistEndedCallback(callbackId: String) {
         val command = SmartPlayerCommand(
             action = "setEndCallback",
-            playerId = playerId,
+            playerId = "global",
             callbackId = callbackId
         )
         val commandJson = json.encodeToString(command)
@@ -141,12 +151,12 @@ object SmartQueuePlayerBridge {
     }
 
     /**
-     * Cleanup player instance.
+     * Release player resources (replaced by stop()).
+     * @deprecated Use stop() instead for clearer semantics
      */
-    fun releasePlayer(playerId: String) {
-        val command = SmartPlayerCommand(action = "release", playerId = playerId)
-        val commandJson = json.encodeToString(command)
-        AppPlatform.sendSmartPlayerCommand(commandJson)
+    @Deprecated("Use stop() instead", ReplaceWith("stop()"))
+    fun releasePlayer() {
+        stop()
     }
 }
 

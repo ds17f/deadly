@@ -80,14 +80,12 @@ actual class PlatformMediaPlayer {
             // Extract URLs from enriched tracks
             val urls = enrichedTracks.map { it.trackUrl }
 
-            // Create SmartQueuePlayer with URLs
-            playerId = SmartQueuePlayerBridge.createPlayer(urls, startIndex)
+            // Replace playlist with new URLs using single instance pattern
+            SmartQueuePlayerBridge.replacePlaylist(urls, startIndex)
 
-            // Set up callbacks
-            playerId?.let { id ->
-                SmartQueuePlayerBridge.setTrackChangedCallback(id, "trackChanged_$id")
-                SmartQueuePlayerBridge.setPlaylistEndedCallback(id, "playlistEnded_$id")
-            }
+            // Set up callbacks (no longer need player ID)
+            SmartQueuePlayerBridge.setTrackChangedCallback("trackChanged_global")
+            SmartQueuePlayerBridge.setPlaylistEndedCallback("playlistEnded_global")
 
             // Update initial state
             currentEnrichedTrackIndex = startIndex
@@ -99,8 +97,8 @@ actual class PlatformMediaPlayer {
 
             Logger.d(TAG, "🎵 [PLAYLIST] Loaded ${enrichedTracks.size} tracks starting at index $startIndex")
 
-            // Start playback
-            playerId?.let { SmartQueuePlayerBridge.play(it) }
+            // Start playback (no longer need player ID)
+            SmartQueuePlayerBridge.play()
 
             Result.success(Unit)
 
@@ -120,7 +118,7 @@ actual class PlatformMediaPlayer {
                 return@withContext Result.failure(Exception("No playlist loaded"))
             }
 
-            val success = playerId?.let { SmartQueuePlayerBridge.playNext(it) } ?: false
+            val success = SmartQueuePlayerBridge.playNext()
             if (success) {
                 Logger.d(TAG, "🎵 [NEXT] Skipped to next track")
                 Result.success(Unit)
@@ -145,7 +143,7 @@ actual class PlatformMediaPlayer {
                 return@withContext Result.failure(Exception("No playlist loaded"))
             }
 
-            val success = playerId?.let { SmartQueuePlayerBridge.playPrevious(it) } ?: false
+            val success = SmartQueuePlayerBridge.playPrevious()
             if (success) {
                 Logger.d(TAG, "🎵 [PREV] Previous track action completed")
                 Result.success(Unit)
@@ -162,7 +160,7 @@ actual class PlatformMediaPlayer {
 
     actual suspend fun pause(): Result<Unit> = withContext(Dispatchers.Main) {
         try {
-            playerId?.let { SmartQueuePlayerBridge.pause(it) }
+            SmartQueuePlayerBridge.pause()
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)
@@ -171,7 +169,7 @@ actual class PlatformMediaPlayer {
 
     actual suspend fun resume(): Result<Unit> = withContext(Dispatchers.Main) {
         try {
-            playerId?.let { SmartQueuePlayerBridge.play(it) }
+            SmartQueuePlayerBridge.play()
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)
@@ -180,7 +178,7 @@ actual class PlatformMediaPlayer {
 
     actual suspend fun seekTo(positionMs: Long): Result<Unit> = withContext(Dispatchers.Main) {
         try {
-            playerId?.let { SmartQueuePlayerBridge.seekTo(it, positionMs) }
+            SmartQueuePlayerBridge.seekTo(positionMs)
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)
@@ -189,10 +187,7 @@ actual class PlatformMediaPlayer {
 
     actual suspend fun stop(): Result<Unit> = withContext(Dispatchers.Main) {
         try {
-            playerId?.let {
-                SmartQueuePlayerBridge.pause(it)
-                SmartQueuePlayerBridge.releasePlayer(it)
-            }
+            SmartQueuePlayerBridge.stop()
             playerId = null
 
             updatePlaybackState {
@@ -214,7 +209,7 @@ actual class PlatformMediaPlayer {
 
     actual fun release() {
         positionUpdateJob?.cancel()
-        playerId?.let { SmartQueuePlayerBridge.releasePlayer(it) }
+        SmartQueuePlayerBridge.releasePlayer()
         playerId = null
     }
 
@@ -292,29 +287,26 @@ actual class PlatformMediaPlayer {
         positionUpdateJob = playerScope.launch {
             while (true) {
                 try {
-                    val id = playerId
-                    if (id != null) {
-                        // Get current playback state
-                        val state = SmartQueuePlayerBridge.getPlaybackState(id)
-                        val currentPositionMs = (state.currentTime * 1000).toLong()
-                        val durationMs = (state.duration * 1000).toLong()
-                        val isPlaying = state.isPlaying
+                    // Get current playback state (no longer need player ID)
+                    val state = SmartQueuePlayerBridge.getPlaybackState()
+                    val currentPositionMs = (state.currentTime * 1000).toLong()
+                    val durationMs = (state.duration * 1000).toLong()
+                    val isPlaying = state.isPlaying
 
-                        // Check for track changes (simple polling approach)
-                        if (state.trackIndex != currentEnrichedTrackIndex) {
-                            handleTrackChanged(state.trackIndex)
-                        }
+                    // Check for track changes (simple polling approach)
+                    if (state.trackIndex != currentEnrichedTrackIndex) {
+                        handleTrackChanged(state.trackIndex)
+                    }
 
-                        updatePlaybackState {
-                            copy(
-                                isPlaying = isPlaying,
-                                currentPositionMs = currentPositionMs,
-                                durationMs = if (durationMs > 0) durationMs else 0L,
-                                isLoading = false,
-                                isBuffering = false,
-                                error = null
-                            )
-                        }
+                    updatePlaybackState {
+                        copy(
+                            isPlaying = isPlaying,
+                            currentPositionMs = currentPositionMs,
+                            durationMs = if (durationMs > 0) durationMs else 0L,
+                            isLoading = false,
+                            isBuffering = false,
+                            error = null
+                        )
                     }
 
                     delay(POSITION_UPDATE_INTERVAL_MS)
@@ -333,9 +325,11 @@ actual class PlatformMediaPlayer {
             return
         }
 
-        val positionMs = playerId?.let {
-            (SmartQueuePlayerBridge.getPlaybackState(it).currentTime * 1000).toLong()
-        } ?: 0L
+        val positionMs = try {
+            (SmartQueuePlayerBridge.getPlaybackState().currentTime * 1000).toLong()
+        } catch (e: Exception) {
+            0L
+        }
 
         val currentTrack = currentEnrichedTracks.getOrNull(currentEnrichedTrackIndex)
         if (currentTrack != null) {

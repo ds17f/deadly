@@ -31,6 +31,10 @@ import Foundation
         switch action {
         case "create":
             return handleCreate(playerId: playerId, command: command)
+        case "replacePlaylist":
+            return handleReplacePlaylist(command: command)
+        case "stop":
+            return handleStop()
         case "play":
             return handlePlay(playerId: playerId)
         case "pause":
@@ -76,6 +80,39 @@ import Foundation
             self?.endCallback?()
         }
 
+        return "success"
+    }
+
+    private func handleReplacePlaylist(command: [String: Any]) -> String {
+        guard let urls = command["urls"] as? [String],
+              let startIndex = command["startIndex"] as? Int else {
+            return "error: missing urls or startIndex"
+        }
+
+        // Stop existing player if any
+        globalPlayer?.pause()
+
+        // Create new global player instance
+        let player = SmartQueuePlayer(urls: urls, startIndex: startIndex)
+        globalPlayer = player
+
+        // Set up internal callbacks to route to registered Kotlin callbacks
+        player.onTrackChanged = { [weak self] newIndex in
+            self?.trackCallback?(newIndex)
+        }
+
+        player.onPlaylistEnded = { [weak self] in
+            self?.endCallback?()
+        }
+
+        return "success"
+    }
+
+    private func handleStop() -> String {
+        globalPlayer?.pause()
+        globalPlayer = nil
+        trackCallback = nil
+        endCallback = nil
         return "success"
     }
 
