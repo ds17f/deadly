@@ -79,7 +79,6 @@ class RecentShowsServiceImpl(
             }
                 .distinctUntilChanged()
                 .collect { playbackInfo ->
-                    Logger.d(TAG, "📱 Playback state change: showId=${playbackInfo.showId}, isPlaying=${playbackInfo.isPlaying}, position=${playbackInfo.playbackStatus.currentPosition}ms")
                     handlePlaybackStateChange(playbackInfo)
                 }
         }

@@ -193,6 +193,7 @@ import ComposeApp
     }
 
     private func rebuildQueue(from index: Int) {
+        let wasPlaying = isPlaying  // Capture state before pausing
         queuePlayer.pause()
         queuePlayer.removeAllItems()
 
@@ -204,9 +205,13 @@ import ComposeApp
             }
         }
 
-        // Seek to beginning of track before playing
+        // Seek to beginning of track
         queuePlayer.seek(to: CMTime.zero)
-        queuePlayer.play()
+
+        // Only resume playing if we were playing before
+        if wasPlaying {
+            queuePlayer.play()
+        }
     }
 
     // MARK: - Event Observers
