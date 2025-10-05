@@ -12,6 +12,10 @@ object AppPlatform {
     private var getPlaybackStateHandler: GetPlaybackStateHandler? = null
     private var smartPlayerHandler: SmartPlayerRequestHandler? = null
 
+    // Media player event handlers
+    private var trackChangeHandler: MediaPlayerTrackChangeHandler? = null
+    private var playbackStateChangeHandler: MediaPlayerPlaybackStateChangeHandler? = null
+
     /**
      * Register a handler for unzip requests from Kotlin.
      * Should be called during app initialization by the host app.
@@ -38,6 +42,18 @@ object AppPlatform {
      */
     fun registerSmartPlayerHandler(handler: SmartPlayerRequestHandler) {
         smartPlayerHandler = handler
+    }
+
+    /**
+     * Register event handlers for media player events (iOS only).
+     * Should be called during app initialization by the host app.
+     */
+    fun registerMediaPlayerEventHandlers(
+        onTrackChanged: MediaPlayerTrackChangeHandler,
+        onPlaybackStateChanged: MediaPlayerPlaybackStateChangeHandler
+    ) {
+        trackChangeHandler = onTrackChanged
+        playbackStateChangeHandler = onPlaybackStateChanged
     }
 
     /**
@@ -80,6 +96,22 @@ object AppPlatform {
             ?: throw IllegalStateException("No SmartPlayer handler registered. Call registerSmartPlayerHandler() in app startup.")
         return handler(commandJson)
     }
+
+    /**
+     * Notify registered handlers of track change event.
+     * Called from Swift when track changes (manual navigation or auto-advance).
+     */
+    fun notifyTrackChanged(newIndex: Int) {
+        trackChangeHandler?.invoke(newIndex)
+    }
+
+    /**
+     * Notify registered handlers of playback state change event.
+     * Called from Swift when play/pause state changes.
+     */
+    fun notifyPlaybackStateChanged(isPlaying: Boolean) {
+        playbackStateChangeHandler?.invoke(isPlaying)
+    }
 }
 
 /**
@@ -102,3 +134,15 @@ typealias GetPlaybackStateHandler = () -> String?
  * Takes JSON command string and returns JSON result string.
  */
 typealias SmartPlayerRequestHandler = (commandJson: String) -> String
+
+/**
+ * Handler for media player track change events.
+ * Called when track changes due to manual navigation or auto-advance.
+ */
+typealias MediaPlayerTrackChangeHandler = (newIndex: Int) -> Unit
+
+/**
+ * Handler for media player playback state change events.
+ * Called when play/pause state changes.
+ */
+typealias MediaPlayerPlaybackStateChangeHandler = (isPlaying: Boolean) -> Unit

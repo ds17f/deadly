@@ -1,6 +1,7 @@
 import AVFoundation
 import MediaPlayer
 import UIKit
+import ComposeApp
 
 /// SmartQueuePlayer - A wrapper around AVQueuePlayer that handles all the queue management complexity
 /// and provides simple callbacks for track changes, along with production-ready features like
@@ -14,6 +15,7 @@ import UIKit
     private var trackMetadata: [[String: Any]] = []
     private var currentIndex = 0
     private var endObserver: NSObjectProtocol?
+    private var isObservingRate = false
 
     // MARK: - Public Properties
 
@@ -43,6 +45,7 @@ import UIKit
 
         setupQueue()
         setupEndObserver()
+        setupPlaybackStateObserver()
         setupRemoteCommands()
         configureAudioSession()
     }
@@ -80,8 +83,9 @@ import UIKit
         // Extend queue if needed
         extendQueueIfNeeded()
 
-        // Notify callback
+        // Notify callback and AppPlatform
         onTrackChanged?(currentIndex)
+        AppPlatform.shared.notifyTrackChanged(newIndex: Int32(currentIndex))
         updateNowPlayingInfo()
 
         return true
@@ -111,8 +115,9 @@ import UIKit
         currentIndex -= 1
         rebuildQueue(from: currentIndex)
 
-        // Notify callback
+        // Notify callback and AppPlatform
         onTrackChanged?(currentIndex)
+        AppPlatform.shared.notifyTrackChanged(newIndex: Int32(currentIndex))
         updateNowPlayingInfo()
 
         return true
@@ -206,7 +211,7 @@ import UIKit
         queuePlayer.play()
     }
 
-    // MARK: - Track End Observer
+    // MARK: - Event Observers
 
     private func setupEndObserver() {
         endObserver = NotificationCenter.default.addObserver(
@@ -215,6 +220,32 @@ import UIKit
             queue: .main
         ) { [weak self] notification in
             self?.handleItemDidEnd(notification)
+        }
+    }
+
+    private func setupPlaybackStateObserver() {
+        // Observe rate changes to detect play/pause events
+        queuePlayer.addObserver(
+            self,
+            forKeyPath: #keyPath(AVQueuePlayer.rate),
+            options: [.new],
+            context: nil
+        )
+        isObservingRate = true
+    }
+
+    // KVO observer for playback state changes
+    public override func observeValue(forKeyPath keyPath: String?,
+                                     of object: Any?,
+                                     change: [NSKeyValueChangeKey : Any]?,
+                                     context: UnsafeMutableRawPointer?) {
+        if keyPath == #keyPath(AVQueuePlayer.rate) {
+            let isPlaying = queuePlayer.rate > 0
+            print("📱 [PLAYBACK_STATE] Rate changed to \(queuePlayer.rate), isPlaying: \(isPlaying)")
+
+            // Notify Kotlin via AppPlatform
+            AppPlatform.shared.notifyPlaybackStateChanged(isPlaying: isPlaying)
+            updateNowPlayingInfo()
         }
     }
 
@@ -229,6 +260,10 @@ import UIKit
             currentIndex += 1
             extendQueueIfNeeded()
             onTrackChanged?(currentIndex)
+
+            // Notify Kotlin via AppPlatform
+            AppPlatform.shared.notifyTrackChanged(newIndex: Int32(currentIndex))
+
             updateNowPlayingInfo()
         } else {
             // End of playlist
@@ -392,6 +427,13 @@ import UIKit
         if let observer = endObserver {
             NotificationCenter.default.removeObserver(observer)
         }
+
+        // Remove KVO observer if it was added
+        if isObservingRate {
+            queuePlayer.removeObserver(self, forKeyPath: #keyPath(AVQueuePlayer.rate))
+            isObservingRate = false
+        }
+
         queuePlayer.pause()
         queuePlayer.removeAllItems()
     }

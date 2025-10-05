@@ -1,6 +1,7 @@
 package com.grateful.deadly.services.media.platform
 
 import com.grateful.deadly.core.util.Logger
+import com.grateful.deadly.services.data.platform.AppPlatform
 import com.grateful.deadly.services.media.EnrichedTrack
 import com.grateful.deadly.services.media.platform.TrackMetadata
 import kotlinx.cinterop.*
@@ -50,6 +51,16 @@ actual class PlatformMediaPlayer {
     private var currentEnrichedTrackIndex: Int = -1
 
     init {
+        // Register event handlers for Swift → Kotlin communication
+        AppPlatform.registerMediaPlayerEventHandlers(
+            onTrackChanged = { newIndex ->
+                handleTrackChanged(newIndex)
+            },
+            onPlaybackStateChanged = { isPlaying ->
+                updatePlaybackState { copy(isPlaying = isPlaying) }
+            }
+        )
+
         startPositionUpdates()
     }
 
@@ -294,26 +305,21 @@ actual class PlatformMediaPlayer {
     }
 
     /**
-     * Start periodic position updates and state monitoring.
+     * Start periodic position updates for UI scrubber.
+     * Track changes and playback state are now handled by events.
      */
     private fun startPositionUpdates() {
         positionUpdateJob = playerScope.launch {
             while (true) {
                 try {
-                    // Get current playback state (no longer need player ID)
+                    // Get current position and duration for UI scrubber
                     val state = SmartQueuePlayerBridge.getPlaybackState()
                     val currentPositionMs = (state.currentTime * 1000).toLong()
                     val durationMs = (state.duration * 1000).toLong()
-                    val isPlaying = state.isPlaying
 
-                    // Check for track changes (simple polling approach)
-                    if (state.trackIndex != currentEnrichedTrackIndex) {
-                        handleTrackChanged(state.trackIndex)
-                    }
-
+                    // Update only position/duration - playback state and track changes handled by events
                     updatePlaybackState {
                         copy(
-                            isPlaying = isPlaying,
                             currentPositionMs = currentPositionMs,
                             durationMs = if (durationMs > 0) durationMs else 0L,
                             isLoading = false,
