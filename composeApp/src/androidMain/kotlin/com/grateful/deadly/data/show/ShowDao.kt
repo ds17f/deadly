@@ -191,9 +191,9 @@ actual class ShowDao actual constructor(
 
     // === Raw Recent Shows Database Operations ===
 
-    actual suspend fun recordShowPlay(showId: String, playTimestamp: Long) = withContext(Dispatchers.IO) {
+    actual suspend fun recordShowPlay(showId: String, playTimestamp: Long, recordingId: String?) = withContext(Dispatchers.IO) {
         database.recentShowsQueries.insertOrUpdateRecentShow(
-            showId, playTimestamp, showId, playTimestamp, showId
+            showId, playTimestamp, showId, playTimestamp, showId, recordingId
         )
     }
 

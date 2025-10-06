@@ -27,20 +27,17 @@ val iosModule = module {
     }
 
     single<Database> {
-        val driver = try {
-            NativeSqliteDriver(
-                schema = Database.Schema,
-                name = "deadly.db"
-            )
-        } catch (e: Exception) {
-            // If database initialization fails (likely schema mismatch),
-            // delete the database file and recreate it with the new schema
-            deleteIOSDatabaseFile()
-            NativeSqliteDriver(
-                schema = Database.Schema,
-                name = "deadly.db"
-            )
-        }
+        val driver = NativeSqliteDriver(
+            schema = Database.Schema,
+            name = "deadly.db",
+            onConfiguration = { config ->
+                config.copy(extendedConfig = config.extendedConfig.copy(busyTimeout = 5000))
+            },
+            onMigrate = { driver, oldVersion, newVersion ->
+                // SQLDelight will automatically apply migrations from migrations/ directory
+                // Migration 1.sqm: Adds recordingId to recent_shows (v1 -> v2)
+            }
+        )
         Database(driver)
     }
 

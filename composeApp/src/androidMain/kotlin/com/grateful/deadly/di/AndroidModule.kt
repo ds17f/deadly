@@ -22,25 +22,21 @@ val androidModule = module {
 
     single<Database> {
         val context: Context = get()
-        val driver = try {
-            AndroidSqliteDriver(
-                schema = Database.Schema,
-                context = context,
-                name = "deadly.db"
-            )
-        } catch (e: Exception) {
-            // If database initialization fails (likely schema mismatch),
-            // delete the database file and recreate it with the new schema
-            val dbFile = context.getDatabasePath("deadly.db")
-            if (dbFile.exists()) {
-                dbFile.delete()
+        val driver = AndroidSqliteDriver(
+            schema = Database.Schema,
+            context = context,
+            name = "deadly.db",
+            callback = object : AndroidSqliteDriver.Callback(Database.Schema) {
+                override fun onMigrate(
+                    driver: app.cash.sqldelight.db.SqlDriver,
+                    oldVersion: Long,
+                    newVersion: Long
+                ) {
+                    // SQLDelight will automatically apply migrations from migrations/ directory
+                    // Migration 1.sqm: Adds recordingId to recent_shows (v1 -> v2)
+                }
             }
-            AndroidSqliteDriver(
-                schema = Database.Schema,
-                context = context,
-                name = "deadly.db"
-            )
-        }
+        )
         Database(driver)
     }
 

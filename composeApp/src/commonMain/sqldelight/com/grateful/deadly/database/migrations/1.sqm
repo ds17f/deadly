@@ -1,0 +1,4 @@
+-- Migration from version 1 to version 2
+-- Adds recordingId column to recent_shows table for tracking which specific recording was played
+
+ALTER TABLE recent_shows ADD COLUMN recordingId TEXT;

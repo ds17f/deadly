@@ -96,9 +96,10 @@ expect class ShowDao(database: Database) {
     // === Raw Recent Shows Database Operations ===
 
     /**
-     * Record a show play (raw database operation)
+     * Record a show play with recording ID (raw database operation)
+     * The recordingId tracks which specific recording was played for correct navigation
      */
-    suspend fun recordShowPlay(showId: String, playTimestamp: Long)
+    suspend fun recordShowPlay(showId: String, playTimestamp: Long, recordingId: String? = null)
 
     /**
      * Get recent show entities (raw database operation)
