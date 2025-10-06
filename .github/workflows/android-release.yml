@@ -1,0 +1,68 @@
+name: Android Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version number (e.g., 1.0.0)'
+        required: true
+        type: string
+  push:
+    tags:
+      - 'android-v*'
+
+jobs:
+  build-release:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@eef61447b9ff4aafe5dcd4e0bbf5d482be7e7871 # v4.2.1
+
+    - name: Set up JDK 17
+      uses: actions/setup-java@b36c23c0d998641eff861008f374ee103c25ac73 # v4.4.0
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+        cache: gradle
+
+    - name: Grant execute permission for gradlew
+      run: chmod +x gradlew
+
+    - name: Decode keystore
+      run: |
+        echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > .secrets/my-release-key.jks
+
+    - name: Create keystore.properties
+      run: |
+        mkdir -p .secrets
+        cat > .secrets/keystore.properties << EOF
+        storeFile=.secrets/my-release-key.jks
+        storePassword=${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        keyAlias=${{ secrets.ANDROID_KEY_ALIAS }}
+        keyPassword=${{ secrets.ANDROID_KEY_PASSWORD }}
+        EOF
+
+    - name: Build release APK
+      run: ./gradlew :composeApp:assembleRelease --stacktrace
+
+    - name: Build release AAB
+      run: ./gradlew :composeApp:bundleRelease --stacktrace
+
+    - name: Upload signed APK
+      uses: actions/upload-artifact@84480863f228bb9747b473957fcc9e309aa96097 # v4.4.2
+      with:
+        name: release-apk
+        path: composeApp/build/outputs/apk/release/*.apk
+        retention-days: 30
+
+    - name: Upload signed AAB
+      uses: actions/upload-artifact@84480863f228bb9747b473957fcc9e309aa96097 # v4.4.2
+      with:
+        name: release-aab
+        path: composeApp/build/outputs/bundle/release/*.aab
+        retention-days: 30
+
+    - name: Clean up keystore
+      if: always()
+      run: rm -f .secrets/my-release-key.jks .secrets/keystore.properties

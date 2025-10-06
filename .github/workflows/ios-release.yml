@@ -1,0 +1,75 @@
+name: iOS Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version number (e.g., 1.0.0)'
+        required: true
+        type: string
+  push:
+    tags:
+      - 'ios-v*'
+
+jobs:
+  build-release:
+    runs-on: macos-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@eef61447b9ff4aafe5dcd4e0bbf5d482be7e7871 # v4.2.1
+
+    - name: Set up JDK 17
+      uses: actions/setup-java@b36c23c0d998641eff861008f374ee103c25ac73 # v4.4.0
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+        cache: gradle
+
+    - name: Install fastlane
+      run: |
+        brew install fastlane
+
+    - name: Grant execute permission for gradlew
+      run: chmod +x gradlew
+
+    - name: Decode certificate
+      run: |
+        mkdir -p .secrets
+        echo "${{ secrets.IOS_CERTIFICATE_BASE64 }}" | base64 -d > .secrets/certificate.p12
+
+    - name: Decode provisioning profile
+      run: |
+        echo "${{ secrets.IOS_PROVISIONING_PROFILE_BASE64 }}" | base64 -d > .secrets/profile.mobileprovision
+        mkdir -p ~/Library/Developer/Xcode/UserData/Provisioning\ Profiles
+        cp .secrets/profile.mobileprovision ~/Library/Developer/Xcode/UserData/Provisioning\ Profiles/
+
+    - name: Import certificate to keychain
+      run: |
+        security create-keychain -p "" build.keychain
+        security default-keychain -s build.keychain
+        security unlock-keychain -p "" build.keychain
+        security set-keychain-settings -t 3600 -u build.keychain
+        security import .secrets/certificate.p12 -k build.keychain -P "${{ secrets.IOS_CERTIFICATE_PASSWORD }}" -T /usr/bin/codesign
+        security set-key-partition-list -S apple-tool:,apple: -s -k "" build.keychain
+
+    - name: Build KMM framework for iOS Device
+      run: ./gradlew :composeApp:linkReleaseFrameworkIosArm64 --stacktrace
+
+    - name: Build and sign iOS app
+      run: |
+        cd iosApp/fastlane
+        fastlane build_release
+
+    - name: Upload IPA
+      uses: actions/upload-artifact@84480863f228bb9747b473957fcc9e309aa96097 # v4.4.2
+      with:
+        name: release-ipa
+        path: iosApp/build/*.ipa
+        retention-days: 30
+
+    - name: Clean up
+      if: always()
+      run: |
+        rm -f .secrets/certificate.p12 .secrets/profile.mobileprovision
+        security delete-keychain build.keychain || true

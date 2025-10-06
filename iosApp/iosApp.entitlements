@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Add your app's entitlements here -->
+	<!-- Common entitlements for basic apps: -->
+
+	<!-- Enable App Groups if needed for sharing data between app and extensions -->
+	<!-- <key>com.apple.security.application-groups</key>
+	<array>
+		<string>group.com.grateful.deadly</string>
+	</array> -->
+
+	<!-- Enable iCloud if needed -->
+	<!-- <key>com.apple.developer.icloud-container-identifiers</key>
+	<array>
+		<string>iCloud.com.grateful.deadly</string>
+	</array>
+	<key>com.apple.developer.icloud-services</key>
+	<array>
+		<string>CloudDocuments</string>
+		<string>CloudKit</string>
+	</array> -->
+
+	<!-- Enable Push Notifications if needed -->
+	<!-- <key>aps-environment</key>
+	<string>development</string> -->
+
+</dict>
+</plist>

@@ -19,3 +19,27 @@ captures
 logs/
 data-sample/
 sqliteDbs/
+
+# Secrets and signing materials
+.secrets
+.secrets/
+*.jks
+*.keystore
+*.p12
+*.mobileprovision
+*.provisionprofile
+keystore.properties
+key.properties
+
+# Fastlane
+android/fastlane/report.xml
+android/fastlane/test_output
+android/fastlane/.env
+iosApp/fastlane/report.xml
+iosApp/fastlane/test_output
+iosApp/fastlane/.env
+iosApp/fastlane/README.md
+**/fastlane/Preview.html
+
+# App Store Connect API Key
+*.p8

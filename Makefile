@@ -24,12 +24,16 @@ help:
 	@echo "BUILD COMMANDS:"
 	@echo "  build-debug-android     - Build Android debug APK"
 	@echo "  build-release-android   - Build Android release APK"
+	@echo "  build-release-signed-android - Build signed Android release APK"
+	@echo "  build-bundle-android    - Build signed Android App Bundle (AAB)"
 ifeq ($(UNAME_S),Darwin)
 	@echo "  build-debug-ios         - Build iOS debug framework"
-	@echo "  build-release-ios       - Build iOS release framework"
+	@echo "  build-release-ios       - Build signed iOS release IPA"
+	@echo "  release-ios-testflight  - Build and upload iOS release to TestFlight"
 else
 	@echo "  build-debug-ios         - [macOS only] Build iOS debug framework"
-	@echo "  build-release-ios       - [macOS only] Build iOS release framework"
+	@echo "  build-release-ios       - [macOS only] Build signed iOS release IPA"
+	@echo "  release-ios-testflight  - [macOS only] Build and upload to TestFlight"
 endif
 	@echo ""
 	@echo "INSTALL COMMANDS:"
@@ -46,12 +50,15 @@ endif
 	@echo "RUN COMMANDS:"
 	@echo "  run-android-emulator    - Build, install, and run on Android emulator"
 	@echo "  run-android-device      - Build, install, and run on Android device"
+	@echo "  run-android-device-signed - Build signed release, install, and run on device"
 ifeq ($(UNAME_S),Darwin)
 	@echo "  run-ios-simulator       - Build, install, and run on iOS simulator"
+	@echo "  run-ios-device          - Build, install, and run on connected iOS device"
 	@echo "  build-all               - Build both Android and iOS debug builds"
 	@echo "  run-all                 - Build, install, and run on both Android emulator and iOS simulator"
 else
 	@echo "  run-ios-simulator       - [macOS only] Build, install, and run on iOS simulator"
+	@echo "  run-ios-device          - [macOS only] Build, install, and run on iOS device"
 	@echo "  build-all               - [macOS only] Build both Android and iOS debug builds"
 	@echo "  run-all                 - [macOS only] Build, install, and run on both platforms"
 endif
@@ -91,6 +98,11 @@ endif
 	@echo "  clean-cache-android     - Delete Android app cache only"
 	@echo "  clean-cache-ios         - Delete iOS app cache only"
 	@echo ""
+	@echo "RELEASE COMMANDS:"
+	@echo "  release                 - Auto-determine version from commits and create release"
+	@echo "  release-version VERSION=x.y.z - Create release with specific version"
+	@echo "  release-dry-run         - Preview what release would do without making changes"
+	@echo ""
 	@echo "UTILITY COMMANDS:"
 	@echo "  clean                   - Clean all build outputs"
 	@echo "  clean-android          - Clean Android build outputs only"
@@ -114,6 +126,30 @@ build-release-android:
 	@echo "✅ Android release APK built successfully!"
 	@echo "📱 APK location: composeApp/build/outputs/apk/release/"
 
+.PHONY: build-release-signed-android
+build-release-signed-android:
+	@echo "🤖 Building signed Android release APK..."
+	@if [ ! -f .secrets/keystore.properties ]; then \
+		echo "❌ Error: .secrets/keystore.properties not found"; \
+		echo "💡 Please configure .secrets/keystore.properties with your keystore details"; \
+		exit 1; \
+	fi
+	$(GRADLEW) :composeApp:assembleRelease
+	@echo "✅ Signed Android release APK built successfully!"
+	@echo "📱 APK location: composeApp/build/outputs/apk/release/"
+
+.PHONY: build-bundle-android
+build-bundle-android:
+	@echo "🤖 Building signed Android App Bundle (AAB)..."
+	@if [ ! -f .secrets/keystore.properties ]; then \
+		echo "❌ Error: .secrets/keystore.properties not found"; \
+		echo "💡 Please configure .secrets/keystore.properties with your keystore details"; \
+		exit 1; \
+	fi
+	$(GRADLEW) :composeApp:bundleRelease
+	@echo "✅ Signed Android App Bundle built successfully!"
+	@echo "📦 AAB location: composeApp/build/outputs/bundle/release/"
+
 ifeq ($(UNAME_S),Darwin)
 .PHONY: build-debug-ios
 build-debug-ios:
@@ -124,9 +160,32 @@ build-debug-ios:
 
 .PHONY: build-release-ios
 build-release-ios:
-	@echo "🍎 Building iOS release framework..."
-	$(GRADLEW) :composeApp:linkReleaseFrameworkIosSimulatorArm64
-	@echo "✅ iOS release framework built successfully!"
+	@echo "🍎 Building iOS release IPA..."
+	@if ! command -v fastlane >/dev/null 2>&1; then \
+		echo "❌ fastlane not found"; \
+		echo "💡 Install with: brew install fastlane"; \
+		exit 1; \
+	fi
+	@echo "🔍 Building KMM framework for device..."
+	$(GRADLEW) :composeApp:linkReleaseFrameworkIosArm64
+	@echo "📦 Building and signing release IPA with fastlane..."
+	cd iosApp && fastlane build_release
+	@echo "✅ iOS release IPA built successfully!"
+	@echo "📱 IPA location: iosApp/build/Deadly.ipa"
+
+.PHONY: release-ios-testflight
+release-ios-testflight:
+	@echo "🍎 Building and uploading to TestFlight..."
+	@if ! command -v fastlane >/dev/null 2>&1; then \
+		echo "❌ fastlane not found"; \
+		echo "💡 Install with: brew install fastlane"; \
+		exit 1; \
+	fi
+	@echo "🔍 Building KMM framework for device..."
+	$(GRADLEW) :composeApp:linkReleaseFrameworkIosArm64
+	@echo "📦 Building, signing, and uploading to TestFlight..."
+	cd iosApp && fastlane deploy_testflight
+	@echo "✅ iOS app uploaded to TestFlight successfully!"
 endif
 
 # =============================================================================
@@ -201,13 +260,39 @@ install-ios-simulator: build-debug-ios
 	fi
 
 .PHONY: install-ios-device
-install-ios-device: build-debug-ios
+install-ios-device:
 	@echo "🍎 Installing iOS app to connected device..."
 	@echo "💡 Note: This requires proper iOS development setup (certificates, provisioning profiles)"
-	@echo "🔍 Building for device..."
+	@echo "🔍 Building framework for device..."
 	$(GRADLEW) :composeApp:linkDebugFrameworkIosArm64
-	@echo "✅ iOS device installation prepared!"
-	@echo "💡 Use Xcode to install to device or configure automatic deployment"
+	@echo "🔍 Building app for device..."
+	@DEVICE_ID=$$(xcrun xctrace list devices 2>&1 | grep "iPhone" | grep -v "Simulator" | head -1 | grep -o '[0-9A-F]\{8\}-[0-9A-F]\{16\}' | head -1); \
+	if [ -z "$$DEVICE_ID" ]; then \
+		echo "❌ No iOS device detected"; \
+		echo "💡 Please connect an iOS device and ensure it's trusted"; \
+		echo "💡 Available devices:"; \
+		xcrun xctrace list devices 2>&1 | grep "iPhone" | grep -v "Simulator"; \
+		exit 1; \
+	fi; \
+	echo "📱 Found device ID: $$DEVICE_ID"; \
+	cd iosApp && xcodebuild \
+		-project iosApp.xcodeproj \
+		-scheme iosApp \
+		-configuration Debug \
+		-destination "id=$$DEVICE_ID" \
+		-derivedDataPath ./build \
+		CODE_SIGN_STYLE=Manual \
+		clean build; \
+	echo "📱 Installing app to device..."; \
+	APP_PATH=$$(find ./build/Build/Products -name "Deadly.app" -type d | head -1); \
+	if [ -z "$$APP_PATH" ]; then \
+		echo "❌ App bundle not found"; \
+		echo "Searched in: ./build/Build/Products"; \
+		exit 1; \
+	fi; \
+	echo "📦 Found app at: $$APP_PATH"; \
+	xcrun devicectl device install app --device $$DEVICE_ID "$$APP_PATH"
+	@echo "✅ iOS app installed to device successfully!"
 endif
 
 # =============================================================================
@@ -219,6 +304,33 @@ run-android-device: install-android-device
 	@echo "🚀 Launching Android app on device..."
 	@if adb shell am start -n "com.grateful.deadly/com.grateful.deadly.MainActivity"; then \
 		echo "✅ Android app launched on device successfully!"; \
+	else \
+		echo "❌ Failed to launch Android app"; \
+		exit 1; \
+	fi
+
+.PHONY: run-android-device-signed
+run-android-device-signed: build-release-signed-android
+	@echo "🤖 Installing signed Android app to connected device..."
+	@echo "🔍 Checking for connected device..."
+	@DEVICE_COUNT=$$(adb devices | grep -c "device$$"); \
+	if [ $$DEVICE_COUNT -eq 0 ]; then \
+		echo "❌ No Android device detected"; \
+		echo "💡 Please connect an Android device with USB debugging enabled"; \
+		exit 1; \
+	else \
+		echo "✅ Found $$DEVICE_COUNT connected device(s)"; \
+	fi
+	@echo "📱 Installing signed release APK..."
+	@APK_PATH=$$(find composeApp/build/outputs/apk/release -name "*.apk" | head -1); \
+	if [ -z "$$APK_PATH" ]; then \
+		echo "❌ No APK found in composeApp/build/outputs/apk/release/"; \
+		exit 1; \
+	fi; \
+	adb install -r "$$APK_PATH"
+	@echo "🚀 Launching Android app on device..."
+	@if adb shell am start -n "com.grateful.deadly/com.grateful.deadly.MainActivity"; then \
+		echo "✅ Signed Android app launched on device successfully!"; \
 	else \
 		echo "❌ Failed to launch Android app"; \
 		exit 1; \
@@ -245,6 +357,24 @@ run-ios-simulator: install-ios-simulator
 	echo "🚀 Launching app with bundle ID: $$BUNDLE_ID"; \
 	xcrun simctl launch booted "$$BUNDLE_ID" && \
 	echo "✅ iOS app launched on simulator successfully!"
+
+.PHONY: run-ios-device
+run-ios-device: install-ios-device
+	@echo "🚀 Launching iOS app on device..."
+	@DEVICE_ID=$$(xcrun xctrace list devices 2>&1 | grep "iPhone" | grep -v "Simulator" | head -1 | grep -o '[0-9A-F]\{8\}-[0-9A-F]\{16\}' | head -1); \
+	if [ -z "$$DEVICE_ID" ]; then \
+		echo "⚠️  Could not detect device for launch"; \
+		echo "💡 Please manually tap the app icon on your device"; \
+	else \
+		echo "📱 Killing existing app instance if running..."; \
+		xcrun devicectl device process kill --device $$DEVICE_ID com.grateful.deadly.Deadly 2>/dev/null || true; \
+		sleep 1; \
+		echo "🚀 Launching app on device..."; \
+		xcrun devicectl device process launch --device $$DEVICE_ID com.grateful.deadly.Deadly 2>/dev/null || \
+		(echo "💡 Note: Auto-launch may require developer mode enabled on device"; \
+		echo "💡 Please manually tap the Deadly app icon on your device"); \
+	fi
+	@echo "✅ iOS app deployment complete!"
 endif
 
 # Linux-only commands for remote development
@@ -466,3 +596,43 @@ clean-cache-android:
 clean-cache-ios:
 	@echo "🧹 Cleaning iOS app cache..."
 	./scripts/clean-cache.sh ios
+
+# =============================================================================
+# RELEASE COMMANDS
+# =============================================================================
+
+.PHONY: release
+release:
+	@echo "🚀 Creating release with automatic versioning..."
+	@if [ ! -f scripts/release.sh ]; then \
+		echo "❌ Error: scripts/release.sh not found"; \
+		exit 1; \
+	fi
+	@./scripts/release.sh
+	@echo "✅ Release created successfully!"
+	@echo "💡 GitHub Actions will now build and publish the release"
+
+.PHONY: release-version
+release-version:
+	@echo "🚀 Creating release with version $(VERSION)..."
+	@if [ -z "$(VERSION)" ]; then \
+		echo "❌ Error: VERSION not specified"; \
+		echo "💡 Usage: make release-version VERSION=1.2.3"; \
+		exit 1; \
+	fi
+	@if [ ! -f scripts/release.sh ]; then \
+		echo "❌ Error: scripts/release.sh not found"; \
+		exit 1; \
+	fi
+	@./scripts/release.sh $(VERSION)
+	@echo "✅ Release $(VERSION) created successfully!"
+	@echo "💡 GitHub Actions will now build and publish the release"
+
+.PHONY: release-dry-run
+release-dry-run:
+	@echo "🧪 Running release dry run..."
+	@if [ ! -f scripts/release.sh ]; then \
+		echo "❌ Error: scripts/release.sh not found"; \
+		exit 1; \
+	fi
+	@./scripts/release.sh --dry-run

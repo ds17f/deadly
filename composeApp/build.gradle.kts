@@ -1,5 +1,6 @@
 import org.jetbrains.compose.desktop.application.dsl.TargetFormat
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import java.util.Properties
 
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
@@ -96,13 +97,39 @@ android {
     namespace = "com.grateful.deadly"
     compileSdk = libs.versions.android.compileSdk.get().toInt()
 
+    // Load version properties - single source of truth for Android and iOS versions
+    val versionPropsFile = rootProject.file("version.properties")
+    val versionProps = Properties()
+    if (versionPropsFile.exists()) {
+        versionPropsFile.inputStream().use { versionProps.load(it) }
+    }
+
+    // Load keystore properties for release signing
+    val keystorePropertiesFile = rootProject.file(".secrets/keystore.properties")
+    val keystoreProperties = Properties()
+    if (keystorePropertiesFile.exists()) {
+        keystorePropertiesFile.inputStream().use { keystoreProperties.load(it) }
+    }
+
     defaultConfig {
         applicationId = "com.grateful.deadly"
         minSdk = libs.versions.android.minSdk.get().toInt()
         targetSdk = libs.versions.android.targetSdk.get().toInt()
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = versionProps.getProperty("VERSION_CODE")?.toIntOrNull() ?: 1
+        versionName = versionProps.getProperty("VERSION_NAME") ?: "1.0.0"
     }
+
+    signingConfigs {
+        create("release") {
+            if (keystorePropertiesFile.exists()) {
+                storeFile = rootProject.file(keystoreProperties.getProperty("storeFile"))
+                storePassword = keystoreProperties.getProperty("storePassword")
+                keyAlias = keystoreProperties.getProperty("keyAlias")
+                keyPassword = keystoreProperties.getProperty("keyPassword")
+            }
+        }
+    }
+
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
@@ -111,6 +138,11 @@ android {
     buildTypes {
         getByName("release") {
             isMinifyEnabled = false
+            signingConfig = if (keystorePropertiesFile.exists()) {
+                signingConfigs.getByName("release")
+            } else {
+                null
+            }
         }
     }
     compileOptions {
