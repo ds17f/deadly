@@ -14,6 +14,7 @@ import com.grateful.deadly.feature.showdetail.components.ShowDetailInteractiveRa
 import com.grateful.deadly.feature.showdetail.components.ShowDetailActionRow
 import com.grateful.deadly.feature.showdetail.components.ShowDetailTrackList
 import com.grateful.deadly.feature.showdetail.components.ShowDetailHeader
+import com.grateful.deadly.feature.showdetail.components.ShowDetailMenuSheet
 import com.grateful.deadly.feature.recording.RecordingSelectionViewModel
 import com.grateful.deadly.feature.recording.components.RecordingSelectionSheet
 
@@ -163,15 +164,9 @@ fun ShowDetailScreen(
                                     Logger.d("ShowDetailScreen", "Show collections")
                                 },
                                 onShowMenu = {
-                                    // Show recording selection modal
-                                    Logger.d("ShowDetailScreen", "Show recording selection modal")
-                                    // Use showData.id and uiState.currentRecordingId from UI state
-                                    recordingSelectionViewModel.showRecordingSelection(
-                                        showId = showData.id,
-                                        showTitle = showData.displayTitle,
-                                        showDate = showData.date,
-                                        currentRecordingId = uiState.currentRecordingId
-                                    )
+                                    // Show menu
+                                    Logger.d("ShowDetailScreen", "Show menu")
+                                    viewModel.showMenu()
                                 },
                                 onTogglePlayback = {
                                     viewModel.togglePlayback()
@@ -217,6 +212,29 @@ fun ShowDetailScreen(
                     }
                 }
             }
+        }
+    }
+
+    // Menu Modal
+    if (uiState.showMenu) {
+        uiState.showData?.let { showData ->
+            ShowDetailMenuSheet(
+                onShareClick = {
+                    viewModel.shareShow()
+                },
+                onChooseRecordingClick = {
+                    // Open recording selection modal
+                    recordingSelectionViewModel.showRecordingSelection(
+                        showId = showData.id,
+                        showTitle = showData.displayTitle,
+                        showDate = showData.date,
+                        currentRecordingId = uiState.currentRecordingId
+                    )
+                },
+                onDismiss = {
+                    viewModel.hideMenu()
+                }
+            )
         }
     }
 

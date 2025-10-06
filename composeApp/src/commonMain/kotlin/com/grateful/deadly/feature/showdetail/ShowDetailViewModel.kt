@@ -101,12 +101,16 @@ class ShowDetailViewModel(
             initialValue = false
         )
 
+    // Menu state (for modal visibility)
+    private val _showMenu = MutableStateFlow(false)
+
     // Combined UI state with media comparison logic and library state (V2 pattern)
     val enhancedUiState: StateFlow<ShowDetailUiState> = combine(
         uiState,
         mediaState,
-        libraryState
-    ) { baseState, media, isInLibrary ->
+        libraryState,
+        _showMenu
+    ) { baseState, media, isInLibrary, showMenu ->
         // V2 logic: Determine if current show and recording match MediaService
         val playlistShowId = baseState.showData?.id
         val playlistRecordingId = baseState.currentRecordingId
@@ -124,7 +128,8 @@ class ShowDetailViewModel(
             showData = updatedShowData,
             isCurrentShowAndRecording = isCurrentShowAndRecording,
             isPlaying = media.isPlaying,
-            isMediaLoading = media.playbackStatus?.isLoading == true || media.playbackStatus?.isBuffering == true
+            isMediaLoading = media.playbackStatus?.isLoading == true || media.playbackStatus?.isBuffering == true,
+            showMenu = showMenu
         )
     }.stateIn(
         scope = viewModelScope,
@@ -360,6 +365,33 @@ class ShowDetailViewModel(
         }
     }
 
+    // === Menu Actions ===
+
+    /**
+     * Show the menu bottom sheet
+     */
+    fun showMenu() {
+        Logger.d(TAG, "Showing menu")
+        _showMenu.value = true
+    }
+
+    /**
+     * Hide the menu bottom sheet
+     */
+    fun hideMenu() {
+        Logger.d(TAG, "Hiding menu")
+        _showMenu.value = false
+    }
+
+    /**
+     * Share the current show
+     */
+    fun shareShow() {
+        Logger.d(TAG, "Share show")
+        // TODO: Implement share functionality
+        // For now, just log that it was called
+    }
+
     // === Library Actions (V2 Pattern Integration) ===
 
     /**
@@ -404,7 +436,8 @@ data class ShowDetailUiState(
     val error: String? = null,
     val isCurrentShowAndRecording: Boolean = false,
     val isPlaying: Boolean = false,
-    val isMediaLoading: Boolean = false
+    val isMediaLoading: Boolean = false,
+    val showMenu: Boolean = false
 ) {
     /**
      * Whether we have show data loaded.
