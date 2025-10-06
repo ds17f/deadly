@@ -9,7 +9,11 @@ interface RecentShowsService {
     val recentShows: StateFlow<List<Show>>
 
     // Manual recording (for explicit actions)
-    suspend fun recordShowPlay(showId: String, playTimestamp: Long = Clock.System.now().toEpochMilliseconds())
+    suspend fun recordShowPlay(
+        showId: String,
+        playTimestamp: Long = Clock.System.now().toEpochMilliseconds(),
+        recordingId: String? = null
+    )
 
     // Querying
     suspend fun getRecentShows(limit: Int = 8): List<Show>

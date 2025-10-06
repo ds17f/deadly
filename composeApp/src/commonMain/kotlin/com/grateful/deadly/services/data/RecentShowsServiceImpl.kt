@@ -72,10 +72,11 @@ class RecentShowsServiceImpl(
             // Observe MediaService state changes (V2 pattern)
             combine(
                 mediaService.currentShowId,
+                mediaService.currentRecordingId,
                 mediaService.playbackStatus,
                 mediaService.isPlaying
-            ) { showId, playbackStatus, isPlaying ->
-                PlaybackInfo(showId, playbackStatus, isPlaying)
+            ) { showId, recordingId, playbackStatus, isPlaying ->
+                PlaybackInfo(showId, recordingId, playbackStatus, isPlaying)
             }
                 .distinctUntilChanged()
                 .collect { playbackInfo ->
@@ -103,8 +104,9 @@ class RecentShowsServiceImpl(
 
             val position = playbackInfo.playbackStatus.currentPosition
             val duration = playbackInfo.playbackStatus.duration
-            Logger.d(TAG, "📱 Play threshold met: ${position/1000}s / ${duration/1000}s - recording show play")
-            recordShowPlay(showId)
+            val recordingId = playbackInfo.recordingId
+            Logger.d(TAG, "📱 Play threshold met: ${position/1000}s / ${duration/1000}s - recording show play (recordingId: $recordingId)")
+            recordShowPlay(showId, recordingId = recordingId)
             hasRecordedCurrentTrack = true
         }
     }
@@ -132,9 +134,9 @@ class RecentShowsServiceImpl(
         hasRecordedCurrentTrack = false
     }
 
-    override suspend fun recordShowPlay(showId: String, playTimestamp: Long) {
-        Logger.d(TAG, "📱 Recording show play: $showId at timestamp $playTimestamp")
-        showService.recordShowPlay(showId, playTimestamp)
+    override suspend fun recordShowPlay(showId: String, playTimestamp: Long, recordingId: String?) {
+        Logger.d(TAG, "📱 Recording show play: $showId at timestamp $playTimestamp (recordingId: $recordingId)")
+        showService.recordShowPlay(showId, playTimestamp, recordingId)
         Logger.d(TAG, "📱 Show play recorded successfully")
     }
 
@@ -168,6 +170,7 @@ class RecentShowsServiceImpl(
 
 private data class PlaybackInfo(
     val showId: String?,
+    val recordingId: String?,
     val playbackStatus: PlaybackStatus,
     val isPlaying: Boolean
 )

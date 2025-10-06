@@ -30,6 +30,19 @@ SELECT * FROM recent_shows
 ORDER BY lastPlayedTimestamp DESC
 LIMIT ?;
 
+-- Get recent shows with Show data joined (for UI display with recordingId)
+getRecentShowsWithDetails:
+SELECT
+    rs.showId,
+    rs.recordingId,
+    rs.lastPlayedTimestamp,
+    rs.totalPlayCount,
+    s.*
+FROM recent_shows rs
+INNER JOIN Show s ON rs.showId = s.showId
+ORDER BY rs.lastPlayedTimestamp DESC
+LIMIT ?;
+
 -- Reactive query for StateFlow integration
 getRecentShowsFlow:
 SELECT * FROM recent_shows

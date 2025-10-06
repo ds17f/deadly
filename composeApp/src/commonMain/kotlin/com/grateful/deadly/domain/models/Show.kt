@@ -30,7 +30,10 @@ data class Show(
 
     // User state (V2 hybrid pattern: denormalized in Show table for fast queries)
     val isInLibrary: Boolean,
-    val libraryAddedAt: Long?
+    val libraryAddedAt: Long?,
+
+    // Recent play tracking (only populated for recently played shows)
+    val lastPlayedRecordingId: String? = null
 ) {
     /**
      * Display title for the show

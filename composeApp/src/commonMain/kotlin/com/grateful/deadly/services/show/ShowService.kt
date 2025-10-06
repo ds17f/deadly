@@ -428,10 +428,14 @@ class ShowService(
 
     /**
      * Record a show play with UPSERT logic for smart deduplication.
-     * Updates lastPlayedTimestamp and increments totalPlayCount.
+     * Updates lastPlayedTimestamp, increments totalPlayCount, and tracks recordingId.
      */
-    suspend fun recordShowPlay(showId: String, playTimestamp: Long = Clock.System.now().toEpochMilliseconds()) {
-        showDao.recordShowPlay(showId, playTimestamp)
+    suspend fun recordShowPlay(
+        showId: String,
+        playTimestamp: Long = Clock.System.now().toEpochMilliseconds(),
+        recordingId: String? = null
+    ) {
+        showDao.recordShowPlay(showId, playTimestamp, recordingId)
     }
 
     /**
