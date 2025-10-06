@@ -1,0 +1,11 @@
+-- Migration from version 2 to version 3
+-- Adds user_recording_preferences table for tracking user's preferred recording per show
+
+CREATE TABLE user_recording_preferences (
+    showId TEXT PRIMARY KEY NOT NULL,
+    recordingId TEXT NOT NULL,
+    setAt INTEGER NOT NULL,
+    FOREIGN KEY(showId) REFERENCES Show(showId) ON DELETE CASCADE
+);
+
+CREATE INDEX idx_user_recording_preferences_showId ON user_recording_preferences(showId);

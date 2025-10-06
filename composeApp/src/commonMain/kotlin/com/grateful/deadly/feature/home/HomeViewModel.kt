@@ -90,9 +90,9 @@ class HomeViewModel(
     /**
      * Navigation methods for platform-agnostic navigation
      */
-    suspend fun onNavigateToShow(showId: String) {
-        Logger.d(TAG, "Navigate to show: $showId")
-        _navigation.emit(NavigationEvent(AppScreen.ShowDetail(showId)))
+    suspend fun onNavigateToShow(showId: String, recordingId: String? = null) {
+        Logger.d(TAG, "Navigate to show: $showId${recordingId?.let { ", recording: $it" } ?: ""}")
+        _navigation.emit(NavigationEvent(AppScreen.ShowDetail(showId, recordingId)))
     }
 
 

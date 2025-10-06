@@ -26,7 +26,7 @@ import com.grateful.deadly.feature.home.components.RecentShowsGrid
  */
 @Composable
 fun HomeScreen(
-    onNavigateToShow: (String) -> Unit,
+    onNavigateToShow: (showId: String, recordingId: String?) -> Unit,
     onNavigateToSearch: () -> Unit,
     onNavigateToCollection: (String) -> Unit,
     viewModel: HomeViewModel,
@@ -79,7 +79,10 @@ fun HomeScreen(
             item {
                 RecentShowsGrid(
                     shows = uiState.homeContent.recentShows,
-                    onShowClick = onNavigateToShow,
+                    onShowClick = { show ->
+                        // Navigate with the last played recording ID if available
+                        onNavigateToShow(show.id, show.lastPlayedRecordingId)
+                    },
                     onShowLongPress = { show ->
                         // TODO: Implement context menu (library add/remove, etc.)
                         Logger.d("HomeScreen", "Long pressed show: ${show.id}")
@@ -103,11 +106,11 @@ fun HomeScreen(
                     title = "Today In Grateful Dead History",
                     items = todayItems,
                     onItemClick = { item ->
-                        // Find the show and navigate
+                        // Find the show and navigate (no recordingId for TIGDH - use recommended)
                         val show = uiState.homeContent.todayInHistory.find { it.id == item.id }
                         show?.let {
                             Logger.d("HomeScreen", "🗓️ Navigating to TIGDH show: ${it.id} (${it.date})")
-                            onNavigateToShow(it.id)
+                            onNavigateToShow(it.id, null)
                         }
                     }
                 )

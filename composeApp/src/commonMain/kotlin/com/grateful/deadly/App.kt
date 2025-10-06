@@ -128,9 +128,9 @@ fun App() {
 
                 com.grateful.deadly.feature.home.HomeScreen(
                     viewModel = homeViewModel,
-                    onNavigateToShow = { showId ->
+                    onNavigateToShow = { showId, recordingId ->
                         coroutineScope.launch {
-                            homeViewModel.onNavigateToShow(showId)
+                            homeViewModel.onNavigateToShow(showId, recordingId)
                         }
                     },
                     onNavigateToSearch = {

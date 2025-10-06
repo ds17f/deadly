@@ -1,5 +1,6 @@
 package com.grateful.deadly.services.show
 
+import com.grateful.deadly.core.logging.Logger
 import com.grateful.deadly.data.show.ShowDao
 import com.grateful.deadly.domain.mappers.ShowMappers
 import com.grateful.deadly.domain.models.Recording
@@ -435,6 +436,7 @@ class ShowService(
         playTimestamp: Long = Clock.System.now().toEpochMilliseconds(),
         recordingId: String? = null
     ) {
+        Logger.d("ShowService", "🔴 Writing to DB - showId: $showId, recordingId: $recordingId")
         showDao.recordShowPlay(showId, playTimestamp, recordingId)
     }
 
@@ -443,10 +445,10 @@ class ShowService(
      * Universal business logic: entity-to-domain conversion.
      */
     suspend fun getRecentShows(limit: Int = 8): List<Show> {
-        val recentShowRows = showDao.getRecentShowEntities(limit)
-        return recentShowRows.map { row ->
+        val recentShowPairs = showDao.getRecentShowEntities(limit)
+        return recentShowPairs.map { (row, recordingId) ->
             val entity = mapShowRowToEntity(row)
-            showMappers.entityToDomain(entity)
+            showMappers.entityToDomain(entity).copy(lastPlayedRecordingId = recordingId)
         }
     }
 
@@ -455,10 +457,10 @@ class ShowService(
      * Universal business logic: Flow mapping.
      */
     fun getRecentShowsFlow(limit: Int = 8): Flow<List<Show>> {
-        return showDao.getRecentShowEntitiesFlow(limit).map { showRows ->
-            showRows.map { row ->
+        return showDao.getRecentShowEntitiesFlow(limit).map { showPairs ->
+            showPairs.map { (row, recordingId) ->
                 val entity = mapShowRowToEntity(row)
-                showMappers.entityToDomain(entity)
+                showMappers.entityToDomain(entity).copy(lastPlayedRecordingId = recordingId)
             }
         }
     }
@@ -484,6 +486,33 @@ class ShowService(
      */
     suspend fun clearAllRecentShows() {
         showDao.clearAllRecentShows()
+    }
+
+    // === User Recording Preferences ===
+
+    /**
+     * Get user's preferred recording for a show.
+     * Returns the recordingId the user has set as their default, or null if no preference exists.
+     */
+    suspend fun getUserRecordingPreference(showId: String): String? {
+        return showDao.getUserRecordingPreference(showId)
+    }
+
+    /**
+     * Set user's preferred recording for a show.
+     * Saves the user's "Set as Default" choice with current timestamp.
+     */
+    suspend fun setUserRecordingPreference(showId: String, recordingId: String) {
+        val timestamp = Clock.System.now().toEpochMilliseconds()
+        showDao.setUserRecordingPreference(showId, recordingId, timestamp)
+    }
+
+    /**
+     * Clear user's preferred recording for a show.
+     * Removes the saved preference (used by "Reset to Recommended").
+     */
+    suspend fun clearUserRecordingPreference(showId: String) {
+        showDao.clearUserRecordingPreference(showId)
     }
 
     /**

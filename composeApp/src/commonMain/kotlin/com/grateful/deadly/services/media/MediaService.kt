@@ -247,6 +247,7 @@ class MediaService(
             // Update StateFlow for RecentShowsService observation
             _currentShowId.value = showId
             _currentRecordingId.value = recordingId
+            Logger.d(TAG, "🔴 MediaService._currentRecordingId set to: $recordingId")
 
             // Create enriched tracks with all V2 metadata
             val enrichedTracks = tracks.mapIndexed { index, track ->

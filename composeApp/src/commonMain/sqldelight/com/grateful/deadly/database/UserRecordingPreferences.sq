@@ -1,0 +1,43 @@
+-- SQLDelight schema for UserRecordingPreferences table
+-- Stores user's preferred recording selection for each show ("Set as Default" functionality)
+
+-- User recording preferences table
+CREATE TABLE user_recording_preferences (
+    showId TEXT PRIMARY KEY NOT NULL,           -- One preference per show
+    recordingId TEXT NOT NULL,                  -- User's preferred recording for this show
+    setAt INTEGER NOT NULL,                     -- When preference was set (timestamp)
+
+    FOREIGN KEY(showId) REFERENCES Show(showId) ON DELETE CASCADE
+);
+
+-- Index for efficient lookups
+CREATE INDEX idx_user_recording_preferences_showId ON user_recording_preferences(showId);
+
+-- Set or update user's preferred recording for a show
+setRecordingPreference:
+INSERT OR REPLACE INTO user_recording_preferences (showId, recordingId, setAt)
+VALUES (?, ?, ?);
+
+-- Get user's preferred recording for a show
+getRecordingPreference:
+SELECT recordingId FROM user_recording_preferences
+WHERE showId = ?;
+
+-- Check if user has set a preference for a show
+hasRecordingPreference:
+SELECT COUNT(*) > 0 FROM user_recording_preferences
+WHERE showId = ?;
+
+-- Remove user's preference for a show
+removeRecordingPreference:
+DELETE FROM user_recording_preferences
+WHERE showId = ?;
+
+-- Clear all user preferences
+clearAllRecordingPreferences:
+DELETE FROM user_recording_preferences;
+
+-- Get all user preferences (for debugging/analytics)
+getAllRecordingPreferences:
+SELECT * FROM user_recording_preferences
+ORDER BY setAt DESC;

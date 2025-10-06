@@ -197,21 +197,83 @@ actual class ShowDao actual constructor(
         )
     }
 
-    actual suspend fun getRecentShowEntities(limit: Int): List<com.grateful.deadly.database.Show> = withContext(Dispatchers.Default) {
-        database.recentShowsQueries.getRecentShows(limit.toLong())
+    actual suspend fun getRecentShowEntities(limit: Int): List<Pair<com.grateful.deadly.database.Show, String?>> = withContext(Dispatchers.Default) {
+        database.recentShowsQueries.getRecentShowsWithDetails(limit.toLong())
             .executeAsList()
-            .mapNotNull { recentShow ->
-                database.showQueries.selectShowById(recentShow.showId).executeAsOneOrNull()
+            .map { details ->
+                // Map GetRecentShowsWithDetails to Show with recordingId
+                val show = com.grateful.deadly.database.Show(
+                    showId = details.showId_,
+                    date = details.date,
+                    year = details.year,
+                    month = details.month,
+                    yearMonth = details.yearMonth,
+                    band = details.band,
+                    url = details.url,
+                    venueName = details.venueName,
+                    city = details.city,
+                    state = details.state,
+                    country = details.country,
+                    locationRaw = details.locationRaw,
+                    setlistStatus = details.setlistStatus,
+                    setlistRaw = details.setlistRaw,
+                    songList = details.songList,
+                    lineupStatus = details.lineupStatus,
+                    lineupRaw = details.lineupRaw,
+                    memberList = details.memberList,
+                    showSequence = details.showSequence,
+                    recordingsRaw = details.recordingsRaw,
+                    recordingCount = details.recordingCount,
+                    bestRecordingId = details.bestRecordingId,
+                    averageRating = details.averageRating,
+                    totalReviews = details.totalReviews,
+                    isInLibrary = details.isInLibrary,
+                    libraryAddedAt = details.libraryAddedAt,
+                    createdAt = details.createdAt,
+                    updatedAt = details.updatedAt
+                )
+                show to details.recordingId  // Return pair with recordingId from recent_shows
             }
     }
 
-    actual fun getRecentShowEntitiesFlow(limit: Int): Flow<List<com.grateful.deadly.database.Show>> {
-        return database.recentShowsQueries.getRecentShows(limit.toLong())
+    actual fun getRecentShowEntitiesFlow(limit: Int): Flow<List<Pair<com.grateful.deadly.database.Show, String?>>> {
+        return database.recentShowsQueries.getRecentShowsWithDetails(limit.toLong())
             .asFlow()
             .mapToList(Dispatchers.Default)
-            .map { recentShows ->
-                recentShows.mapNotNull { recentShow ->
-                    database.showQueries.selectShowById(recentShow.showId).executeAsOneOrNull()
+            .map { detailsList ->
+                detailsList.map { details ->
+                    // Map GetRecentShowsWithDetails to Show with recordingId
+                    val show = com.grateful.deadly.database.Show(
+                        showId = details.showId_,
+                        date = details.date,
+                        year = details.year,
+                        month = details.month,
+                        yearMonth = details.yearMonth,
+                        band = details.band,
+                        url = details.url,
+                        venueName = details.venueName,
+                        city = details.city,
+                        state = details.state,
+                        country = details.country,
+                        locationRaw = details.locationRaw,
+                        setlistStatus = details.setlistStatus,
+                        setlistRaw = details.setlistRaw,
+                        songList = details.songList,
+                        lineupStatus = details.lineupStatus,
+                        lineupRaw = details.lineupRaw,
+                        memberList = details.memberList,
+                        showSequence = details.showSequence,
+                        recordingsRaw = details.recordingsRaw,
+                        recordingCount = details.recordingCount,
+                        bestRecordingId = details.bestRecordingId,
+                        averageRating = details.averageRating,
+                        totalReviews = details.totalReviews,
+                        isInLibrary = details.isInLibrary,
+                        libraryAddedAt = details.libraryAddedAt,
+                        createdAt = details.createdAt,
+                        updatedAt = details.updatedAt
+                    )
+                    show to details.recordingId  // Return pair with recordingId from recent_shows
                 }
             }
     }
@@ -226,6 +288,20 @@ actual class ShowDao actual constructor(
 
     actual suspend fun cleanupOldRecentShows(keepCount: Int) = withContext(Dispatchers.Default) {
         database.recentShowsQueries.cleanupOldRecentShows(keepCount.toLong())
+    }
+
+    // === User Recording Preferences (raw database operation) ===
+
+    actual suspend fun getUserRecordingPreference(showId: String): String? = withContext(Dispatchers.Default) {
+        database.userRecordingPreferencesQueries.getRecordingPreference(showId).executeAsOneOrNull()
+    }
+
+    actual suspend fun setUserRecordingPreference(showId: String, recordingId: String, timestamp: Long) = withContext(Dispatchers.Default) {
+        database.userRecordingPreferencesQueries.setRecordingPreference(showId, recordingId, timestamp)
+    }
+
+    actual suspend fun clearUserRecordingPreference(showId: String) = withContext(Dispatchers.Default) {
+        database.userRecordingPreferencesQueries.removeRecordingPreference(showId)
     }
 
     // === Raw Query Operations (SQLDelight direct) ===

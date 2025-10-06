@@ -102,14 +102,16 @@ expect class ShowDao(database: Database) {
     suspend fun recordShowPlay(showId: String, playTimestamp: Long, recordingId: String? = null)
 
     /**
-     * Get recent show entities (raw database operation)
+     * Get recent show entities with their last played recording IDs (raw database operation)
+     * Returns Show entities paired with their last played recording ID from recent_shows
      */
-    suspend fun getRecentShowEntities(limit: Int): List<com.grateful.deadly.database.Show>
+    suspend fun getRecentShowEntities(limit: Int): List<Pair<com.grateful.deadly.database.Show, String?>>
 
     /**
-     * Get recent show entities flow (raw database operation)
+     * Get recent show entities flow with their last played recording IDs (raw database operation)
+     * Returns Show entities paired with their last played recording ID from recent_shows
      */
-    fun getRecentShowEntitiesFlow(limit: Int): Flow<List<com.grateful.deadly.database.Show>>
+    fun getRecentShowEntitiesFlow(limit: Int): Flow<List<Pair<com.grateful.deadly.database.Show, String?>>>
 
     /**
      * Remove recent show (raw database operation)
@@ -125,6 +127,26 @@ expect class ShowDao(database: Database) {
      * Clean up old recent shows (raw database operation)
      */
     suspend fun cleanupOldRecentShows(keepCount: Int)
+
+    // === User Recording Preferences (raw database operation) ===
+
+    /**
+     * Get user's preferred recording for a show (raw database operation)
+     * Returns the recordingId the user has set as their default for this show, or null if no preference exists
+     */
+    suspend fun getUserRecordingPreference(showId: String): String?
+
+    /**
+     * Set user's preferred recording for a show (raw database operation)
+     * Saves the user's "Set as Default" recording choice
+     */
+    suspend fun setUserRecordingPreference(showId: String, recordingId: String, timestamp: Long)
+
+    /**
+     * Clear user's preferred recording for a show (raw database operation)
+     * Removes the user's saved preference (used by "Reset to Recommended")
+     */
+    suspend fun clearUserRecordingPreference(showId: String)
 
     // === Raw Query Operations (SQLDelight direct) ===
 

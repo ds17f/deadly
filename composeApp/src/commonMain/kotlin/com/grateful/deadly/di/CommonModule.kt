@@ -278,10 +278,11 @@ val commonModule = module {
         )
     }
 
-    factory {
+    factory { (onRecordingChanged: ((String) -> Unit)?) ->
         Logger.d("CommonModule", "Creating RecordingSelectionViewModel instance")
         RecordingSelectionViewModel(
-            recordingSelectionService = get()
+            recordingSelectionService = get(),
+            onRecordingChanged = onRecordingChanged
         )
     }
 }

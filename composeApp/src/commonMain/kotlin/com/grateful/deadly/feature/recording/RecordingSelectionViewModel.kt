@@ -34,7 +34,8 @@ class RecordingSelectionViewModel(
     /**
      * Shows the recording selection modal for the given show
      */
-    fun showRecordingSelection(showId: String, showTitle: String, showDate: String) {
+    fun showRecordingSelection(showId: String, showTitle: String, showDate: String, currentRecordingId: String?) {
+        println("🔴 RecordingSelectionVM.showRecordingSelection called with showId: $showId, currentRecordingId: $currentRecordingId")
         currentShowId = showId
         _state.value = _state.value.copy(
             isVisible = true,
@@ -45,7 +46,8 @@ class RecordingSelectionViewModel(
         )
 
         viewModelScope.launch {
-            when (val result = recordingSelectionService.getRecordingOptions(showId)) {
+            println("🔴 RecordingSelectionVM calling service.getRecordingOptions for showId: $showId, currentRecordingId: $currentRecordingId")
+            when (val result = recordingSelectionService.getRecordingOptions(showId, currentRecordingId)) {
                 is RecordingOptionsResult.Success -> {
                     _state.value = _state.value.copy(
                         currentRecording = result.currentRecording,
@@ -111,6 +113,8 @@ class RecordingSelectionViewModel(
      * Dismisses the recording selection modal
      */
     fun dismissSelection() {
+        // V2 pattern: Clear any temporary selection when dismissing without saving
+        recordingSelectionService.clearTemporarySelection()
         _state.value = RecordingSelectionState()
     }
 
@@ -165,15 +169,11 @@ class RecordingSelectionViewModel(
             try {
                 recordingSelectionService.resetToRecommended()
 
-                // Get the recommended recording ID to notify parent
-                val recommendedRecording = _state.value.alternativeRecordings.find {
-                    it.isRecommended && it.matchReason == "Recommended"
-                } ?: _state.value.currentRecording?.takeIf {
-                    it.isRecommended && it.matchReason == "Recommended"
-                }
+                // Get the recording ID that was set (should be the recommended one)
+                val newRecordingId = recordingSelectionService.getCurrentRecordingId()
 
                 // Notify parent view to update its recording (V2 pattern - update in place)
-                recommendedRecording?.let { onRecordingChanged?.invoke(it.identifier) }
+                newRecordingId?.let { onRecordingChanged?.invoke(it) }
 
                 // Refresh the recording options to reflect the change
                 refreshRecordingOptions()
@@ -187,7 +187,8 @@ class RecordingSelectionViewModel(
 
     private suspend fun refreshRecordingOptions() {
         val showId = currentShowId ?: return
-        when (val result = recordingSelectionService.getRecordingOptions(showId)) {
+        val currentRecId = recordingSelectionService.getCurrentRecordingId()
+        when (val result = recordingSelectionService.getRecordingOptions(showId, currentRecId)) {
             is RecordingOptionsResult.Success -> {
                 _state.value = _state.value.copy(
                     currentRecording = result.currentRecording,

@@ -30,7 +30,7 @@ import com.grateful.deadly.domain.models.Show
 @Composable
 fun RecentShowsGrid(
     shows: List<Show>,
-    onShowClick: (String) -> Unit,
+    onShowClick: (Show) -> Unit,
     onShowLongPress: (Show) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -58,7 +58,7 @@ fun RecentShowsGrid(
             items(displayShows) { show ->
                 RecentShowCard(
                     show = show,
-                    onShowClick = { onShowClick(show.id) },
+                    onShowClick = { onShowClick(show) },
                     onShowLongPress = { onShowLongPress(show) }
                 )
             }

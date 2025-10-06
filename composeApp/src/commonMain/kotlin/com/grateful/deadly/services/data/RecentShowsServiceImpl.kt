@@ -29,6 +29,7 @@ class RecentShowsServiceImpl(
 
     // Track state for debouncing (matches V2 pattern)
     private var currentTrackShowId: String? = null
+    private var currentTrackRecordingId: String? = null
     private var currentTrackStartTime: Long = 0
     private var hasRecordedCurrentTrack = false
     private var trackingJob: Job? = null
@@ -87,12 +88,14 @@ class RecentShowsServiceImpl(
 
     private suspend fun handlePlaybackStateChange(playbackInfo: PlaybackInfo) {
         val showId = playbackInfo.showId ?: return
+        val recordingId = playbackInfo.recordingId
 
-        // Track changes (V2 debouncing pattern)
-        if (showId != currentTrackShowId) {
-            Logger.d(TAG, "📱 Track change detected: $currentTrackShowId -> $showId")
+        // Track changes (V2 debouncing pattern) - reset if EITHER show OR recording changes
+        if (showId != currentTrackShowId || recordingId != currentTrackRecordingId) {
+            Logger.d(TAG, "📱 Track change detected: $currentTrackShowId/$currentTrackRecordingId -> $showId/$recordingId")
             resetTrackingState()
             currentTrackShowId = showId
+            currentTrackRecordingId = recordingId
             currentTrackStartTime = Clock.System.now().toEpochMilliseconds()
             hasRecordedCurrentTrack = false
         }
@@ -106,6 +109,7 @@ class RecentShowsServiceImpl(
             val duration = playbackInfo.playbackStatus.duration
             val recordingId = playbackInfo.recordingId
             Logger.d(TAG, "📱 Play threshold met: ${position/1000}s / ${duration/1000}s - recording show play (recordingId: $recordingId)")
+            Logger.d(TAG, "🔴 RecentShowsService received recordingId from mediaService: $recordingId")
             recordShowPlay(showId, recordingId = recordingId)
             hasRecordedCurrentTrack = true
         }
@@ -130,6 +134,7 @@ class RecentShowsServiceImpl(
 
     private fun resetTrackingState() {
         currentTrackShowId = null
+        currentTrackRecordingId = null
         currentTrackStartTime = 0
         hasRecordedCurrentTrack = false
     }

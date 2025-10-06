@@ -37,15 +37,19 @@ class RecordingSelectionService(
      */
     suspend fun getRecordingOptions(showId: String, currentRecordingId: String? = null): RecordingOptionsResult {
         return try {
+            println("🔴 RecordingSelectionService.getRecordingOptions called with showId: $showId")
             // Update session state
             this.currentShowId = showId
             this.currentRecordingId = currentRecordingId
+            this.selectedRecordingId = null // Reset selection when opening modal (V2 pattern)
 
             // Load show and recordings from ShowService
             val show = showService.getShowById(showId)
                 ?: return RecordingOptionsResult.Error("Show not found")
+            println("🔴 RecordingSelectionService loaded show: ${show.displayTitle}")
 
             val recordings = showService.getRecordingsForShow(showId)
+            println("🔴 RecordingSelectionService loaded ${recordings.size} recordings for showId: $showId")
             if (recordings.isEmpty()) {
                 return RecordingOptionsResult.Error("No recordings found for this show")
             }
@@ -104,8 +108,9 @@ class RecordingSelectionService(
             recording.lineage
         ).joinToString(", ").takeIf { it.isNotEmpty() }
 
-        // Determine selection state - use selectedRecordingId if set, otherwise current
-        val isSelected = selectedRecordingId?.let { it == recording.identifier } ?: isCurrent
+        // Determine selection state - only use selectedRecordingId (V2 pattern: preview separate from current)
+        // When modal first opens, selectedRecordingId is null, so nothing is selected (just current is highlighted)
+        val isSelected = selectedRecordingId == recording.identifier
 
         return RecordingOptionViewModel(
             identifier = recording.identifier,
@@ -136,30 +141,36 @@ class RecordingSelectionService(
     }
 
     /**
-     * Set recording as default (future implementation)
+     * Set recording as default
      *
-     * In V2, this would persist the preference to user settings.
-     * This makes the temporary selection permanent.
+     * Persists the user's preference to settings.
+     * Makes the temporary selection permanent.
      */
-    fun setRecordingAsDefault(recordingId: String) {
+    suspend fun setRecordingAsDefault(recordingId: String) {
+        val showId = currentShowId ?: return
         selectedRecordingId = recordingId
         currentRecordingId = recordingId // Make selection permanent
-        // TODO: Save to user preferences
-        // - Update user's default recording preference for this show
-        // - Persist to local storage
+
+        // Persist user's default recording preference via ShowService
+        showService.setUserRecordingPreference(showId, recordingId)
     }
 
     /**
      * Reset to recommended recording
      *
-     * Sets current recording back to the show's best recording.
+     * Clears user's saved preference and switches back to the show's best recording.
+     * Makes the change permanent (inverse of setRecordingAsDefault).
      */
     suspend fun resetToRecommended() {
         val showId = currentShowId ?: return
         val show = showService.getShowById(showId) ?: return
         val recommendedId = show.bestRecordingId ?: return
 
-        selectRecording(recommendedId)
+        selectedRecordingId = recommendedId
+        currentRecordingId = recommendedId // Make selection permanent
+
+        // Clear user's saved preference (inverse of setRecordingAsDefault)
+        showService.clearUserRecordingPreference(showId)
     }
 
     /**
@@ -168,7 +179,14 @@ class RecordingSelectionService(
     fun getCurrentRecordingId(): String? = currentRecordingId
 
     /**
-     * Clear selection state
+     * Clear temporary selection (used when dismissing modal without saving)
+     */
+    fun clearTemporarySelection() {
+        selectedRecordingId = null
+    }
+
+    /**
+     * Clear all selection state
      */
     fun clearSelection() {
         currentShowId = null

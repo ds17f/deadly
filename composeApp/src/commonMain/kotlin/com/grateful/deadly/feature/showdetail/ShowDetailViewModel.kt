@@ -275,6 +275,8 @@ class ShowDetailViewModel(
                 val recordingId = enhancedUiState.value.currentRecordingId ?: ""
                 val showData = enhancedUiState.value.showData
 
+                Logger.d(TAG, "🔴 ShowDetailViewModel.playTrack() - recordingId from UI state: $recordingId")
+
                 // Pass show metadata to MediaService for UI display
                 val result = mediaService.playTrack(
                     track = track,
@@ -327,6 +329,8 @@ class ShowDetailViewModel(
                         if (tracks.isNotEmpty()) {
                             val firstTrack = tracks.first()
                             Logger.d(TAG, "Starting playback with first track: ${firstTrack.title ?: firstTrack.name}")
+
+                            Logger.d(TAG, "🔴 ShowDetailViewModel.togglePlayback() - recordingId from UI state: ${currentState.currentRecordingId}")
 
                             val showData = currentState.showData
                             val result = mediaService.playTrack(

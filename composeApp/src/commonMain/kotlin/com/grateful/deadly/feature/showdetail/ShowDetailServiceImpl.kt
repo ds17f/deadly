@@ -98,20 +98,31 @@ class ShowDetailServiceImpl(
             Logger.d(TAG, "Show loaded from database: ${show.displayTitle}")
 
             // Phase 2: Determine which recording to load
+            // Priority: provided recordingId → user preference → bestRecordingId → first recording
             val targetRecordingId = when {
                 recordingId != null -> {
                     Logger.d(TAG, "Using provided recordingId: $recordingId")
                     recordingId
                 }
-                show.bestRecordingId?.isNotBlank() == true -> {
-                    Logger.d(TAG, "Using show's best recording: ${show.bestRecordingId}")
-                    show.bestRecordingId!!
-                }
                 else -> {
-                    Logger.d(TAG, "No best recording found, loading first available")
-                    // Fallback: get first available recording for this show
-                    val recordings = showService.getRecordingsForShow(showId)
-                    recordings.firstOrNull()?.identifier
+                    // Check user preference
+                    val userPreference = showService.getUserRecordingPreference(showId)
+                    when {
+                        userPreference != null -> {
+                            Logger.d(TAG, "Using user's preferred recording: $userPreference")
+                            userPreference
+                        }
+                        show.bestRecordingId?.isNotBlank() == true -> {
+                            Logger.d(TAG, "Using show's best recording: ${show.bestRecordingId}")
+                            show.bestRecordingId!!
+                        }
+                        else -> {
+                            Logger.d(TAG, "No preference or best recording, loading first available")
+                            // Fallback: get first available recording for this show
+                            val recordings = showService.getRecordingsForShow(showId)
+                            recordings.firstOrNull()?.identifier
+                        }
+                    }
                 }
             }
 

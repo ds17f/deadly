@@ -165,13 +165,13 @@ fun ShowDetailScreen(
                                 onShowMenu = {
                                     // Show recording selection modal
                                     Logger.d("ShowDetailScreen", "Show recording selection modal")
-                                    showId?.let { id ->
-                                        recordingSelectionViewModel.showRecordingSelection(
-                                            showId = id,
-                                            showTitle = showData.displayTitle,
-                                            showDate = showData.date
-                                        )
-                                    }
+                                    // Use showData.id and uiState.currentRecordingId from UI state
+                                    recordingSelectionViewModel.showRecordingSelection(
+                                        showId = showData.id,
+                                        showTitle = showData.displayTitle,
+                                        showDate = showData.date,
+                                        currentRecordingId = uiState.currentRecordingId
+                                    )
                                 },
                                 onTogglePlayback = {
                                     viewModel.togglePlayback()

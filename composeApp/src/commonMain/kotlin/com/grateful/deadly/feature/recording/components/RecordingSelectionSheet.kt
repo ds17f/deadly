@@ -220,8 +220,8 @@ private fun RecordingListContent(
                 RecordingOptionCard(
                     recordingOption = currentRecording,
                     onClick = {
-                        // V2 pattern: Clicking a card switches recording temporarily (session-only)
-                        onAction(RecordingSelectionAction.SwitchToRecording(currentRecording.identifier))
+                        // V2 pattern: Clicking a card just updates selection state (preview only)
+                        onAction(RecordingSelectionAction.SelectRecording(currentRecording.identifier))
                     }
                 )
             }
@@ -235,8 +235,8 @@ private fun RecordingListContent(
             RecordingOptionCard(
                 recordingOption = recording,
                 onClick = {
-                    // V2 pattern: Clicking a card switches recording temporarily (session-only)
-                    onAction(RecordingSelectionAction.SwitchToRecording(recording.identifier))
+                    // V2 pattern: Clicking a card just updates selection state (preview only)
+                    onAction(RecordingSelectionAction.SelectRecording(recording.identifier))
                 }
             )
         }
@@ -321,7 +321,7 @@ private fun ActionButtons(
                         tint = MaterialTheme.colorScheme.onPrimary
                     )
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("Set as Default Recording")
+                    Text("Set Recording for Show")
                 }
             }
         }
