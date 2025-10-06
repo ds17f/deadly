@@ -221,7 +221,8 @@ class ShowDetailViewModel(
                     Logger.d(TAG, "Loading previous show: ${previousShow.displayTitle}")
 
                     // Load new show data in place (doesn't add to back stack)
-                    loadShow(previousShow.id, previousShow.bestRecordingId)
+                    // Pass null to let it check user preferences
+                    loadShow(previousShow.id, null)
                 } else {
                     Logger.d(TAG, "No previous show available")
                 }
@@ -248,7 +249,8 @@ class ShowDetailViewModel(
                     Logger.d(TAG, "Loading next show: ${nextShow.displayTitle}")
 
                     // Load new show data in place (doesn't add to back stack)
-                    loadShow(nextShow.id, nextShow.bestRecordingId)
+                    // Pass null to let it check user preferences
+                    loadShow(nextShow.id, null)
                 } else {
                     Logger.d(TAG, "No next show available")
                 }
