@@ -24,7 +24,8 @@ on:
 jobs:
   deploy:
     name: Deploy iOS to TestFlight (${{ inputs.runner-type }})
-    runs-on: ${{ inputs.runner-type }}
+    runs-on: ${{ fromJSON(inputs.runner-type) }}
+    timeout-minutes: 5
     outputs:
       success: ${{ steps.mark-success.outputs.success }}
 
