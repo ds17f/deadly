@@ -1,12 +1,16 @@
 # Changelog
 
+## [1.2.1] - 2025-10-07
+
+### Bug Fixes
+* remove invalid continue-on-error from reusable workflow calls (c86beeb)
+
+
 ## [1.2.0] - 2025-10-07
 
 ### New Features
 * add app version display to Settings screen (be0d6a4)
 * add hybrid runner strategy for deployment workflows (ce6fe45)
-
-
 ## [1.1.0] - 2025-10-07
 
 ### New Features
