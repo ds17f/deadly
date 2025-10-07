@@ -43,8 +43,26 @@ jobs:
     - name: Decode provisioning profile
       run: |
         echo "${{ secrets.APPLE_PROVISIONING_PROFILE }}" | base64 -d > .secrets/DeadlyApp_AppStore2.mobileprovision
+
+        # Verify the profile was decoded correctly
+        if [ ! -s .secrets/DeadlyApp_AppStore2.mobileprovision ]; then
+          echo "❌ Error: Provisioning profile is empty or missing"
+          exit 1
+        fi
+
+        echo "✅ Provisioning profile size: $(wc -c < .secrets/DeadlyApp_AppStore2.mobileprovision) bytes"
+
+        # Extract UUID from the profile to verify it's valid
+        PROFILE_UUID=$(security cms -D -i .secrets/DeadlyApp_AppStore2.mobileprovision | plutil -extract UUID raw -)
+        echo "✅ Provisioning profile UUID: $PROFILE_UUID"
+
+        # Install to the correct location with UUID-based filename (Xcode's preferred method)
+        mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+        cp .secrets/DeadlyApp_AppStore2.mobileprovision ~/Library/MobileDevice/Provisioning\ Profiles/${PROFILE_UUID}.mobileprovision
+
+        # Also copy to legacy location for compatibility
         mkdir -p ~/Library/Developer/Xcode/UserData/Provisioning\ Profiles
-        cp .secrets/DeadlyApp_AppStore2.mobileprovision ~/Library/Developer/Xcode/UserData/Provisioning\ Profiles/
+        cp .secrets/DeadlyApp_AppStore2.mobileprovision ~/Library/Developer/Xcode/UserData/Provisioning\ Profiles/${PROFILE_UUID}.mobileprovision
 
     - name: Import certificate to keychain
       env:
