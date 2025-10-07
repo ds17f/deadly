@@ -1,11 +1,15 @@
 # Changelog
 
+## [1.2.2] - 2025-10-07
+
+### Bug Fixes
+* parse runner-type as JSON array and add 5-minute timeout (1879d0a)
+
+
 ## [1.2.1] - 2025-10-07
 
 ### Bug Fixes
 * remove invalid continue-on-error from reusable workflow calls (c86beeb)
-
-
 ## [1.2.0] - 2025-10-07
 
 ### New Features
