@@ -1,11 +1,15 @@
 # Changelog
 
+## [1.2.3] - 2025-10-07
+
+### Other Changes
+* revert: remove self-hosted runner support, use GitHub-hosted only (54e0147)
+
+
 ## [1.2.2] - 2025-10-07
 
 ### Bug Fixes
 * parse runner-type as JSON array and add 5-minute timeout (1879d0a)
-
-
 ## [1.2.1] - 2025-10-07
 
 ### Bug Fixes
