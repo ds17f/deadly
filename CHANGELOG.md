@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.0] - 2025-10-07
+
+### New Features
+* add app version display to Settings screen (be0d6a4)
+* add hybrid runner strategy for deployment workflows (ce6fe45)
+
+
 ## [1.1.0] - 2025-10-07
 
 ### New Features
@@ -152,8 +159,6 @@
 * micro: add SQLDelight Recording → Domain Recording mapper and update ShowService (aa3abc2)
 * micro: add recording selection data models with comprehensive tests (e63cfe9)
 * chore: remove Package.resolved from version control (0c62f8c)
-
-
 All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
