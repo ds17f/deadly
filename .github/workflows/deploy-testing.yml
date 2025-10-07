@@ -53,7 +53,8 @@ jobs:
         echo "✅ Provisioning profile size: $(wc -c < DeadlyApp_AppStore2.mobileprovision) bytes"
 
         # Extract UUID from the profile
-        PROFILE_UUID=$(security cms -D -i DeadlyApp_AppStore2.mobileprovision | /usr/libexec/PlistBuddy -c "Print :UUID" /dev/stdin)
+        security cms -D -i DeadlyApp_AppStore2.mobileprovision -o profile.plist
+        PROFILE_UUID=$(/usr/libexec/PlistBuddy -c "Print :UUID" profile.plist)
         echo "✅ Provisioning profile UUID: $PROFILE_UUID"
 
         # Install to the correct location with UUID-based filename
@@ -61,6 +62,9 @@ jobs:
         cp DeadlyApp_AppStore2.mobileprovision ~/Library/MobileDevice/Provisioning\ Profiles/${PROFILE_UUID}.mobileprovision
 
         echo "✅ Provisioning profile installed to ~/Library/MobileDevice/Provisioning Profiles/${PROFILE_UUID}.mobileprovision"
+
+        # Clean up temp file
+        rm -f profile.plist
 
     - name: Import certificate to keychain
       env:
