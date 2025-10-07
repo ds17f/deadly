@@ -13,6 +13,7 @@ import com.grateful.deadly.core.design.theme.ThemeManager
 import com.grateful.deadly.services.data.DataSyncOrchestrator
 import com.grateful.deadly.services.data.SyncProgress
 import com.grateful.deadly.services.data.SyncResult
+import com.grateful.deadly.services.app.AppVersionService
 import kotlinx.coroutines.launch
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.get
@@ -29,6 +30,7 @@ object SettingsDIHelper : KoinComponent
 fun SettingsScreen() {
     val themeManager: ThemeManager = remember { SettingsDIHelper.get() }
     val dataSyncOrchestrator: DataSyncOrchestrator = remember { SettingsDIHelper.get() }
+    val appVersionService: AppVersionService = remember { SettingsDIHelper.get() }
     val currentTheme by themeManager.currentTheme.collectAsState(initial = ThemeMode.SYSTEM)
     val syncProgress by dataSyncOrchestrator.progress.collectAsState(initial = SyncProgress.Idle)
 
@@ -108,6 +110,11 @@ fun SettingsScreen() {
                     )
                     Text(
                         text = "Cross-platform app for exploring Grateful Dead recordings",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = appVersionService.getVersionString(),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )

@@ -9,6 +9,7 @@ import app.cash.sqldelight.driver.android.AndroidSqliteDriver
 // Phase 3: Platform Tools for Android
 import com.grateful.deadly.services.archive.platform.NetworkClient
 import com.grateful.deadly.services.media.platform.PlatformMediaPlayer
+import com.grateful.deadly.platform.AppVersionReader
 import org.koin.dsl.module
 
 /**
@@ -98,5 +99,9 @@ val androidModule = module {
 
     single<PlatformMediaPlayer> {
         PlatformMediaPlayer(get<Context>())
+    }
+
+    single<AppVersionReader> {
+        AppVersionReader(get<Context>())
     }
 }

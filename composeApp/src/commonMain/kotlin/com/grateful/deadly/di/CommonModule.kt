@@ -38,6 +38,9 @@ import com.grateful.deadly.services.library.LibraryServiceImpl
 import com.grateful.deadly.feature.library.LibraryViewModel
 import com.grateful.deadly.feature.showdetail.ShowDetailViewModel
 import com.grateful.deadly.feature.recording.RecordingSelectionViewModel
+// App version service (Universal Service + Platform Tool pattern)
+import com.grateful.deadly.services.app.AppVersionService
+import com.grateful.deadly.platform.AppVersionReader
 
 import com.grateful.deadly.core.design.theme.ThemeManager
 import okio.FileSystem
@@ -234,6 +237,14 @@ val commonModule = module {
             showService = get(),
             recentShowsService = get(),
             mediaService = get()
+        )
+    }
+
+    // App Version Service (Universal Service + Platform Tool pattern)
+    single<AppVersionService> {
+        Logger.d("CommonModule", "Creating AppVersionService with platform-specific reader")
+        AppVersionService(
+            versionReader = get()  // Gets platform-specific AppVersionReader
         )
     }
 

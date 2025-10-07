@@ -11,6 +11,7 @@ import org.koin.dsl.module
 import com.grateful.deadly.services.archive.platform.NetworkClient
 import com.grateful.deadly.services.media.platform.PlatformMediaPlayer
 import com.grateful.deadly.services.media.MediaServiceHolder
+import com.grateful.deadly.platform.AppVersionReader
 import platform.Foundation.NSUserDefaults
 import platform.Foundation.NSDocumentDirectory
 import platform.Foundation.NSUserDomainMask
@@ -108,6 +109,10 @@ val iosModule = module {
 
     single<PlatformMediaPlayer> {
         PlatformMediaPlayer()
+    }
+
+    single<AppVersionReader> {
+        AppVersionReader()
     }
 
     // Register MediaService in holder for Swift lifecycle access
