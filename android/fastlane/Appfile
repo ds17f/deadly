@@ -1,5 +1,8 @@
 # Android Fastlane Configuration
 
 # Package name
-json_key_file("") # Path to the json secret file - Follow https://docs.fastlane.tools/actions/supply/#setup to get one
-package_name("com.grateful.deadly") # e.g. com.grateful.deadly
+package_name("com.grateful.deadly")
+
+# Google Play service account JSON key
+# Fastlane runs from android/, so ../.secrets/ goes to project root
+json_key_file("../.secrets/thedeadly-app-f48493c2a133.json")

@@ -26,10 +26,11 @@ help:
 	@echo "  build-release-android   - Build Android release APK"
 	@echo "  build-release-signed-android - Build signed Android release APK"
 	@echo "  build-bundle-android    - Build signed Android App Bundle (AAB)"
+	@echo "  deploy-playstore-internal - Build and upload AAB to Play Store Internal Testing"
 ifeq ($(UNAME_S),Darwin)
 	@echo "  build-debug-ios         - Build iOS debug framework"
 	@echo "  build-release-ios       - Build signed iOS release IPA"
-	@echo "  release-ios-testflight  - Build and upload iOS release to TestFlight"
+	@echo "  deploy-testflight       - Build and upload iOS release to TestFlight"
 else
 	@echo "  build-debug-ios         - [macOS only] Build iOS debug framework"
 	@echo "  build-release-ios       - [macOS only] Build signed iOS release IPA"
@@ -173,8 +174,8 @@ build-release-ios:
 	@echo "✅ iOS release IPA built successfully!"
 	@echo "📱 IPA location: iosApp/build/Deadly.ipa"
 
-.PHONY: release-ios-testflight
-release-ios-testflight:
+.PHONY: deploy-testing-ios
+deploy-testing-ios:
 	@echo "🍎 Building and uploading to TestFlight..."
 	@if ! command -v fastlane >/dev/null 2>&1; then \
 		echo "❌ fastlane not found"; \
@@ -186,7 +187,39 @@ release-ios-testflight:
 	@echo "📦 Building, signing, and uploading to TestFlight..."
 	cd iosApp && fastlane deploy_testflight
 	@echo "✅ iOS app uploaded to TestFlight successfully!"
+
+# Aliases for backwards compatibility
+.PHONY: deploy-testflight
+deploy-testflight: deploy-testing-ios
+
+.PHONY: release-ios-testflight
+release-ios-testflight: deploy-testing-ios
 endif
+
+# =============================================================================
+# PLAY STORE DEPLOYMENT
+# =============================================================================
+
+.PHONY: deploy-testing-android
+deploy-testing-android:
+	@echo "🤖 Building and uploading to Play Store Internal Testing..."
+	@if ! command -v fastlane >/dev/null 2>&1; then \
+		echo "❌ fastlane not found"; \
+		echo "💡 Install with: gem install fastlane"; \
+		exit 1; \
+	fi
+	@if [ ! -f .secrets/thedeadly-app-f48493c2a133.json ]; then \
+		echo "❌ Error: Play Store service account key not found"; \
+		echo "💡 Please ensure .secrets/thedeadly-app-f48493c2a133.json exists"; \
+		exit 1; \
+	fi
+	@echo "📦 Building and uploading to Play Store..."
+	cd android && fastlane deploy_testing
+	@echo "✅ Android AAB uploaded to Play Store Internal Testing - available to testers immediately!"
+
+# Alias for backwards compatibility
+.PHONY: deploy-playstore-internal
+deploy-playstore-internal: deploy-testing-android
 
 # =============================================================================
 # INSTALL COMMANDS  

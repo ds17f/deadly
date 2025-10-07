@@ -9,8 +9,11 @@ default_platform(:android)
 platform :android do
   desc "Build debug APK"
   lane :build_debug do
+    # Get absolute path to project root (two levels up from fastlane/)
+    project_root = File.expand_path("../..", __dir__)
+
     gradle(
-      project_dir: "../",
+      project_dir: project_root,
       task: ":composeApp:assembleDebug",
       print_command: true
     )
@@ -18,13 +21,16 @@ platform :android do
 
   desc "Build signed release APK"
   lane :build_release do
+    # Get absolute path to project root (two levels up from fastlane/)
+    project_root = File.expand_path("../..", __dir__)
+
     # Ensure keystore.properties exists
-    unless File.exist?("../.secrets/keystore.properties")
+    unless File.exist?("#{project_root}/.secrets/keystore.properties")
       UI.user_error!("❌ .secrets/keystore.properties not found. Please configure signing credentials.")
     end
 
     gradle(
-      project_dir: "../",
+      project_dir: project_root,
       task: ":composeApp:assembleRelease",
       print_command: true
     )
@@ -34,13 +40,16 @@ platform :android do
 
   desc "Build signed release App Bundle (AAB)"
   lane :build_bundle do
+    # Get absolute path to project root (two levels up from fastlane/)
+    project_root = File.expand_path("../..", __dir__)
+
     # Ensure keystore.properties exists
-    unless File.exist?("../.secrets/keystore.properties")
+    unless File.exist?("#{project_root}/.secrets/keystore.properties")
       UI.user_error!("❌ .secrets/keystore.properties not found. Please configure signing credentials.")
     end
 
     gradle(
-      project_dir: "../",
+      project_dir: project_root,
       task: ":composeApp:bundleRelease",
       print_command: true
     )
@@ -50,6 +59,9 @@ platform :android do
 
   desc "Install debug APK to connected device"
   lane :deploy_device do
+    # Get absolute path to project root (two levels up from fastlane/)
+    project_root = File.expand_path("../..", __dir__)
+
     # Check for connected device
     devices = sh("adb devices | grep -c 'device$' || true").strip.to_i
     if devices == 0
@@ -57,7 +69,7 @@ platform :android do
     end
 
     gradle(
-      project_dir: "../",
+      project_dir: project_root,
       task: ":composeApp:installDebug",
       print_command: true
     )
@@ -70,6 +82,9 @@ platform :android do
 
   desc "Install signed release APK to connected device"
   lane :deploy_device_release do
+    # Get absolute path to project root (two levels up from fastlane/)
+    project_root = File.expand_path("../..", __dir__)
+
     # Check for connected device
     devices = sh("adb devices | grep -c 'device$' || true").strip.to_i
     if devices == 0
@@ -80,7 +95,7 @@ platform :android do
     build_release
 
     # Find and install the APK
-    apk_path = Dir.glob("../composeApp/build/outputs/apk/release/*.apk").first
+    apk_path = Dir.glob("#{project_root}/composeApp/build/outputs/apk/release/*.apk").first
     if apk_path.nil?
       UI.user_error!("❌ No APK found in release directory")
     end
@@ -95,25 +110,113 @@ platform :android do
 
   desc "Run tests"
   lane :test do
+    # Get absolute path to project root (two levels up from fastlane/)
+    project_root = File.expand_path("../..", __dir__)
+
     gradle(
-      project_dir: "../",
+      project_dir: project_root,
       task: ":composeApp:test",
       print_command: true
     )
   end
 
   desc "Deploy to Play Store Internal Testing"
-  lane :deploy_internal do
+  lane :deploy_testing do
+    # Get absolute path to project root (two levels up from fastlane/)
+    project_root = File.expand_path("../..", __dir__)
+
     build_bundle
 
+    # Upload to internal testing - omit release_status to let Fastlane auto-handle draft → completed
     upload_to_play_store(
       track: 'internal',
-      aab: '../composeApp/build/outputs/bundle/release/composeApp-release.aab',
+      aab: "#{project_root}/composeApp/build/outputs/bundle/release/composeApp-release.aab",
+      skip_upload_apk: true,
       skip_upload_metadata: true,
       skip_upload_images: true,
       skip_upload_screenshots: true
     )
 
-    UI.success("✅ App deployed to Play Store Internal Testing!")
+    UI.success("✅ App deployed to Play Store Internal Testing - available to testers immediately!")
+  end
+
+  desc "Deploy to Play Store Alpha Testing"
+  lane :deploy_alpha do
+    # Get absolute path to project root (two levels up from fastlane/)
+    project_root = File.expand_path("../..", __dir__)
+
+    build_bundle
+
+    upload_to_play_store(
+      track: 'alpha',
+      aab: "#{project_root}/composeApp/build/outputs/bundle/release/composeApp-release.aab",
+      skip_upload_apk: true,
+      skip_upload_metadata: true,
+      skip_upload_images: true,
+      skip_upload_screenshots: true
+    )
+
+    UI.success("✅ App deployed to Play Store Alpha Testing!")
+  end
+
+  desc "Deploy to Play Store Beta Testing"
+  lane :deploy_beta do
+    # Get absolute path to project root (two levels up from fastlane/)
+    project_root = File.expand_path("../..", __dir__)
+
+    build_bundle
+
+    upload_to_play_store(
+      track: 'beta',
+      aab: "#{project_root}/composeApp/build/outputs/bundle/release/composeApp-release.aab",
+      skip_upload_apk: true,
+      skip_upload_metadata: true,
+      skip_upload_images: true,
+      skip_upload_screenshots: true
+    )
+
+    UI.success("✅ App deployed to Play Store Beta Testing!")
+  end
+
+  desc "Promote from Internal to Alpha"
+  lane :promote_internal_to_alpha do
+    upload_to_play_store(
+      track: 'internal',
+      track_promote_to: 'alpha',
+      skip_upload_aab: true,
+      skip_upload_metadata: true,
+      skip_upload_images: true,
+      skip_upload_screenshots: true
+    )
+
+    UI.success("✅ Promoted latest build from Internal to Alpha!")
+  end
+
+  desc "Promote from Alpha to Beta"
+  lane :promote_alpha_to_beta do
+    upload_to_play_store(
+      track: 'alpha',
+      track_promote_to: 'beta',
+      skip_upload_aab: true,
+      skip_upload_metadata: true,
+      skip_upload_images: true,
+      skip_upload_screenshots: true
+    )
+
+    UI.success("✅ Promoted latest build from Alpha to Beta!")
+  end
+
+  desc "Promote from Beta to Production"
+  lane :promote_beta_to_production do
+    upload_to_play_store(
+      track: 'beta',
+      track_promote_to: 'production',
+      skip_upload_aab: true,
+      skip_upload_metadata: true,
+      skip_upload_images: true,
+      skip_upload_screenshots: true
+    )
+
+    UI.success("✅ Promoted latest build from Beta to Production!")
   end
 end

@@ -117,6 +117,9 @@ android {
         targetSdk = libs.versions.android.targetSdk.get().toInt()
         versionCode = versionProps.getProperty("VERSION_CODE")?.toIntOrNull() ?: 1
         versionName = versionProps.getProperty("VERSION_NAME") ?: "1.0.0"
+
+        // Phone-only targeting: prevent other libraries from declaring tablet support
+        manifestPlaceholders["supportsTablet"] = "false"
     }
 
     signingConfigs {
