@@ -43,3 +43,5 @@ iosApp/fastlane/README.md
 
 # App Store Connect API Key
 *.p8
+android/fastlane/README.md
+iosApp/iosApp.xcodeproj/project.xcworkspace/xcshareddata/
