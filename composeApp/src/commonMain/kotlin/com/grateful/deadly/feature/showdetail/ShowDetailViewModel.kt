@@ -279,6 +279,7 @@ class ShowDetailViewModel(
                 val showData = enhancedUiState.value.showData
 
                 Logger.d(TAG, "🔴 ShowDetailViewModel.playTrack() - recordingId from UI state: $recordingId")
+                Logger.d(TAG, "🎯 🔵 [UI→SERVICE] playTrack() ENTRY: trackId=${track.id} recordingId=$recordingId thread=${Thread.currentThread().name}")
 
                 // Pass show metadata to MediaService for UI display
                 val result = mediaService.playTrack(

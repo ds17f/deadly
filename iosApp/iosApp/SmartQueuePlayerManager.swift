@@ -67,8 +67,8 @@ import Foundation
         // Extract metadata if available
         let metadata = command["trackMetadata"] as? [[String: Any]] ?? []
 
-        // Stop existing player if any
-        globalPlayer?.pause()
+        // Properly cleanup existing player if any (removes KVO observers)
+        globalPlayer?.cleanup()
 
         // Create new global player instance with metadata
         let player = SmartQueuePlayer(urls: urls, startIndex: startIndex, metadata: metadata)
@@ -91,6 +91,9 @@ import Foundation
     }
 
     private func handleReplacePlaylist(command: [String: Any]) -> String {
+        let threadId = Thread.current
+        NSLog("🎯 🔵 [K→S] MANAGER handleReplacePlaylist() ENTRY on thread:\(threadId) isMain:\(Thread.isMainThread)")
+
         guard let urls = command["urls"] as? [String],
               let startIndex = command["startIndex"] as? Int else {
             return "error: missing urls or startIndex"
@@ -103,8 +106,8 @@ import Foundation
             NSLog("🎯 📱 [METADATA] First item: \(metadata[0])")
         }
 
-        // Stop existing player if any
-        globalPlayer?.pause()
+        // Properly cleanup existing player if any (removes KVO observers)
+        globalPlayer?.cleanup()
 
         // Create new global player instance with metadata
         let player = SmartQueuePlayer(urls: urls, startIndex: startIndex, metadata: metadata)
@@ -123,11 +126,12 @@ import Foundation
             NSLog("🎯 🟢 [S→K] endCallback invoked")
         }
 
+        NSLog("🎯 🔵 [K→S] MANAGER handleReplacePlaylist() EXIT - player created successfully")
         return "success"
     }
 
     private func handleStop() -> String {
-        globalPlayer?.pause()
+        globalPlayer?.cleanup()
         globalPlayer = nil
         trackCallback = nil
         endCallback = nil
@@ -232,7 +236,7 @@ import Foundation
     }
 
     private func handleRelease(playerId: String) -> String {
-        globalPlayer?.pause()
+        globalPlayer?.cleanup()
         globalPlayer = nil
         trackCallback = nil
         endCallback = nil

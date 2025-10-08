@@ -36,6 +36,8 @@ import ComposeApp
     public init(urls: [String], startIndex: Int = 0, metadata: [[String: Any]] = []) {
         super.init()
 
+        NSLog("🎯 🟢 [SWIFT] SmartQueuePlayer.init() CREATING NEW INSTANCE urls=\(urls.count) startIndex=\(startIndex) metadata=\(metadata.count) thread:\(Thread.current) isMain:\(Thread.isMainThread)")
+
         // Store URLs for creating fresh AVPlayerItems as needed
         self.urls = urls
         self.trackMetadata = metadata
@@ -251,6 +253,16 @@ import ComposeApp
     }
 
     private func setupPlaybackStateObserver() {
+        // Remove existing observers if present (defensive coding to prevent duplicates)
+        if isObservingRate {
+            queuePlayer.removeObserver(self, forKeyPath: #keyPath(AVQueuePlayer.rate))
+            isObservingRate = false
+        }
+        if isObservingCurrentItem {
+            queuePlayer.removeObserver(self, forKeyPath: #keyPath(AVQueuePlayer.currentItem))
+            isObservingCurrentItem = false
+        }
+
         // Observe rate changes to detect play/pause events
         queuePlayer.addObserver(
             self,
@@ -485,7 +497,7 @@ import ComposeApp
 
     // MARK: - Cleanup
 
-    private func cleanup() {
+    public func cleanup() {
         if let observer = endObserver {
             NotificationCenter.default.removeObserver(observer)
         }

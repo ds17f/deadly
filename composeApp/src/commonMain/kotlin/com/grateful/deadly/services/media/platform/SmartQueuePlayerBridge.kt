@@ -28,6 +28,8 @@ object SmartQueuePlayerBridge {
      * @param startIndex Index to start playback from
      */
     fun replacePlaylist(urls: List<String>, metadata: List<TrackMetadata>, startIndex: Int) {
+        println("🎯 🔵 [K→S] BRIDGE replacePlaylist() ENTRY: ${urls.size} urls, startIndex=$startIndex thread=${Thread.currentThread().name}")
+
         val command = SmartPlayerCommand(
             action = "replacePlaylist",
             playerId = "global", // Fixed ID since we use single instance
@@ -36,7 +38,9 @@ object SmartQueuePlayerBridge {
             startIndex = startIndex
         )
         val commandJson = json.encodeToString(command)
-        AppPlatform.sendSmartPlayerCommand(commandJson)
+        val result = AppPlatform.sendSmartPlayerCommand(commandJson)
+
+        println("🎯 🔵 [K→S] BRIDGE replacePlaylist() EXIT: result=$result")
     }
 
     /**

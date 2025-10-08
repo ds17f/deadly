@@ -79,6 +79,8 @@ actual class PlatformMediaPlayer {
      * Creates SmartQueuePlayer instance and sets up callbacks.
      */
     actual suspend fun loadAndPlayPlaylist(enrichedTracks: List<EnrichedTrack>, startIndex: Int): Result<Unit> = withContext(Dispatchers.Main) {
+        Logger.d(TAG, "🎯 🔵 [PLATFORM] loadAndPlayPlaylist() ENTRY: ${enrichedTracks.size} tracks, startIndex=$startIndex thread=${Thread.currentThread().name}")
+
         try {
             if (enrichedTracks.isEmpty() || startIndex !in enrichedTracks.indices) {
                 return@withContext Result.failure(Exception("Invalid enriched playlist or start index"))
