@@ -231,7 +231,7 @@ class MediaService(
         format: String,
         startIndex: Int = 0
     ): Result<Unit> {
-        Logger.d(TAG, "🎯 🔵 [SERVICE] playPlaylist() ENTRY: startIndex=$startIndex showId=$showId recordingId=$recordingId tracksCount=${tracks.size} thread=${Thread.currentThread().name}")
+        Logger.d(TAG, "🎯 🔵 [SERVICE] playPlaylist() ENTRY: startIndex=$startIndex showId=$showId recordingId=$recordingId tracksCount=${tracks.size}")
 
         return try {
             if (tracks.isEmpty()) {
