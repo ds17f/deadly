@@ -5,9 +5,9 @@
 
 set -euo pipefail
 
-# Remote configuration
-REMOTE_HOST="dsilbergleithcu@worklaptop.local"
-REMOTE_DIR="~/AndroidStudioProjects/Deadly"
+# Get script directory and source shared config
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/remote-config.sh"
 
 # Default values
 PLATFORM=""
@@ -35,8 +35,8 @@ if [ "$PLATFORM" != "android" ] && [ "$PLATFORM" != "ios" ]; then
     exit 1
 fi
 
-echo "🔄 Syncing code to remote host..."
-rsync -az --delete --exclude '.gradle' --exclude 'build' ./ "$REMOTE_HOST:$REMOTE_DIR"
+# Sync code to remote
+sync_to_remote
 
 echo "📱 Running remote $PLATFORM logs for concept: $CONCEPT"
-ssh "$REMOTE_HOST" "zsh -l -c 'cd $REMOTE_DIR && make logs-follow-$PLATFORM CONCEPT=$CONCEPT'"
+exec_remote "make logs-follow-$PLATFORM CONCEPT=$CONCEPT"

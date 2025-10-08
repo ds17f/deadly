@@ -4,11 +4,11 @@ val remoteHost = "dsilbergleithcu@worklaptop.local"        // your Mac's SSH use
 val remoteDir = "~/AndroidStudioProjects/Deadly"              // path on the Mac where sources live
 val gradleTask = "iosX64Binaries"        // or iosX64Run, iosArm64Binaries, etc.
 
+// Remote run tasks - kept for backward compatibility with Makefile
 tasks.register<Exec>("iosRemoteRunSimulator") {
-    group = "build"
+    group = "remote"
     description = "Sync sources to Mac and run iOS build remotely"
 
-        //ssh $remoteHost "cd $remoteDir && ./gradlew $gradleTask"
     // Sync files and run iOS simulator remotely with zsh login shell
     commandLine("bash", "-c", """
         rsync -az --delete --exclude '.gradle' --exclude 'build' ./ $remoteHost:$remoteDir &&
@@ -17,7 +17,7 @@ tasks.register<Exec>("iosRemoteRunSimulator") {
 }
 
 tasks.register<Exec>("androidRemoteRunEmulator") {
-    group = "build"
+    group = "remote"
     description = "Sync sources to remote machine and run Android emulator"
 
     // Sync files and run Android emulator remotely with zsh login shell and ANDROID_HOME

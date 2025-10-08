@@ -6,7 +6,7 @@
 set -e
 
 # Configuration
-APP_BUNDLE_ID="com.grateful.deadly.Deadly"
+APP_BUNDLE_ID="com.grateful.deadly"
 APP_PACKAGE_NAME="com.grateful.deadly"
 DB_NAME="deadly.db"
 

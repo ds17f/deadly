@@ -1,12 +1,12 @@
 #!/bin/bash
 
 # Script to extract SQLite database from Android or iOS for inspection
-# Usage: ./scripts/get-db.sh [android|ios]
+# Usage: ./scripts/get-db.sh [android|ios] [--no-open]
 
 set -e
 
 # Configuration
-APP_BUNDLE_ID="com.grateful.deadly.Deadly"
+APP_BUNDLE_ID="com.grateful.deadly"
 APP_PACKAGE_NAME="com.grateful.deadly"
 DB_NAME="deadly.db"
 DEFAULT_OUTPUT="./sqliteDbs"
@@ -14,15 +14,21 @@ DEFAULT_OUTPUT="./sqliteDbs"
 # Parse arguments
 if [ $# -eq 0 ]; then
     echo "❌ Platform required"
-    echo "Usage: ./scripts/get-db.sh <android|ios>"
+    echo "Usage: ./scripts/get-db.sh <android|ios> [--no-open]"
     exit 1
 fi
 
 PLATFORM="$1"
+OPEN_DB=true
+
+# Check for --no-open flag
+if [ $# -gt 1 ] && [ "$2" = "--no-open" ]; then
+    OPEN_DB=false
+fi
 
 if [ "$PLATFORM" != "android" ] && [ "$PLATFORM" != "ios" ]; then
     echo "❌ Invalid platform: $PLATFORM"
-    echo "Usage: ./scripts/get-db.sh <android|ios>"
+    echo "Usage: ./scripts/get-db.sh <android|ios> [--no-open]"
     exit 1
 fi
 
@@ -166,21 +172,23 @@ else
     echo "💡 Install sqlite3 to see database info: brew install sqlite"
 fi
 
-echo ""
-echo "🔧 Opening with DB Browser for SQLite..."
-
-# Try to open with DB Browser for SQLite
-if [ -d "/Applications/DB Browser for SQLite.app" ]; then
-    open -a "DB Browser for SQLite" "$OUTPUT_DIR/$DB_NAME"
-    echo "✅ Opened $PLATFORM database in DB Browser for SQLite"
-elif command -v sqlitebrowser >/dev/null 2>&1; then
-    sqlitebrowser "$OUTPUT_DIR/$DB_NAME" &
-    echo "✅ Opened $PLATFORM database in DB Browser for SQLite"
-else
-    echo "❌ DB Browser for SQLite not found"
+if [ "$OPEN_DB" = true ]; then
     echo ""
-    echo "🔧 Alternative ways to open:"
-    echo "   - Install DB Browser: https://sqlitebrowser.org/"
-    echo "   - TablePlus: https://tableplus.com/"
-    echo "   - Command line: sqlite3 '$OUTPUT_DIR/$DB_NAME'"
+    echo "🔧 Opening with DB Browser for SQLite..."
+
+    # Try to open with DB Browser for SQLite
+    if [ -d "/Applications/DB Browser for SQLite.app" ]; then
+        open -a "DB Browser for SQLite" "$OUTPUT_DIR/$DB_NAME"
+        echo "✅ Opened $PLATFORM database in DB Browser for SQLite"
+    elif command -v sqlitebrowser >/dev/null 2>&1; then
+        sqlitebrowser "$OUTPUT_DIR/$DB_NAME" &
+        echo "✅ Opened $PLATFORM database in DB Browser for SQLite"
+    else
+        echo "❌ DB Browser for SQLite not found"
+        echo ""
+        echo "🔧 Alternative ways to open:"
+        echo "   - Install DB Browser: https://sqlitebrowser.org/"
+        echo "   - TablePlus: https://tableplus.com/"
+        echo "   - Command line: sqlite3 '$OUTPUT_DIR/$DB_NAME'"
+    fi
 fi

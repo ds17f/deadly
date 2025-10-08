@@ -63,9 +63,36 @@ else
 	@echo "  build-all               - [macOS only] Build both Android and iOS debug builds"
 	@echo "  run-all                 - [macOS only] Build, install, and run on both platforms"
 endif
-	@echo "  run-android-remote-emu  - [Linux only] Build and run on remote Android emulator"
-	@echo "  run-remote-all          - [Linux only] Build and run on both remote iOS and Android"
-	@echo "  run-ios-remotesim       - [Linux only] Build and run on remote iOS simulator"
+	@echo ""
+	@echo "REMOTE COMMANDS (Linux only - execute on remote Mac):"
+	@echo "  remote-run-ios-simulator       - Build and run iOS on remote simulator"
+	@echo "  remote-run-android-emulator    - Build and run Android on remote emulator"
+	@echo "  remote-run-all                 - Build and run on both remote platforms"
+	@echo "  remote-run-ios-device          - Run on iOS device connected to remote Mac"
+	@echo "  remote-run-android-device      - Run on Android device connected to remote Mac"
+	@echo "  remote-run-android-device-signed - Run signed build on remote Android device"
+	@echo "  remote-build-debug-android     - Build Android debug APK on remote Mac"
+	@echo "  remote-build-release-android   - Build Android release APK on remote Mac"
+	@echo "  remote-build-release-signed-android - Build signed release APK on remote Mac"
+	@echo "  remote-build-bundle-android    - Build Android App Bundle on remote Mac"
+	@echo "  remote-build-debug-ios         - Build iOS debug framework on remote Mac"
+	@echo "  remote-build-release-ios       - Build iOS release IPA on remote Mac"
+	@echo "  remote-build-all               - Build both platforms on remote Mac"
+	@echo "  remote-deploy-testing-android  - Upload to Play Store Internal Testing from remote"
+	@echo "  remote-deploy-testing-ios      - Upload to TestFlight from remote"
+	@echo "  remote-db-android              - Extract Android DB from remote and download"
+	@echo "  remote-db-ios                  - Extract iOS DB from remote and download"
+	@echo "  remote-clean-db-android        - Clean Android DB on remote device"
+	@echo "  remote-clean-db-ios            - Clean iOS DB on remote device"
+	@echo "  remote-clean-db                - Clean DBs on both remote platforms"
+	@echo "  remote-clean-cache-android     - Clean Android cache on remote device"
+	@echo "  remote-clean-cache-ios         - Clean iOS cache on remote device"
+	@echo "  remote-clean-cache             - Clean cache on both remote platforms"
+	@echo "  remote-install-android-device  - Install to Android device on remote Mac"
+	@echo "  remote-install-ios-device      - Install to iOS device on remote Mac"
+	@echo "  remote-logs-android            - View Android logs from remote device"
+	@echo "  remote-logs-ios                - View iOS logs from remote device"
+	@echo "  remote-logs-data               - View data import logs from both remote platforms"
 	@echo ""
 	@echo "LOG COMMANDS:"
 	@echo "  logs-help               - Show detailed log reading help"
@@ -77,15 +104,6 @@ endif
 	@echo "  logs-ios-crash          - Show iOS crash/error logs"
 	@echo "  logs-follow-android CONCEPT='search' - Follow Android logs live"
 	@echo "  logs-follow-ios CONCEPT='di'         - Follow iOS logs live"
-ifeq ($(UNAME_S),Linux)
-	@echo "  logs-remote-android     - [Linux only] View Android logs on remote device"
-	@echo "  logs-remote-ios         - [Linux only] View iOS logs on remote device"
-	@echo "  logs-remote-data        - [Linux only] Check data import logs on both platforms"
-else
-	@echo "  logs-remote-android     - [Linux only] View Android logs on remote device"
-	@echo "  logs-remote-ios         - [Linux only] View iOS logs on remote device"
-	@echo "  logs-remote-data        - [Linux only] Check data import logs on both platforms"
-endif
 	@echo ""
 	@echo "DATABASE COMMANDS:"
 	@echo "  db-android              - Extract Android database and open in DB Browser"
@@ -412,27 +430,27 @@ endif
 
 # Linux-only commands for remote development
 ifeq ($(UNAME_S),Linux)
-.PHONY: run-ios-remotesim
-run-ios-remotesim:
+.PHONY: remote-run-ios-simulator
+remote-run-ios-simulator:
 	@echo "🍎 Building and running iOS app on remote simulator..."
 	$(GRADLEW) iosRemoteRunSimulator
 	@echo "✅ iOS app launched on remote simulator successfully!"
 
-.PHONY: run-android-remote-emu
-run-android-remote-emu:
+.PHONY: remote-run-android-emulator
+remote-run-android-emulator:
 	@echo "🤖 Building and running Android app on remote emulator..."
 	$(GRADLEW) androidRemoteRunEmulator
 	@echo "✅ Android app launched on remote emulator successfully!"
 
-.PHONY: run-remote-all
-run-remote-all:
+.PHONY: remote-run-all
+remote-run-all:
 	@echo "🚀 Building and running app on both remote iOS and Android..."
 	@echo ""
 	@echo "📱 Step 1/2: Running iOS simulator..."
-	$(MAKE) run-ios-remotesim
+	$(MAKE) remote-run-ios-simulator
 	@echo ""
 	@echo "🤖 Step 2/2: Running Android emulator..."
-	$(MAKE) run-android-remote-emu
+	$(MAKE) remote-run-android-emulator
 	@echo ""
 	@echo "✅ App successfully launched on both remote iOS and Android platforms!"
 endif
@@ -520,16 +538,16 @@ logs-ios-crash:
 
 # Linux-only remote logging commands
 ifeq ($(UNAME_S),Linux)
-.PHONY: logs-remote-android
-logs-remote-android:
+.PHONY: remote-logs-android
+remote-logs-android:
 	@./scripts/remote-logs android $(or $(CONCEPT),all)
 
-.PHONY: logs-remote-ios
-logs-remote-ios:
+.PHONY: remote-logs-ios
+remote-logs-ios:
 	@./scripts/remote-logs ios $(or $(CONCEPT),all)
 
-.PHONY: logs-remote-data
-logs-remote-data:
+.PHONY: remote-logs-data
+remote-logs-data:
 	@echo "🔍 Checking remote data import logs on both platforms..."
 	@echo ""
 	@echo "📱 Step 1/2: iOS data logs..."
@@ -537,6 +555,114 @@ logs-remote-data:
 	@echo ""
 	@echo "🤖 Step 2/2: Android data logs..."
 	@./scripts/remote-logs android data
+
+# =============================================================================
+# REMOTE BUILD COMMANDS
+# =============================================================================
+
+.PHONY: remote-build-debug-android
+remote-build-debug-android:
+	@./scripts/remote-build.sh debug-android
+
+.PHONY: remote-build-release-android
+remote-build-release-android:
+	@./scripts/remote-build.sh release-android
+
+.PHONY: remote-build-release-signed-android
+remote-build-release-signed-android:
+	@./scripts/remote-build.sh release-signed-android
+
+.PHONY: remote-build-bundle-android
+remote-build-bundle-android:
+	@./scripts/remote-build.sh bundle-android
+
+.PHONY: remote-build-debug-ios
+remote-build-debug-ios:
+	@./scripts/remote-build.sh debug-ios
+
+.PHONY: remote-build-release-ios
+remote-build-release-ios:
+	@./scripts/remote-build.sh release-ios
+
+.PHONY: remote-build-all
+remote-build-all:
+	@./scripts/remote-build.sh all
+
+# =============================================================================
+# REMOTE DEPLOY COMMANDS
+# =============================================================================
+
+.PHONY: remote-deploy-testing-android
+remote-deploy-testing-android:
+	@./scripts/remote-deploy.sh testing-android
+
+.PHONY: remote-deploy-testing-ios
+remote-deploy-testing-ios:
+	@./scripts/remote-deploy.sh testing-ios
+
+# =============================================================================
+# REMOTE DATABASE COMMANDS
+# =============================================================================
+
+.PHONY: remote-db-android
+remote-db-android:
+	@./scripts/remote-db.sh android
+
+.PHONY: remote-db-ios
+remote-db-ios:
+	@./scripts/remote-db.sh ios
+
+.PHONY: remote-clean-db-android
+remote-clean-db-android:
+	@./scripts/remote-clean-db.sh android
+
+.PHONY: remote-clean-db-ios
+remote-clean-db-ios:
+	@./scripts/remote-clean-db.sh ios
+
+.PHONY: remote-clean-db
+remote-clean-db:
+	@./scripts/remote-clean-db.sh all
+
+# =============================================================================
+# REMOTE CACHE COMMANDS
+# =============================================================================
+
+.PHONY: remote-clean-cache-android
+remote-clean-cache-android:
+	@./scripts/remote-cache.sh android
+
+.PHONY: remote-clean-cache-ios
+remote-clean-cache-ios:
+	@./scripts/remote-cache.sh ios
+
+.PHONY: remote-clean-cache
+remote-clean-cache:
+	@./scripts/remote-cache.sh all
+
+# =============================================================================
+# REMOTE DEVICE COMMANDS
+# =============================================================================
+
+.PHONY: remote-install-android-device
+remote-install-android-device:
+	@./scripts/remote-install.sh android-device
+
+.PHONY: remote-install-ios-device
+remote-install-ios-device:
+	@./scripts/remote-install.sh ios-device
+
+.PHONY: remote-run-android-device
+remote-run-android-device:
+	@./scripts/remote-run.sh android-device
+
+.PHONY: remote-run-android-device-signed
+remote-run-android-device-signed:
+	@./scripts/remote-run.sh android-device-signed
+
+.PHONY: remote-run-ios-device
+remote-run-ios-device:
+	@./scripts/remote-run.sh ios-device
 endif
 
 # =============================================================================
