@@ -75,9 +75,11 @@ object SmartQueuePlayerBridge {
      * @return true if successfully advanced, false if at end of playlist
      */
     fun playNext(): Boolean {
+        println("🎯 🔵 [K→S] Sending command: playNext")
         val command = SmartPlayerCommand(action = "playNext", playerId = "global")
         val commandJson = json.encodeToString(command)
         val result = AppPlatform.sendSmartPlayerCommand(commandJson)
+        println("🎯 🔵 [K→S] playNext result: $result")
         return result == "true"
     }
 
@@ -87,9 +89,11 @@ object SmartQueuePlayerBridge {
      * @return true if action was successful
      */
     fun playPrevious(): Boolean {
+        println("🎯 🔵 [K→S] Sending command: playPrevious")
         val command = SmartPlayerCommand(action = "playPrevious", playerId = "global")
         val commandJson = json.encodeToString(command)
         val result = AppPlatform.sendSmartPlayerCommand(commandJson)
+        println("🎯 🔵 [K→S] playPrevious result: $result")
         return result == "true"
     }
 

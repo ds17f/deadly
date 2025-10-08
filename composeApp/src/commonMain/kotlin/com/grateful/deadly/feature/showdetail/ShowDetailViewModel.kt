@@ -45,8 +45,6 @@ class ShowDetailViewModel(
         showDetailService.isTracksLoading,
         showDetailService.error
     ) { show, recording, tracks, isTracksLoading, error ->
-        Logger.d(TAG, "Base UI state update: show=${show?.displayTitle}, recording=${recording?.identifier}, tracks=${tracks.size}, loading=$isTracksLoading, error=$error")
-
         ShowDetailUiState(
             showData = show,
             currentRecordingId = recording?.identifier,
@@ -121,8 +119,6 @@ class ShowDetailViewModel(
 
         // Update showData with reactive library status (V2 pattern)
         val updatedShowData = baseState.showData?.copy(isInLibrary = isInLibrary)
-
-        Logger.d(TAG, "Enhanced UI state update: isCurrentShowAndRecording=$isCurrentShowAndRecording, mediaShowId=${media.currentShowId}, mediaRecordingId=${media.currentRecordingId}, isInLibrary=$isInLibrary, showId=${baseState.showData?.id}")
 
         baseState.copy(
             showData = updatedShowData,

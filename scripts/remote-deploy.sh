@@ -35,12 +35,10 @@ echo ""
 sync_to_remote
 
 # Sync secrets directory (contains signing keys, service account keys, etc.)
-echo "🔐 Syncing secrets to remote host..."
-if [ -d ".secrets" ]; then
-    rsync -az .secrets/ "$REMOTE_HOST:$REMOTE_DIR/.secrets/"
-    echo "✅ Secrets synced"
+# Only sync if local .secrets exists, otherwise use remote's existing secrets
+if sync_secrets_to_remote; then
+    : # Success
 else
-    echo "⚠️  Warning: .secrets directory not found locally"
     echo "   Deployment will use secrets already on remote Mac (if any)"
 fi
 

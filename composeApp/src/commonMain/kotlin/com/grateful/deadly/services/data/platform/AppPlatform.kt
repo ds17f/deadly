@@ -102,6 +102,7 @@ object AppPlatform {
      * Called from Swift when track changes (manual navigation or auto-advance).
      */
     fun notifyTrackChanged(newIndex: Int) {
+        println("🎯 🟢 [S→K] AppPlatform.notifyTrackChanged: routing trackChange event to Kotlin: newIndex=$newIndex")
         trackChangeHandler?.invoke(newIndex)
     }
 

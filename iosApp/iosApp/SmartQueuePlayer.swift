@@ -16,6 +16,7 @@ import ComposeApp
     private var currentIndex = 0
     private var endObserver: NSObjectProtocol?
     private var isObservingRate = false
+    private var isObservingCurrentItem = false
 
     // MARK: - Public Properties
 
@@ -74,15 +75,25 @@ import ComposeApp
     public func playNext() -> Bool {
         guard currentIndex < urls.count - 1 else {
             // At end of playlist
+            NSLog("🎯 🎵 [NEXT|MANUAL] At end of playlist, cannot advance. idx:\(currentIndex)/\(urls.count)")
             return false
         }
 
+        // Log BEFORE changing state
+        let oldIndex = currentIndex
+        let newIndex = currentIndex + 1
+        let trackTitle = extractTitle() ?? "Unknown"
+        NSLog("🎯 🎵 [NEXT|MANUAL] Manual next: idx:\(oldIndex)→\(newIndex)/\(urls.count) track:\"\(trackTitle)\"")
+
         // Go to actual next track using immediate rebuild approach
-        currentIndex += 1
+        currentIndex = newIndex
         rebuildQueue(from: currentIndex)
 
-        // Notify callback and AppPlatform
+        // Log callback notification
+        NSLog("🎯 🟢 [S→K] Calling onTrackChanged(\(currentIndex))")
         onTrackChanged?(currentIndex)
+
+        NSLog("🎯 🟢 [S→K] Calling AppPlatform.notifyTrackChanged(\(currentIndex))")
         AppPlatform.shared.notifyTrackChanged(newIndex: Int32(currentIndex))
         updateNowPlayingInfo()
 
@@ -99,22 +110,35 @@ import ComposeApp
 
         // If we're past the threshold, just restart current track
         if currentTime > threshold {
+            let trackTitle = extractTitle() ?? "Unknown"
+            NSLog("🎯 🎵 [PREV|RESTART] Restarting current track (position > \(threshold)s): idx:\(currentIndex)/\(urls.count) track:\"\(trackTitle)\"")
             seek(to: 0)
             return true
         }
 
         // If at first track, restart it
         guard currentIndex > 0 else {
+            let trackTitle = extractTitle() ?? "Unknown"
+            NSLog("🎯 🎵 [PREV|RESTART] At first track, restarting: idx:\(currentIndex)/\(urls.count) track:\"\(trackTitle)\"")
             seek(to: 0)
             return true
         }
 
+        // Log BEFORE changing state
+        let oldIndex = currentIndex
+        let newIndex = currentIndex - 1
+        let trackTitle = extractTitle() ?? "Unknown"
+        NSLog("🎯 🎵 [PREV|MANUAL] Manual previous: idx:\(oldIndex)→\(newIndex)/\(urls.count) track:\"\(trackTitle)\"")
+
         // Go to actual previous track
-        currentIndex -= 1
+        currentIndex = newIndex
         rebuildQueue(from: currentIndex)
 
-        // Notify callback and AppPlatform
+        // Log callback notification
+        NSLog("🎯 🟢 [S→K] Calling onTrackChanged(\(currentIndex))")
         onTrackChanged?(currentIndex)
+
+        NSLog("🎯 🟢 [S→K] Calling AppPlatform.notifyTrackChanged(\(currentIndex))")
         AppPlatform.shared.notifyTrackChanged(newIndex: Int32(currentIndex))
         updateNowPlayingInfo()
 
@@ -235,6 +259,15 @@ import ComposeApp
             context: nil
         )
         isObservingRate = true
+
+        // Observe currentItem changes to detect unexpected track changes
+        queuePlayer.addObserver(
+            self,
+            forKeyPath: #keyPath(AVQueuePlayer.currentItem),
+            options: [.new, .old],
+            context: nil
+        )
+        isObservingCurrentItem = true
     }
 
     // KVO observer for playback state changes
@@ -244,11 +277,23 @@ import ComposeApp
                                      context: UnsafeMutableRawPointer?) {
         if keyPath == #keyPath(AVQueuePlayer.rate) {
             let isPlaying = queuePlayer.rate > 0
-            print("📱 [PLAYBACK_STATE] Rate changed to \(queuePlayer.rate), isPlaying: \(isPlaying)")
+            NSLog("🎯 📱 [PLAYBACK_STATE] Rate changed to \(queuePlayer.rate), isPlaying: \(isPlaying)")
 
             // Notify Kotlin via AppPlatform
             AppPlatform.shared.notifyPlaybackStateChanged(isPlaying: isPlaying)
             updateNowPlayingInfo()
+        } else if keyPath == #keyPath(AVQueuePlayer.currentItem) {
+            // Detect when AVQueuePlayer changes items (could be unexpected)
+            let queueItems = queuePlayer.items()
+            let queueSize = queueItems.count
+            NSLog("🎯 🔴 [AVQ_ITEM_CHANGE] AVQueuePlayer currentItem changed. Queue size: \(queueSize), Kotlin thinks idx: \(currentIndex)/\(urls.count)")
+
+            // This could indicate AVQueuePlayer advanced without us knowing
+            if let currentItem = queuePlayer.currentItem,
+               let oldItem = change?[.oldKey] as? AVPlayerItem,
+               currentItem !== oldItem {
+                NSLog("🎯 🔴 [AVQ_ITEM_CHANGE] UNEXPECTED: AVQueuePlayer switched items! This may indicate queue desync.")
+            }
         }
     }
 
@@ -260,16 +305,30 @@ import ComposeApp
 
         // Auto-advance to next track
         if currentIndex < urls.count - 1 {
-            currentIndex += 1
+            let oldIndex = currentIndex
+            let newIndex = currentIndex + 1
+            let oldTrackTitle = extractTitle() ?? "Unknown"
+
+            NSLog("🎯 🔴 [AUTO-ADVANCE] Track ended, auto-advancing: idx:\(oldIndex)→\(newIndex)/\(urls.count) ended:\"\(oldTrackTitle)\"")
+
+            currentIndex = newIndex
             extendQueueIfNeeded()
+
+            // Get new track title after index change
+            let newTrackTitle = extractTitle() ?? "Unknown"
+            NSLog("🎯 🔴 [AUTO-ADVANCE] Advanced to: idx:\(currentIndex)/\(urls.count) track:\"\(newTrackTitle)\"")
+
+            NSLog("🎯 🟢 [S→K] Calling onTrackChanged(\(currentIndex)) [AUTO-ADVANCE]")
             onTrackChanged?(currentIndex)
 
             // Notify Kotlin via AppPlatform
+            NSLog("🎯 🟢 [S→K] Calling AppPlatform.notifyTrackChanged(\(currentIndex)) [AUTO-ADVANCE]")
             AppPlatform.shared.notifyTrackChanged(newIndex: Int32(currentIndex))
 
             updateNowPlayingInfo()
         } else {
             // End of playlist
+            NSLog("🎯 🎵 [PLAYLIST-END] Reached end of playlist: idx:\(currentIndex)/\(urls.count)")
             onPlaylistEnded?()
         }
     }
@@ -282,7 +341,7 @@ import ComposeApp
             try audioSession.setCategory(.playback, mode: .default)
             try audioSession.setActive(true)
         } catch {
-            print("Failed to configure audio session: \(error)")
+            NSLog("Failed to configure audio session: \(error)")
         }
     }
 
@@ -364,7 +423,7 @@ import ComposeApp
         if currentIndex < trackMetadata.count && !trackMetadata[currentIndex].isEmpty {
             let metadata = trackMetadata[currentIndex]
 
-            print("📱 [NOW_PLAYING] Using rich metadata for track \(currentIndex): \(metadata)")
+            NSLog("🎯 📱 [NOW_PLAYING] Using rich metadata for track \(currentIndex): \(metadata)")
 
             // Use rich metadata for professional notifications
             nowPlayingInfo[MPMediaItemPropertyTitle] = metadata["title"] ?? extractTitle() ?? "Unknown Title"
@@ -373,7 +432,7 @@ import ComposeApp
             // Enhanced album title with venue and date for context
             if let venue = metadata["venue"] as? String, let date = metadata["date"] as? String {
                 nowPlayingInfo[MPMediaItemPropertyAlbumTitle] = "\(venue) • \(date)"
-                print("📱 [NOW_PLAYING] Set album to: \"\(venue) • \(date)\"")
+                NSLog("🎯 📱 [NOW_PLAYING] Set album to: \"\(venue) • \(date)\"")
             } else {
                 nowPlayingInfo[MPMediaItemPropertyAlbumTitle] = metadata["album"] ?? "Live Performance"
             }
@@ -384,7 +443,7 @@ import ComposeApp
             }
         } else {
             // Fallback to basic info
-            print("📱 [NOW_PLAYING] Using fallback metadata for track \(currentIndex) (metadata count: \(trackMetadata.count))")
+            NSLog("🎯 📱 [NOW_PLAYING] Using fallback metadata for track \(currentIndex) (metadata count: \(trackMetadata.count))")
             nowPlayingInfo[MPMediaItemPropertyTitle] = extractTitle() ?? "Unknown Title"
             nowPlayingInfo[MPMediaItemPropertyArtist] = "Grateful Dead"
             nowPlayingInfo[MPMediaItemPropertyAlbumTitle] = "Live Performance"
@@ -431,10 +490,14 @@ import ComposeApp
             NotificationCenter.default.removeObserver(observer)
         }
 
-        // Remove KVO observer if it was added
+        // Remove KVO observers if they were added
         if isObservingRate {
             queuePlayer.removeObserver(self, forKeyPath: #keyPath(AVQueuePlayer.rate))
             isObservingRate = false
+        }
+        if isObservingCurrentItem {
+            queuePlayer.removeObserver(self, forKeyPath: #keyPath(AVQueuePlayer.currentItem))
+            isObservingCurrentItem = false
         }
 
         queuePlayer.pause()

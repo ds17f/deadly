@@ -76,11 +76,15 @@ import Foundation
 
         // Set up internal callbacks to route to registered Kotlin callbacks
         player.onTrackChanged = { [weak self] newIndex in
+            NSLog("🎯 🟢 [S→K] SmartQueuePlayer.onTrackChanged fired: newIndex=\(newIndex)")
             self?.trackCallback?(newIndex)
+            NSLog("🎯 🟢 [S→K] trackCallback invoked with newIndex=\(newIndex)")
         }
 
         player.onPlaylistEnded = { [weak self] in
+            NSLog("🎯 🟢 [S→K] SmartQueuePlayer.onPlaylistEnded fired")
             self?.endCallback?()
+            NSLog("🎯 🟢 [S→K] endCallback invoked")
         }
 
         return "success"
@@ -94,9 +98,9 @@ import Foundation
 
         // Extract metadata if available
         let metadata = command["trackMetadata"] as? [[String: Any]] ?? []
-        print("📱 [METADATA] Received \(metadata.count) metadata items")
+        NSLog("🎯 📱 [METADATA] Received \(metadata.count) metadata items")
         if !metadata.isEmpty {
-            print("📱 [METADATA] First item: \(metadata[0])")
+            NSLog("🎯 📱 [METADATA] First item: \(metadata[0])")
         }
 
         // Stop existing player if any
@@ -108,11 +112,15 @@ import Foundation
 
         // Set up internal callbacks to route to registered Kotlin callbacks
         player.onTrackChanged = { [weak self] newIndex in
+            NSLog("🎯 🟢 [S→K] SmartQueuePlayer.onTrackChanged fired: newIndex=\(newIndex)")
             self?.trackCallback?(newIndex)
+            NSLog("🎯 🟢 [S→K] trackCallback invoked with newIndex=\(newIndex)")
         }
 
         player.onPlaylistEnded = { [weak self] in
+            NSLog("🎯 🟢 [S→K] SmartQueuePlayer.onPlaylistEnded fired")
             self?.endCallback?()
+            NSLog("🎯 🟢 [S→K] endCallback invoked")
         }
 
         return "success"
@@ -143,18 +151,24 @@ import Foundation
     }
 
     private func handlePlayNext(playerId: String) -> String {
+        NSLog("🎯 🔵 [K→S] Command received: playNext")
         guard let player = globalPlayer else {
+            NSLog("🎯 🔵 [K→S] Command failed: no active player")
             return "error: no active player"
         }
         let success = player.playNext()
+        NSLog("🎯 🔵 [K→S] playNext completed: \(success ? "success" : "failed")")
         return success ? "true" : "false"
     }
 
     private func handlePlayPrevious(playerId: String) -> String {
+        NSLog("🎯 🔵 [K→S] Command received: playPrevious")
         guard let player = globalPlayer else {
+            NSLog("🎯 🔵 [K→S] Command failed: no active player")
             return "error: no active player"
         }
         let success = player.playPrevious()
+        NSLog("🎯 🔵 [K→S] playPrevious completed: \(success ? "success" : "failed")")
         return success ? "true" : "false"
     }
 
@@ -197,7 +211,7 @@ import Foundation
         // Store callback that will notify Kotlin when track changes
         trackCallback = { newIndex in
             // TODO: Notify Kotlin via callback mechanism
-            print("Track changed: \(newIndex)")
+            NSLog("Track changed: \(newIndex)")
         }
 
         return "success"
@@ -211,7 +225,7 @@ import Foundation
         // Store callback that will notify Kotlin when playlist ends
         endCallback = {
             // TODO: Notify Kotlin via callback mechanism
-            print("Playlist ended")
+            NSLog("Playlist ended")
         }
 
         return "success"

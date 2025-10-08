@@ -121,7 +121,7 @@ actual class PlatformMediaPlayer {
             val startTrack = enrichedTracks[startIndex]
             setTrackMetadata(startTrack.track, startTrack.recordingId)
 
-            Logger.d(TAG, "🎵 [PLAYLIST] Loaded ${enrichedTracks.size} tracks starting at index $startIndex")
+            Logger.d(TAG, "🎯 🎵 [PLAYLIST] Loaded ${enrichedTracks.size} tracks starting at index $startIndex")
 
             // Start playback (no longer need player ID)
             SmartQueuePlayerBridge.play()
@@ -146,10 +146,10 @@ actual class PlatformMediaPlayer {
 
             val success = SmartQueuePlayerBridge.playNext()
             if (success) {
-                Logger.d(TAG, "🎵 [NEXT] Skipped to next track")
+                Logger.d(TAG, "🎯 🎵 [NEXT] Skipped to next track")
                 Result.success(Unit)
             } else {
-                Logger.d(TAG, "🎵 [NEXT] No next track available")
+                Logger.d(TAG, "🎯 🎵 [NEXT] No next track available")
                 Result.failure(Exception("No next track available"))
             }
 
@@ -171,10 +171,10 @@ actual class PlatformMediaPlayer {
 
             val success = SmartQueuePlayerBridge.playPrevious()
             if (success) {
-                Logger.d(TAG, "🎵 [PREV] Previous track action completed")
+                Logger.d(TAG, "🎯 🎵 [PREV] Previous track action completed")
                 Result.success(Unit)
             } else {
-                Logger.d(TAG, "🎵 [PREV] Previous track action failed")
+                Logger.d(TAG, "🎯 🎵 [PREV] Previous track action failed")
                 Result.failure(Exception("Previous track action failed"))
             }
 
@@ -279,6 +279,8 @@ actual class PlatformMediaPlayer {
     private fun handleTrackChanged(newIndex: Int) {
         playerScope.launch {
             try {
+                Logger.d(TAG, "🎯 🟢 [S→K] handleTrackChanged called: newIndex=$newIndex")
+
                 currentEnrichedTrackIndex = newIndex
                 _currentTrackIndex.value = newIndex
 
@@ -286,7 +288,9 @@ actual class PlatformMediaPlayer {
                 if (newIndex >= 0 && newIndex < currentEnrichedTracks.size) {
                     val track = currentEnrichedTracks[newIndex]
                     setTrackMetadata(track.track, track.recordingId)
-                    Logger.d(TAG, "🎵 [TRACK_CHANGED] Advanced to track $newIndex: ${track.displayTitle}")
+                    Logger.d(TAG, "🎯 🟡 [KOTLIN] Track changed: idx:$newIndex/${currentEnrichedTracks.size} \"${track.displayTitle}\" recId:${track.recordingId} showId:${track.showId}")
+                } else {
+                    Logger.e(TAG, "🟡 [KOTLIN] Track index out of bounds: $newIndex/${currentEnrichedTracks.size}")
                 }
             } catch (e: Exception) {
                 Logger.e(TAG, "Failed to handle track change", e)
@@ -299,7 +303,7 @@ actual class PlatformMediaPlayer {
      */
     private fun handlePlaylistEnded() {
         playerScope.launch {
-            Logger.d(TAG, "🎵 [PLAYLIST_ENDED] Playlist complete")
+            Logger.d(TAG, "🎯 🎵 [PLAYLIST_ENDED] Playlist complete")
             updatePlaybackState { copy(isPlaying = false) }
         }
     }

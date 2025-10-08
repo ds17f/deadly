@@ -36,12 +36,9 @@ sync_to_remote
 
 # For signed builds, sync secrets too
 if [ "$RUN_TYPE" = "android-device-signed" ]; then
-    echo "🔐 Syncing secrets for signed build..."
-    if [ -d ".secrets" ]; then
-        rsync -az .secrets/ "$REMOTE_HOST:$REMOTE_DIR/.secrets/"
-        echo "✅ Secrets synced"
+    if sync_secrets_to_remote; then
+        : # Success
     else
-        echo "⚠️  Warning: .secrets directory not found"
         echo "   Build will use secrets already on remote Mac (if any)"
     fi
     echo ""
@@ -49,7 +46,13 @@ fi
 
 # Execute run on remote
 echo "📱 Building, installing, and launching on remote Mac..."
-exec_remote "make run-$RUN_TYPE"
+if [[ "$RUN_TYPE" == android-* ]]; then
+    exec_remote_android "make run-$RUN_TYPE"
+elif [[ "$RUN_TYPE" == ios-* ]]; then
+    exec_remote_ios "make run-$RUN_TYPE"
+else
+    exec_remote "make run-$RUN_TYPE"
+fi
 
 echo ""
 echo "✅ Remote run completed successfully!"

@@ -59,9 +59,11 @@ class MediaService(
         serviceScope.launch {
             platformMediaPlayer.currentTrackIndex.collect { newIndex ->
                 if (newIndex >= 0 && newIndex < currentPlaylist.size && newIndex != currentTrackIndex) {
-                    Logger.d(TAG, "🎵 [SYNC] Track index from platform: $currentTrackIndex -> $newIndex")
+                    val track = currentPlaylist[newIndex]
+                    val trackTitle = track.title ?: track.name
+                    Logger.d(TAG, "🟡 [KOTLIN] MediaService track sync: idx:$currentTrackIndex→$newIndex/${currentPlaylist.size} \"$trackTitle\" recId:$internalCurrentRecordingId showId:${_currentShowId.value}")
                     currentTrackIndex = newIndex
-                    currentTrack = currentPlaylist[newIndex]
+                    currentTrack = track
                 }
             }
         }
