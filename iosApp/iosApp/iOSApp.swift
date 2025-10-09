@@ -4,6 +4,7 @@ import ComposeApp
 
 @main
 struct iOSApp: App {
+    @State private var hasStartedTracking = false
 
     init() {
         setupAudioSession()
@@ -16,6 +17,16 @@ struct iOSApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView()
+                .onAppear {
+                    // Start tracking after UI is initialized (only once)
+                    if !hasStartedTracking {
+                        hasStartedTracking = true
+                        // Delay slightly to ensure all services are ready
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                            startRecentShowsTracking()
+                        }
+                    }
+                }
         }
     }
 
@@ -88,6 +99,14 @@ struct iOSApp: App {
         AppPlatform.shared.registerSmartPlayerHandler { commandJson in
             return SmartQueuePlayerManager.shared.handleCommand(commandJson)
         }
+    }
+
+    private func startRecentShowsTracking() {
+        // Start RecentShowsService tracking for home screen recent shows
+        print("📱 Starting RecentShowsService tracking...")
+        let recentShowsService = KoinHelper.shared.getRecentShowsService()
+        recentShowsService.startTracking()
+        print("📱 RecentShowsService tracking started")
     }
 
     private func setupLifecycleObservers() {

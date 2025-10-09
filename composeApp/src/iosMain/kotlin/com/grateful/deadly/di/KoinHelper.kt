@@ -33,4 +33,9 @@ object KoinHelper : KoinComponent {
         val service: HomeService by inject()
         return service
     }
+
+    fun getRecentShowsService(): com.grateful.deadly.services.data.RecentShowsService {
+        val service: com.grateful.deadly.services.data.RecentShowsService by inject()
+        return service
+    }
 }
