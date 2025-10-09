@@ -28,20 +28,16 @@ struct RootNavigationView: View {
 
     var body: some View {
         ZStack(alignment: .bottom) {
-            // Main navigation stack with TabView
-            NavigationStack(path: $coordinator.path) {
-                DeadlyTabView(coordinator: coordinator)
-                    .navigationDestination(for: NavigationCoordinator.Destination.self) { destination in
-                        destinationView(for: destination)
-                    }
-            }
-            .environmentObject(coordinator)
+            // TabView with NavigationStack wrapping each tab's content
+            DeadlyTabView(coordinator: coordinator)
+                .environmentObject(coordinator)
 
             // MiniPlayer overlay (Spotify-style, above TabBar)
             MiniPlayerView(mediaService: mediaService) {
                 coordinator.navigateToPlayer()
             }
         }
+        .ignoresSafeArea(.keyboard)
         // Full-screen Player modal
         .fullScreenCover(isPresented: $coordinator.isPresentingPlayer) {
             PlayerView(mediaService: mediaService) { showId, recordingId in

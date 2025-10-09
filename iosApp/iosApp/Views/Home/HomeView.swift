@@ -25,6 +25,7 @@ private let DeadRed = Color(red: 0xDC/255.0, green: 0x14/255.0, blue: 0x3C/255.0
 
 struct HomeView: View {
     @StateObject private var viewModel: HomeViewModelWrapper
+    @EnvironmentObject private var coordinator: NavigationCoordinator
 
     init(homeService: HomeService) {
         _viewModel = StateObject(wrappedValue: HomeViewModelWrapper(homeService: homeService))
@@ -46,6 +47,14 @@ struct HomeView: View {
             }
         }
         .background(Color(UIColor.systemBackground))
+        .navigationTitle("Home")
+        .navigationBarTitleDisplayMode(.large)
+        .onAppear {
+            // Trigger refresh when view appears
+            if !viewModel.hasContent {
+                viewModel.refresh()
+            }
+        }
     }
 
     // MARK: - Error State
@@ -164,7 +173,10 @@ struct HomeView: View {
         )
         .contentShape(Rectangle())
         .onTapGesture {
-            viewModel.navigateToShow(showId: show.id, recordingId: show.lastPlayedRecordingId)
+            coordinator.path.append(NavigationCoordinator.Destination.showDetail(
+                showId: show.id,
+                recordingId: show.lastPlayedRecordingId
+            ))
         }
     }
 
@@ -185,7 +197,10 @@ struct HomeView: View {
                             displayText: "\(show.date)\n\(show.venue.name)\n\(show.location.displayText)",
                             icon: "music.note",
                             onTap: {
-                                viewModel.navigateToShow(showId: show.id, recordingId: nil)
+                                coordinator.path.append(NavigationCoordinator.Destination.showDetail(
+                                    showId: show.id,
+                                    recordingId: nil
+                                ))
                             }
                         )
                     }
@@ -211,7 +226,8 @@ struct HomeView: View {
                             displayText: "\(collection.name)\n\(collection.showCountText)",
                             icon: "folder",
                             onTap: {
-                                viewModel.navigateToCollection(collectionId: collection.id)
+                                // TODO: Navigate to collection detail when implemented
+                                print("Navigate to collection: \(collection.id)")
                             }
                         )
                     }
@@ -266,7 +282,7 @@ struct HomeView: View {
                 .foregroundColor(Color(UIColor.secondaryLabel))
 
             Button("Browse Shows") {
-                viewModel.navigateToSearch()
+                coordinator.selectedTab = .search
             }
             .buttonStyle(.borderedProminent)
         }

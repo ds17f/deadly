@@ -13,21 +13,30 @@ struct DeadlyTabView: View {
     // Get services from Koin
     private let homeService: HomeService
     private let mediaService: MediaService
+    private let showDetailService: ShowDetailService
+    private let libraryService: LibraryService
 
     init(coordinator: NavigationCoordinator) {
         self.coordinator = coordinator
         self.homeService = KoinHelper.shared.getHomeService()
         self.mediaService = KoinHelper.shared.getMediaService()
+        self.showDetailService = KoinHelper.shared.getShowDetailService()
+        self.libraryService = KoinHelper.shared.getLibraryService()
     }
 
     var body: some View {
         TabView(selection: $coordinator.selectedTab) {
-            // Home Tab
-            HomeView(homeService: homeService)
-                .tabItem {
-                    Label("Home", systemImage: "house.fill")
-                }
-                .tag(NavigationCoordinator.Tab.home)
+            // Home Tab - wrapped in NavigationStack
+            NavigationStack(path: $coordinator.path) {
+                HomeView(homeService: homeService)
+                    .navigationDestination(for: NavigationCoordinator.Destination.self) { destination in
+                        destinationView(for: destination)
+                    }
+            }
+            .tabItem {
+                Label("Home", systemImage: "house.fill")
+            }
+            .tag(NavigationCoordinator.Tab.home)
 
             // Search Tab
             SearchPlaceholderView()
@@ -58,6 +67,24 @@ struct DeadlyTabView: View {
                 .tag(NavigationCoordinator.Tab.settings)
         }
         .accentColor(Color(red: 0xDC/255.0, green: 0x14/255.0, blue: 0x3C/255.0)) // DeadRed
+    }
+
+    @ViewBuilder
+    private func destinationView(for destination: NavigationCoordinator.Destination) -> some View {
+        switch destination {
+        case .showDetail(let showId, let recordingId):
+            ShowDetailView(
+                showId: showId,
+                recordingId: recordingId,
+                showDetailService: showDetailService,
+                mediaService: mediaService,
+                libraryService: libraryService
+            )
+
+        case .searchResults(let query):
+            Text("Search results for: \(query)")
+                .navigationTitle("Search Results")
+        }
     }
 }
 
