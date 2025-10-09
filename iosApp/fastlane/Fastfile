@@ -20,15 +20,19 @@ platform :ios do
     # Get absolute path to xcodeproj (one level up from fastlane/)
     xcodeproj_path = File.expand_path("../iosApp.xcodeproj", __dir__)
 
-    increment_version_number(
-      version_number: version_name,
-      xcodeproj: xcodeproj_path
-    )
+    # Update build settings directly (not Info.plist, which is auto-generated)
+    # This ensures version persists when Xcode regenerates Info.plist
+    require 'xcodeproj'
+    project = Xcodeproj::Project.open(xcodeproj_path)
 
-    increment_build_number(
-      build_number: version_code,
-      xcodeproj: xcodeproj_path
-    )
+    project.targets.each do |target|
+      target.build_configurations.each do |config|
+        config.build_settings["MARKETING_VERSION"] = version_name
+        config.build_settings["CURRENT_PROJECT_VERSION"] = version_code
+      end
+    end
+
+    project.save
 
     UI.success("✅ iOS version updated to #{version_name} (#{version_code})")
   end
