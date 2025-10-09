@@ -1,5 +1,6 @@
 package com.grateful.deadly.di
 
+import com.grateful.deadly.domain.home.HomeService
 import com.grateful.deadly.feature.showdetail.ShowDetailService
 import com.grateful.deadly.services.media.MediaService
 import com.grateful.deadly.services.library.LibraryService
@@ -25,6 +26,11 @@ object KoinHelper : KoinComponent {
 
     fun getLibraryService(): LibraryService {
         val service: LibraryService by inject()
+        return service
+    }
+
+    fun getHomeService(): HomeService {
+        val service: HomeService by inject()
         return service
     }
 }

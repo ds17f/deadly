@@ -1,24 +1,20 @@
-import UIKit
 import SwiftUI
 import ComposeApp
 
-struct ComposeView: UIViewControllerRepresentable {
-    func makeUIViewController(context: Context) -> UIViewController {
-        MainViewControllerKt.MainViewController()
-    }
-
-    func updateUIViewController(_ uiViewController: UIViewController, context: Context) {}
-}
-
+/**
+ * ContentView - Main entry point for iOS app
+ *
+ * Uses pure SwiftUI navigation with RootNavigationView
+ * Initializes Koin DI before creating any views
+ */
 struct ContentView: View {
     init() {
-        // Initialize Koin DI before any Compose UI is created
+        // Initialize Koin DI before any views are created
         IOSKoinInitKt.doInitKoin()
     }
-    
+
     var body: some View {
-        ComposeView()
-            .ignoresSafeArea()
+        RootNavigationView()
     }
 }
 

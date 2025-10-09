@@ -30,6 +30,12 @@ actual class NavigationController {
     }
 
     actual fun navigate(screen: AppScreen) {
+        // SPECIAL CASE: Intercept Home navigation and present SwiftUI view
+        if (screen is AppScreen.Home) {
+            HomeBridgeHelper.showHome()
+            return
+        }
+
         // SPECIAL CASE: Intercept ShowDetail navigation and present SwiftUI view
         if (screen is AppScreen.ShowDetail) {
             ShowDetailBridgeHelper.showDetail(screen.showId, screen.recordingId)

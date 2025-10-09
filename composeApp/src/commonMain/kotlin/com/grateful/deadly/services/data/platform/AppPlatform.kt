@@ -19,6 +19,7 @@ object AppPlatform {
     // Navigation handlers for presenting SwiftUI views (iOS only)
     private var showDetailHandler: ShowDetailPresentationHandler? = null
     private var playerHandler: PlayerPresentationHandler? = null
+    private var homeHandler: HomePresentationHandler? = null
 
     /**
      * Register a handler for unzip requests from Kotlin.
@@ -74,6 +75,14 @@ object AppPlatform {
      */
     fun registerPlayerHandler(handler: PlayerPresentationHandler) {
         playerHandler = handler
+    }
+
+    /**
+     * Register handler for presenting SwiftUI Home view (iOS only).
+     * Should be called during app initialization by the host app.
+     */
+    fun registerHomeHandler(handler: HomePresentationHandler) {
+        homeHandler = handler
     }
 
     /**
@@ -153,6 +162,16 @@ object AppPlatform {
             ?: return // Not registered - Android doesn't need this
         handler(onNavigateToShowDetail)
     }
+
+    /**
+     * Present SwiftUI Home view via registered handler.
+     * Called from Kotlin navigation to present native iOS view.
+     */
+    fun showHome() {
+        val handler = homeHandler
+            ?: return // Not registered - Android doesn't need this
+        handler()
+    }
 }
 
 /**
@@ -199,3 +218,9 @@ typealias ShowDetailPresentationHandler = (showId: String, recordingId: String?)
  * Called from Kotlin navigation to present native iOS view.
  */
 typealias PlayerPresentationHandler = (onNavigateToShowDetail: (String, String?) -> Unit) -> Unit
+
+/**
+ * Handler for presenting SwiftUI Home view.
+ * Called from Kotlin navigation to present native iOS view.
+ */
+typealias HomePresentationHandler = () -> Unit
