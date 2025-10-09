@@ -194,65 +194,37 @@ struct SearchResultsView: View {
 struct SearchResultCard: View {
     let result: SearchResultShow
 
-    private let DeadRed = Color(red: 0xDC/255.0, green: 0x14/255.0, blue: 0x3C/255.0)
-
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(alignment: .top) {
-                VStack(alignment: .leading, spacing: 4) {
-                    // Date
-                    Text(formatDate(result.show.date))
-                        .font(.system(size: 18, weight: .bold))
-                        .foregroundColor(.primary)
+        HStack(spacing: 12) {
+            // Album art placeholder (60pt square)
+            ZStack {
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(Color(.systemGray5))
+                    .frame(width: 60, height: 60)
 
-                    // Venue
-                    Text(result.show.venue.name)
-                        .font(.system(size: 14))
-                        .foregroundColor(.secondary)
-
-                    // Location
-                    Text(result.show.location.displayText)
-                        .font(.system(size: 14))
-                        .foregroundColor(.secondary)
-
-                    // Match type indicator
-                    Text(result.matchType.displayName)
-                        .font(.system(size: 12))
-                        .foregroundColor(DeadRed)
-                        .padding(.top, 4)
-                }
-
-                Spacer()
-
-                // Has downloads indicator
-                if result.hasDownloads {
-                    Image(systemName: "arrow.down.circle.fill")
-                        .foregroundColor(DeadRed)
-                        .font(.system(size: 20))
-                }
+                Image(systemName: "music.note")
+                    .font(.system(size: 24))
+                    .foregroundColor(.secondary)
             }
+
+            // Text content
+            VStack(alignment: .leading, spacing: 2) {
+                // Line 1: Date • Location
+                Text("\(result.show.date) • \(result.show.location.displayText)")
+                    .font(.system(size: 15))
+                    .foregroundColor(.primary)
+                    .lineLimit(1)
+
+                // Line 2: Venue
+                Text(result.show.venue.name)
+                    .font(.system(size: 13))
+                    .foregroundColor(.secondary)
+                    .lineLimit(1)
+            }
+
+            Spacer()
         }
-        .padding(16)
-        .background(Color(.systemGray6))
-        .cornerRadius(8)
         .padding(.horizontal, 16)
         .padding(.vertical, 4)
-    }
-
-    private func formatDate(_ dateString: String) -> String {
-        // Format: "1977-05-08" -> "May 8, 1977"
-        let components = dateString.split(separator: "-")
-        guard components.count == 3,
-              let year = components.first,
-              let month = Int(components[1]),
-              let day = Int(components[2]) else {
-            return dateString
-        }
-
-        let monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
-                          "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
-        let monthName = month > 0 && month <= 12 ? monthNames[month - 1] : ""
-
-        return "\(monthName) \(day), \(year)"
     }
 }

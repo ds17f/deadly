@@ -268,53 +268,72 @@ struct LibraryShowListItem: View {
     private let DeadRed = Color(red: 0xDC/255.0, green: 0x14/255.0, blue: 0x3C/255.0)
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(alignment: .top) {
-                VStack(alignment: .leading, spacing: 4) {
-                    // Date
-                    Text(show.displayDate)
-                        .font(.system(size: 18, weight: .bold))
+        HStack(spacing: 12) {
+            // Album art placeholder (60pt square)
+            ZStack {
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(Color(.systemGray5))
+                    .frame(width: 60, height: 60)
+
+                Image(systemName: "music.note")
+                    .font(.system(size: 24))
+                    .foregroundColor(.secondary)
+            }
+
+            // Text content (2-3 line layout)
+            VStack(alignment: .leading, spacing: 2) {
+                // Line 1: Icons + Date • Location
+                HStack(spacing: 4) {
+                    // Pin indicator (inline)
+                    if show.isPinned {
+                        Image(systemName: "pin.fill")
+                            .font(.system(size: 12))
+                            .foregroundColor(DeadRed)
+                    }
+
+                    // Download indicator (inline)
+                    if show.isDownloaded {
+                        Image(systemName: "checkmark.circle")
+                            .font(.system(size: 12))
+                            .foregroundColor(DeadRed)
+                    }
+
+                    Text("\(show.displayDate) • \(show.location)")
+                        .font(.system(size: 15, weight: .medium))
                         .foregroundColor(.primary)
+                        .lineLimit(1)
+                }
 
-                    // Venue
-                    Text(show.venue)
-                        .font(.system(size: 14))
-                        .foregroundColor(.secondary)
+                // Line 2: Venue
+                Text(show.venue)
+                    .font(.system(size: 13))
+                    .foregroundColor(.secondary)
+                    .lineLimit(1)
 
-                    // Location
-                    Text(show.location)
-                        .font(.system(size: 14))
-                        .foregroundColor(.secondary)
+                // Line 3: Rating (if available)
+                if let rating = show.rating {
+                    HStack(spacing: 2) {
+                        Image(systemName: "star.fill")
+                            .font(.system(size: 10))
+                            .foregroundColor(.orange)
 
-                    // Rating
-                    if let rating = show.rating {
-                        HStack(spacing: 4) {
-                            Image(systemName: "star.fill")
-                                .foregroundColor(DeadRed)
-                                .font(.system(size: 12))
-                            Text(String(format: "%.1f", rating))
-                                .font(.system(size: 12))
-                                .foregroundColor(.secondary)
-                            Text("(\(show.reviewCount) reviews)")
-                                .font(.system(size: 12))
+                        Text(String(format: "%.1f", rating))
+                            .font(.system(size: 11))
+                            .foregroundColor(.secondary)
+
+                        if show.reviewCount > 0 {
+                            Text("(\(show.reviewCount))")
+                                .font(.system(size: 11))
                                 .foregroundColor(.secondary)
                         }
                     }
-                }
-
-                Spacer()
-
-                // Pin indicator
-                if show.isPinned {
-                    Image(systemName: "pin.fill")
-                        .foregroundColor(DeadRed)
-                        .font(.system(size: 16))
+                    .padding(.top, 2)
                 }
             }
+
+            Spacer()
         }
-        .padding(16)
-        .background(Color(.systemGray6))
-        .cornerRadius(8)
+        .padding(12)
     }
 }
 
@@ -325,49 +344,57 @@ struct LibraryShowGridItem: View {
     private let DeadRed = Color(red: 0xDC/255.0, green: 0x14/255.0, blue: 0x3C/255.0)
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            // Date (larger for grid)
-            Text(extractMonthDay(from: show.date))
-                .font(.system(size: 16, weight: .bold))
-                .foregroundColor(.primary)
+        VStack(alignment: .leading, spacing: 0) {
+            // Album art placeholder (square aspect ratio)
+            ZStack {
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(Color(.systemGray5))
+                    .aspectRatio(1, contentMode: .fit)
 
-            // Year
-            Text(extractYear(from: show.date))
-                .font(.system(size: 12))
-                .foregroundColor(.secondary)
-
-            Spacer()
-
-            // Pin indicator at bottom
-            if show.isPinned {
-                HStack {
-                    Spacer()
-                    Image(systemName: "pin.fill")
-                        .foregroundColor(DeadRed)
-                        .font(.system(size: 12))
-                }
+                Image(systemName: "music.note")
+                    .font(.system(size: 32))
+                    .foregroundColor(.secondary)
             }
-        }
-        .padding(8)
-        .frame(height: 100)
-        .background(Color(.systemGray6))
-        .cornerRadius(8)
-    }
 
-    private func extractMonthDay(from date: String) -> String {
-        let components = date.split(separator: "-")
-        guard components.count == 3,
-              let month = Int(components[1]),
-              let day = Int(components[2]) else {
-            return date
-        }
-        let monthNames = ["", "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-                          "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
-        let monthName = month > 0 && month <= 12 ? monthNames[month] : ""
-        return "\(monthName) \(day)"
-    }
+            // Text section
+            VStack(alignment: .leading, spacing: 2) {
+                // Line 1: Icons + Date
+                HStack(spacing: 2) {
+                    // Pin indicator (inline)
+                    if show.isPinned {
+                        Image(systemName: "pin.fill")
+                            .font(.system(size: 8))
+                            .foregroundColor(DeadRed)
+                    }
 
-    private func extractYear(from date: String) -> String {
-        return String(date.prefix(4))
+                    // Download indicator (inline)
+                    if show.isDownloaded {
+                        Image(systemName: "checkmark.circle")
+                            .font(.system(size: 8))
+                            .foregroundColor(DeadRed)
+                    }
+
+                    Text(show.date)
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundColor(.primary)
+                        .lineLimit(1)
+                }
+
+                // Line 2: Venue
+                Text(show.venue)
+                    .font(.system(size: 11))
+                    .foregroundColor(.secondary)
+                    .lineLimit(1)
+
+                // Line 3: Location
+                Text(show.location)
+                    .font(.system(size: 11))
+                    .foregroundColor(.secondary)
+                    .lineLimit(1)
+            }
+            .padding(.horizontal, 8)
+            .padding(.top, 4)
+            .padding(.bottom, 8)
+        }
     }
 }
