@@ -50,4 +50,9 @@ object KoinHelper : KoinComponent {
         val viewModel: SearchViewModel by inject()
         return viewModel
     }
+
+    fun getLibraryViewModel(): com.grateful.deadly.feature.library.LibraryViewModel {
+        val viewModel: com.grateful.deadly.feature.library.LibraryViewModel by inject()
+        return viewModel
+    }
 }

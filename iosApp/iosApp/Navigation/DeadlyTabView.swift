@@ -16,6 +16,7 @@ struct DeadlyTabView: View {
     private let showDetailService: ShowDetailService
     private let libraryService: LibraryService
     private let searchViewModel: SearchViewModel
+    private let libraryViewModel: LibraryViewModel
 
     init(coordinator: NavigationCoordinator) {
         self.coordinator = coordinator
@@ -24,6 +25,7 @@ struct DeadlyTabView: View {
         self.showDetailService = KoinHelper.shared.getShowDetailService()
         self.libraryService = KoinHelper.shared.getLibraryService()
         self.searchViewModel = KoinHelper.shared.getSearchViewModel()
+        self.libraryViewModel = KoinHelper.shared.getLibraryViewModel()
     }
 
     var body: some View {
@@ -52,12 +54,17 @@ struct DeadlyTabView: View {
             }
             .tag(NavigationCoordinator.Tab.search)
 
-            // Library Tab
-            LibraryPlaceholderView()
-                .tabItem {
-                    Label("Library", systemImage: "music.note.list")
-                }
-                .tag(NavigationCoordinator.Tab.library)
+            // Library Tab - wrapped in NavigationStack
+            NavigationStack(path: $coordinator.path) {
+                LibraryView(libraryViewModel: libraryViewModel)
+                    .navigationDestination(for: NavigationCoordinator.Destination.self) { destination in
+                        destinationView(for: destination)
+                    }
+            }
+            .tabItem {
+                Label("Library", systemImage: "music.note.list")
+            }
+            .tag(NavigationCoordinator.Tab.library)
 
             // Collections Tab
             CollectionsPlaceholderView()
