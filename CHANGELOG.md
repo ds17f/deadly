@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.4.0] - 2025-10-09
+
+### New Features
+* add loading spinner support for iOS media playback (172a918)
+
+### Bug Fixes
+* update iOS version by modifying Xcode build settings directly (8c4f790)
+* remove obsolete atomicfu guard from SmartQueuePlayerBridge (61095a4)
+* improve iOS player slider performance and responsiveness (473f138)
+
+
 ## [1.3.0] - 2025-10-08
 
 ### New Features
@@ -24,8 +35,6 @@
 ### Other Changes
 * debug: add comprehensive call-chain diagnostic logging (154e412)
 * debug: add comprehensive track navigation logging and remote infrastructure improvements (f585cb5)
-
-
 ## [1.2.3] - 2025-10-07
 
 ### Other Changes
