@@ -58,6 +58,9 @@ actual class PlatformMediaPlayer {
             },
             onPlaybackStateChanged = { isPlaying ->
                 updatePlaybackState { copy(isPlaying = isPlaying) }
+            },
+            onMediaReady = {
+                handleMediaReady()
             }
         )
 
@@ -124,6 +127,9 @@ actual class PlatformMediaPlayer {
             setTrackMetadata(startTrack.track, startTrack.recordingId)
 
             Logger.d(TAG, "🎯 🎵 [PLAYLIST] Loaded ${enrichedTracks.size} tracks starting at index $startIndex")
+
+            // Set loading state to true - will be cleared when media is ready
+            updatePlaybackState { copy(isLoading = true) }
 
             // Start playback (no longer need player ID)
             SmartQueuePlayerBridge.play()
@@ -286,6 +292,9 @@ actual class PlatformMediaPlayer {
                 currentEnrichedTrackIndex = newIndex
                 _currentTrackIndex.value = newIndex
 
+                // Set loading state when track changes
+                updatePlaybackState { copy(isLoading = true) }
+
                 // Update metadata
                 if (newIndex >= 0 && newIndex < currentEnrichedTracks.size) {
                     val track = currentEnrichedTracks[newIndex]
@@ -297,6 +306,17 @@ actual class PlatformMediaPlayer {
             } catch (e: Exception) {
                 Logger.e(TAG, "Failed to handle track change", e)
             }
+        }
+    }
+
+    /**
+     * Handle media ready callback from SmartQueuePlayer.
+     * Called when AVPlayerItem transitions to .readyToPlay state.
+     */
+    private fun handleMediaReady() {
+        playerScope.launch {
+            Logger.d(TAG, "🎯 🟢 [S→K] handleMediaReady called: media is ready to play")
+            updatePlaybackState { copy(isLoading = false) }
         }
     }
 
@@ -323,12 +343,11 @@ actual class PlatformMediaPlayer {
                     val currentPositionMs = (state.currentTime * 1000).toLong()
                     val durationMs = (state.duration * 1000).toLong()
 
-                    // Update only position/duration - playback state and track changes handled by events
+                    // Update only position/duration - preserve loading state which is managed by events
                     updatePlaybackState {
                         copy(
                             currentPositionMs = currentPositionMs,
                             durationMs = if (durationMs > 0) durationMs else 0L,
-                            isLoading = false,
                             isBuffering = false,
                             error = null
                         )

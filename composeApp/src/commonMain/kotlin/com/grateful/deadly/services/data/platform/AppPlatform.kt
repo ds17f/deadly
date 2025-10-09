@@ -15,6 +15,7 @@ object AppPlatform {
     // Media player event handlers
     private var trackChangeHandler: MediaPlayerTrackChangeHandler? = null
     private var playbackStateChangeHandler: MediaPlayerPlaybackStateChangeHandler? = null
+    private var mediaReadyHandler: MediaPlayerMediaReadyHandler? = null
 
     // Navigation handlers for presenting SwiftUI views (iOS only)
     private var showDetailHandler: ShowDetailPresentationHandler? = null
@@ -55,10 +56,12 @@ object AppPlatform {
      */
     fun registerMediaPlayerEventHandlers(
         onTrackChanged: MediaPlayerTrackChangeHandler,
-        onPlaybackStateChanged: MediaPlayerPlaybackStateChangeHandler
+        onPlaybackStateChanged: MediaPlayerPlaybackStateChangeHandler,
+        onMediaReady: MediaPlayerMediaReadyHandler? = null
     ) {
         trackChangeHandler = onTrackChanged
         playbackStateChangeHandler = onPlaybackStateChanged
+        mediaReadyHandler = onMediaReady
     }
 
     /**
@@ -144,6 +147,15 @@ object AppPlatform {
     }
 
     /**
+     * Notify registered handlers that media is ready to play.
+     * Called from Swift when AVPlayerItem transitions to .readyToPlay state.
+     */
+    fun notifyMediaReady() {
+        println("🎯 🟢 [S→K] AppPlatform.notifyMediaReady: routing mediaReady event to Kotlin")
+        mediaReadyHandler?.invoke()
+    }
+
+    /**
      * Present SwiftUI ShowDetail view via registered handler.
      * Called from Kotlin navigation to present native iOS view.
      */
@@ -206,6 +218,12 @@ typealias MediaPlayerTrackChangeHandler = (newIndex: Int) -> Unit
  * Called when play/pause state changes.
  */
 typealias MediaPlayerPlaybackStateChangeHandler = (isPlaying: Boolean) -> Unit
+
+/**
+ * Handler for media player ready events.
+ * Called when AVPlayerItem is ready to play (finished loading/buffering).
+ */
+typealias MediaPlayerMediaReadyHandler = () -> Unit
 
 /**
  * Handler for presenting SwiftUI ShowDetail view.

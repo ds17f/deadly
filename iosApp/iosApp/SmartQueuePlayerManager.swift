@@ -11,6 +11,7 @@ import Foundation
     private var globalPlayer: SmartQueuePlayer?
     private var trackCallback: ((Int) -> Void)?
     private var endCallback: (() -> Void)?
+    private var mediaReadyCallback: (() -> Void)?
 
     private override init() {
         super.init()
@@ -87,6 +88,12 @@ import Foundation
             NSLog("🎯 🟢 [S→K] endCallback invoked")
         }
 
+        player.onMediaReady = { [weak self] in
+            NSLog("🎯 🟢 [S→K] SmartQueuePlayer.onMediaReady fired")
+            self?.mediaReadyCallback?()
+            NSLog("🎯 🟢 [S→K] mediaReadyCallback invoked")
+        }
+
         return "success"
     }
 
@@ -126,6 +133,12 @@ import Foundation
             NSLog("🎯 🟢 [S→K] endCallback invoked")
         }
 
+        player.onMediaReady = { [weak self] in
+            NSLog("🎯 🟢 [S→K] SmartQueuePlayer.onMediaReady fired")
+            self?.mediaReadyCallback?()
+            NSLog("🎯 🟢 [S→K] mediaReadyCallback invoked")
+        }
+
         NSLog("🎯 🔵 [K→S] MANAGER handleReplacePlaylist() EXIT - player created successfully")
         return "success"
     }
@@ -135,6 +148,7 @@ import Foundation
         globalPlayer = nil
         trackCallback = nil
         endCallback = nil
+        mediaReadyCallback = nil
         return "success"
     }
 
@@ -240,6 +254,7 @@ import Foundation
         globalPlayer = nil
         trackCallback = nil
         endCallback = nil
+        mediaReadyCallback = nil
         return "success"
     }
 }

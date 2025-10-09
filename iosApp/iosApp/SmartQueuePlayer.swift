@@ -17,6 +17,7 @@ import ComposeApp
     private var endObserver: NSObjectProtocol?
     private var isObservingRate = false
     private var isObservingCurrentItem = false
+    private var currentItemStatusObserver: NSKeyValueObservation?
 
     // MARK: - Public Properties
 
@@ -25,6 +26,9 @@ import ComposeApp
 
     /// Callback triggered when playback reaches the end of the playlist
     public var onPlaylistEnded: (() -> Void)?
+
+    /// Callback triggered when media is ready to play (finished loading/buffering)
+    public var onMediaReady: (() -> Void)?
 
     // MARK: - Initialization
 
@@ -231,6 +235,9 @@ import ComposeApp
             }
         }
 
+        // Observe the new currentItem's status
+        observeCurrentItemStatus()
+
         // Seek to beginning of track
         queuePlayer.seek(to: CMTime.zero)
 
@@ -280,6 +287,40 @@ import ComposeApp
             context: nil
         )
         isObservingCurrentItem = true
+
+        // Observe currentItem's status to detect when media is ready to play
+        observeCurrentItemStatus()
+    }
+
+    private func observeCurrentItemStatus() {
+        // Cancel previous observation
+        currentItemStatusObserver?.invalidate()
+
+        // Observe the status of the current item
+        currentItemStatusObserver = queuePlayer.currentItem?.observe(\.status, options: [.new]) { [weak self] item, change in
+            guard let self = self else { return }
+
+            switch item.status {
+            case .readyToPlay:
+                NSLog("🎯 📱 [MEDIA_READY] AVPlayerItem is ready to play (status changed)")
+                // Notify Kotlin that media is ready
+                AppPlatform.shared.notifyMediaReady()
+                self.onMediaReady?()
+            case .failed:
+                NSLog("🎯 ❌ [MEDIA_ERROR] AVPlayerItem failed to load: \(item.error?.localizedDescription ?? "unknown error")")
+            case .unknown:
+                NSLog("🎯 ⏳ [MEDIA_LOADING] AVPlayerItem status unknown (loading)")
+            @unknown default:
+                break
+            }
+        }
+
+        // Check if item is already ready (important for auto-advance where item may already be loaded)
+        if let currentItem = queuePlayer.currentItem, currentItem.status == .readyToPlay {
+            NSLog("🎯 📱 [MEDIA_READY] AVPlayerItem is already ready (immediate check)")
+            AppPlatform.shared.notifyMediaReady()
+            onMediaReady?()
+        }
     }
 
     // KVO observer for playback state changes
@@ -306,6 +347,9 @@ import ComposeApp
                currentItem !== oldItem {
                 NSLog("🎯 🔴 [AVQ_ITEM_CHANGE] UNEXPECTED: AVQueuePlayer switched items! This may indicate queue desync.")
             }
+
+            // Re-observe the new currentItem's status
+            observeCurrentItemStatus()
         }
     }
 
@@ -325,6 +369,9 @@ import ComposeApp
 
             currentIndex = newIndex
             extendQueueIfNeeded()
+
+            // Observe the new currentItem's status for loading spinner
+            observeCurrentItemStatus()
 
             // Get new track title after index change
             let newTrackTitle = extractTitle() ?? "Unknown"
@@ -511,6 +558,10 @@ import ComposeApp
             queuePlayer.removeObserver(self, forKeyPath: #keyPath(AVQueuePlayer.currentItem))
             isObservingCurrentItem = false
         }
+
+        // Invalidate currentItem status observer
+        currentItemStatusObserver?.invalidate()
+        currentItemStatusObserver = nil
 
         queuePlayer.pause()
         queuePlayer.removeAllItems()
