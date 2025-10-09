@@ -77,6 +77,13 @@ struct PlayerView: View {
                         .padding(.horizontal, 24)
                         .padding(.vertical, 12)
 
+                    // Material panels (16pt horizontal, 6pt vertical) - matches V2
+                    if viewModel.currentTrack != nil {
+                        materialPanels
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 6)
+                    }
+
                     // Bottom spacing
                     Spacer()
                         .frame(height: 16)
@@ -462,6 +469,57 @@ struct PlayerView: View {
         .cornerRadius(8)
         .padding(.horizontal)
         .padding(.top, 8)
+    }
+
+    // MARK: - Material Panels
+
+    private var materialPanels: some View {
+        VStack(spacing: 16) {
+            // About the Venue Panel
+            materialPanel(
+                title: "About the Venue",
+                content: "Venue information will be displayed when show metadata is available."
+            )
+
+            // Lyrics Panel
+            materialPanel(
+                title: "Lyrics",
+                content: "Lyrics will be displayed when available for \(viewModel.currentTrack?.title ?? "this track")."
+            )
+
+            // Similar Shows Panel
+            materialPanel(
+                title: "Similar Shows",
+                content: "Similar shows will be displayed when show data is loaded."
+            )
+
+            // Credits Panel
+            materialPanel(
+                title: "Credits",
+                content: "Performance credits will be displayed when available."
+            )
+        }
+    }
+
+    private func materialPanel(title: String, content: String) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(title)
+                .font(.headline)
+                .fontWeight(.bold)
+                .foregroundColor(Color(UIColor.label))
+
+            Text(content)
+                .font(.body)
+                .foregroundColor(Color(UIColor.secondaryLabel))
+                .lineSpacing(4) // Increased line height (1.2x)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(20)
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(Color(UIColor.secondarySystemBackground))
+                .shadow(color: Color.black.opacity(0.1), radius: 2, x: 0, y: 1)
+        )
     }
 }
 

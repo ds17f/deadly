@@ -205,8 +205,86 @@ struct ShowDetailView: View {
     // MARK: - Interactive Rating (matches ShowDetailInteractiveRating.kt)
 
     private func interactiveRating(showData: Show_) -> some View {
-        // Placeholder for rating - will implement if needed
-        EmptyView()
+        Button(action: {
+            // TODO: Show reviews modal
+            print("Show reviews for: \(showData.id)")
+        }) {
+            HStack {
+                // Left: Star rating and numerical score
+                HStack(spacing: 8) {
+                    // Compact star rating
+                    compactStarRating(rating: showData.averageRating?.floatValue)
+
+                    // Numerical rating
+                    Text(ratingText(rating: showData.averageRating?.doubleValue))
+                        .font(.body)
+                        .fontWeight(.semibold)
+                        .foregroundColor(showData.averageRating != nil && showData.averageRating!.floatValue > 0
+                            ? Color(UIColor.label)
+                            : Color(UIColor.secondaryLabel))
+                }
+
+                Spacer()
+
+                // Right: Review count with chevron
+                HStack(spacing: 4) {
+                    let reviewCount = Int(showData.totalReviews)
+                    Text(reviewCount > 0 ? "(\(reviewCount))" : "No reviews")
+                        .font(.body)
+                        .foregroundColor(Color(UIColor.secondaryLabel))
+
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 14))
+                        .foregroundColor(Color(UIColor.secondaryLabel))
+                }
+            }
+            .padding(12)
+            .frame(maxWidth: .infinity)
+            .background(
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(Color(UIColor.secondarySystemFill).opacity(0.3))
+            )
+        }
+        .buttonStyle(.plain)
+        .padding(.horizontal, 24)
+        .padding(.vertical, 8)
+    }
+
+    // Star rating display helper
+    private func compactStarRating(rating: Float?) -> some View {
+        let safeRating = rating ?? 0
+        let maxRating = 5
+
+        return HStack(spacing: 2) {
+            ForEach(0..<maxRating, id: \.self) { index in
+                let starRating = safeRating - Float(index)
+                let iconName = starIconName(for: starRating)
+
+                Image(systemName: iconName)
+                    .font(.system(size: 16))
+                    .foregroundColor(starRating > 0 ? DeadRed : Color(UIColor.label).opacity(0.3))
+            }
+        }
+    }
+
+    // Star icon name helper
+    private func starIconName(for rating: Float) -> String {
+        if rating >= 1.0 {
+            return "star.fill"
+        } else if rating >= 0.5 {
+            return "star.leadinghalf.filled"
+        } else {
+            return "star"
+        }
+    }
+
+    // Rating text helper
+    private func ratingText(rating: Double?) -> String {
+        guard let rating = rating, rating > 0 else {
+            return "N/A"
+        }
+        let rounded = (rating * 10).rounded() / 10
+        return String(format: "%.1f", rounded)
     }
 
     // MARK: - Action Row (matches ShowDetailActionRow.kt)
