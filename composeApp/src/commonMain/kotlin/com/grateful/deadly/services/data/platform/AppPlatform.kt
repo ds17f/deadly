@@ -16,6 +16,10 @@ object AppPlatform {
     private var trackChangeHandler: MediaPlayerTrackChangeHandler? = null
     private var playbackStateChangeHandler: MediaPlayerPlaybackStateChangeHandler? = null
 
+    // Navigation handlers for presenting SwiftUI views (iOS only)
+    private var showDetailHandler: ShowDetailPresentationHandler? = null
+    private var playerHandler: PlayerPresentationHandler? = null
+
     /**
      * Register a handler for unzip requests from Kotlin.
      * Should be called during app initialization by the host app.
@@ -54,6 +58,22 @@ object AppPlatform {
     ) {
         trackChangeHandler = onTrackChanged
         playbackStateChangeHandler = onPlaybackStateChanged
+    }
+
+    /**
+     * Register handler for presenting SwiftUI ShowDetail view (iOS only).
+     * Should be called during app initialization by the host app.
+     */
+    fun registerShowDetailHandler(handler: ShowDetailPresentationHandler) {
+        showDetailHandler = handler
+    }
+
+    /**
+     * Register handler for presenting SwiftUI Player view (iOS only).
+     * Should be called during app initialization by the host app.
+     */
+    fun registerPlayerHandler(handler: PlayerPresentationHandler) {
+        playerHandler = handler
     }
 
     /**
@@ -113,6 +133,26 @@ object AppPlatform {
     fun notifyPlaybackStateChanged(isPlaying: Boolean) {
         playbackStateChangeHandler?.invoke(isPlaying)
     }
+
+    /**
+     * Present SwiftUI ShowDetail view via registered handler.
+     * Called from Kotlin navigation to present native iOS view.
+     */
+    fun showShowDetail(showId: String, recordingId: String?) {
+        val handler = showDetailHandler
+            ?: return // Not registered - Android doesn't need this
+        handler(showId, recordingId)
+    }
+
+    /**
+     * Present SwiftUI Player view via registered handler.
+     * Called from Kotlin navigation to present native iOS view.
+     */
+    fun showPlayer(onNavigateToShowDetail: (String, String?) -> Unit) {
+        val handler = playerHandler
+            ?: return // Not registered - Android doesn't need this
+        handler(onNavigateToShowDetail)
+    }
 }
 
 /**
@@ -147,3 +187,15 @@ typealias MediaPlayerTrackChangeHandler = (newIndex: Int) -> Unit
  * Called when play/pause state changes.
  */
 typealias MediaPlayerPlaybackStateChangeHandler = (isPlaying: Boolean) -> Unit
+
+/**
+ * Handler for presenting SwiftUI ShowDetail view.
+ * Called from Kotlin navigation to present native iOS view.
+ */
+typealias ShowDetailPresentationHandler = (showId: String, recordingId: String?) -> Unit
+
+/**
+ * Handler for presenting SwiftUI Player view.
+ * Called from Kotlin navigation to present native iOS view.
+ */
+typealias PlayerPresentationHandler = (onNavigateToShowDetail: (String, String?) -> Unit) -> Unit

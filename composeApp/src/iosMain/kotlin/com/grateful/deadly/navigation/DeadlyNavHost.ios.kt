@@ -30,6 +30,21 @@ actual class NavigationController {
     }
 
     actual fun navigate(screen: AppScreen) {
+        // SPECIAL CASE: Intercept ShowDetail navigation and present SwiftUI view
+        if (screen is AppScreen.ShowDetail) {
+            ShowDetailBridgeHelper.showDetail(screen.showId, screen.recordingId)
+            return
+        }
+
+        // SPECIAL CASE: Intercept Player navigation and present SwiftUI view
+        if (screen is AppScreen.Player) {
+            PlayerBridgeHelper.showPlayer { showId, recordingId ->
+                // Navigate to ShowDetail from Player
+                navigate(AppScreen.ShowDetail(showId, recordingId))
+            }
+            return
+        }
+
         // Convert AppScreen to route string (like Android does)
         val routeString = screen.route()
 

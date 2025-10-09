@@ -10,6 +10,8 @@ struct iOSApp: App {
         setupUnzipHandler()
         setupPlaybackStatePersistence()
         setupSmartQueuePlayerHandler()
+        setupShowDetailHandler()
+        setupPlayerHandler()
         setupLifecycleObservers()
     }
 
@@ -87,6 +89,23 @@ struct iOSApp: App {
         // Register handler for SmartQueuePlayer commands from Kotlin
         AppPlatform.shared.registerSmartPlayerHandler { commandJson in
             return SmartQueuePlayerManager.shared.handleCommand(commandJson)
+        }
+    }
+
+    private func setupShowDetailHandler() {
+        // Register handler for presenting SwiftUI ShowDetail view from Compose navigation
+        AppPlatform.shared.registerShowDetailHandler { showId, recordingId in
+            ShowDetailBridge.shared.showDetail(showId: showId, recordingId: recordingId)
+        }
+    }
+
+    private func setupPlayerHandler() {
+        // Register handler for presenting SwiftUI Player view from Compose navigation
+        AppPlatform.shared.registerPlayerHandler { onNavigateToShowDetail in
+            // Wrap Kotlin callback to convert KotlinUnit return to Void
+            PlayerBridge.shared.showPlayer { showId, recordingId in
+                onNavigateToShowDetail(showId, recordingId)
+            }
         }
     }
 
