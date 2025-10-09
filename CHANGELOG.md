@@ -1,11 +1,35 @@
 # Changelog
 
+## [1.3.0] - 2025-10-08
+
+### New Features
+* add native SwiftUI recording selection for ShowDetail (1cdf69b)
+* add native SwiftUI library with list/grid display (3ae7f11)
+* add native SwiftUI search with full-screen results (97bbb3b)
+* position MiniPlayer above TabBar with visible bottom navigation (0cfd15b)
+* add native SwiftUI navigation with MiniPlayer for iOS (177f29d)
+* add missing PlayerMaterialPanels and ShowDetailInteractiveRating to SwiftUI screens (90b67a2)
+* add native SwiftUI Player and ShowDetail screens for iOS (6009ed7)
+
+### Bug Fixes
+* reload ShowDetail tracks when recording changed (de73f20)
+* match iOS card layouts to Compose design (18e4276)
+* defer RecentShowsService tracking to avoid startup crash (0b4939e)
+* wire up SwiftUI navigation with visible TabBar and nav titles (01ebd27)
+* remove KMM-incompatible code from diagnostic logging (41f73d8)
+
+### Code Refactoring
+* consolidate remote commands with consistent naming (3dde9fb)
+
+### Other Changes
+* debug: add comprehensive call-chain diagnostic logging (154e412)
+* debug: add comprehensive track navigation logging and remote infrastructure improvements (f585cb5)
+
+
 ## [1.2.3] - 2025-10-07
 
 ### Other Changes
 * revert: remove self-hosted runner support, use GitHub-hosted only (54e0147)
-
-
 ## [1.2.2] - 2025-10-07
 
 ### Bug Fixes
