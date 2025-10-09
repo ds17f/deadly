@@ -48,21 +48,25 @@ struct ShowDetailView: View {
         self.showId = showId
         self.recordingId = recordingId
 
-        _viewModel = StateObject(wrappedValue: ShowDetailViewModelWrapper(
+        let viewModelWrapper = ShowDetailViewModelWrapper(
             showId: showId,
             recordingId: recordingId,
             showDetailService: showDetailService,
             mediaService: mediaService,
             libraryService: libraryService
-        ))
+        )
+        _viewModel = StateObject(wrappedValue: viewModelWrapper)
 
         // Create RecordingSelectionViewModel directly with services from Koin
         let recordingSelectionService = KoinHelper.shared.getRecordingSelectionService()
 
         // Callback to reload show with new recording
-        let onRecordingChanged: ((String) -> Void) = { newRecordingId in
+        let onRecordingChanged: ((String) -> Void) = { [viewModelWrapper] newRecordingId in
             print("🎵 Recording changed to: \(newRecordingId)")
-            // Will trigger reload via the wrapper
+            // Reload the show with the new recording ID
+            DispatchQueue.main.async {
+                viewModelWrapper.reload(showId: showId, recordingId: newRecordingId)
+            }
         }
 
         let recordingSelectionVM = RecordingSelectionViewModel(
