@@ -15,6 +15,7 @@ class ShowDetailViewModelWrapper: ObservableObject {
 
     // Published state that SwiftUI can observe
     @Published var showData: Show_?
+    @Published var currentRecordingId: String?
     @Published var tracks: [Track] = []
     @Published var isLoading: Bool = true
     @Published var isTracksLoading: Bool = false
@@ -44,6 +45,7 @@ class ShowDetailViewModelWrapper: ObservableObject {
 
             DispatchQueue.main.async {
                 self.showData = state.showData
+                self.currentRecordingId = state.currentRecordingId
                 self.tracks = state.tracks
                 self.isLoading = state.isLoading
                 self.isTracksLoading = state.isTracksLoading

@@ -55,4 +55,9 @@ object KoinHelper : KoinComponent {
         val viewModel: com.grateful.deadly.feature.library.LibraryViewModel by inject()
         return viewModel
     }
+
+    fun getRecordingSelectionService(): com.grateful.deadly.services.recording.RecordingSelectionService {
+        val service: com.grateful.deadly.services.recording.RecordingSelectionService by inject()
+        return service
+    }
 }

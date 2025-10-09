@@ -29,7 +29,11 @@ private let DeadRed = Color(red: 0xDC/255.0, green: 0x14/255.0, blue: 0x3C/255.0
 
 struct ShowDetailView: View {
     @StateObject private var viewModel: ShowDetailViewModelWrapper
+    @StateObject private var recordingSelectionViewModel: RecordingSelectionViewModelWrapper
     @Environment(\.dismiss) private var dismiss
+
+    @State private var showMenu = false
+    @State private var showRecordingSelection = false
 
     let showId: String
     let recordingId: String?
@@ -51,6 +55,24 @@ struct ShowDetailView: View {
             mediaService: mediaService,
             libraryService: libraryService
         ))
+
+        // Create RecordingSelectionViewModel directly with services from Koin
+        let recordingSelectionService = KoinHelper.shared.getRecordingSelectionService()
+
+        // Callback to reload show with new recording
+        let onRecordingChanged: ((String) -> Void) = { newRecordingId in
+            print("🎵 Recording changed to: \(newRecordingId)")
+            // Will trigger reload via the wrapper
+        }
+
+        let recordingSelectionVM = RecordingSelectionViewModel(
+            recordingSelectionService: recordingSelectionService,
+            onRecordingChanged: onRecordingChanged
+        )
+
+        _recordingSelectionViewModel = StateObject(wrappedValue: RecordingSelectionViewModelWrapper(
+            recordingSelectionViewModel: recordingSelectionVM
+        ))
     }
 
     var body: some View {
@@ -69,6 +91,27 @@ struct ShowDetailView: View {
         }
         .navigationBarHidden(true)
         .background(Color(UIColor.systemBackground))
+        .sheet(isPresented: $showMenu) {
+            ShowDetailMenuSheet(
+                onShareClick: {
+                    shareShow()
+                },
+                onChooseRecordingClick: {
+                    openRecordingSelection()
+                },
+                onDismiss: {
+                    showMenu = false
+                }
+            )
+        }
+        .sheet(isPresented: $showRecordingSelection) {
+            RecordingSelectionSheet(
+                viewModel: recordingSelectionViewModel,
+                onDismiss: {
+                    showRecordingSelection = false
+                }
+            )
+        }
     }
 
     // MARK: - Loading State
@@ -325,8 +368,10 @@ struct ShowDetailView: View {
                         .frame(width: 40, height: 40)
                 }
 
-                // Menu button (placeholder)
-                Button(action: {}) {
+                // Menu button - opens ShowDetailMenuSheet
+                Button(action: {
+                    showMenu = true
+                }) {
                     Image(systemName: "ellipsis")
                         .font(.system(size: 24))
                         .foregroundColor(Color(UIColor.secondaryLabel)) // onSurfaceVariant
@@ -439,6 +484,38 @@ struct ShowDetailView: View {
                 .clipShape(Circle())
         }
         .padding(16)
+    }
+
+    // MARK: - Helper Functions
+
+    private func shareShow() {
+        guard let showData = viewModel.showData else { return }
+
+        let shareText = "Check out this Grateful Dead show: \(showData.date) at \(showData.venue.name), \(showData.location.displayText)"
+
+        let activityVC = UIActivityViewController(
+            activityItems: [shareText],
+            applicationActivities: nil
+        )
+
+        // Present the share sheet
+        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+           let rootVC = windowScene.windows.first?.rootViewController {
+            rootVC.present(activityVC, animated: true)
+        }
+    }
+
+    private func openRecordingSelection() {
+        guard let showData = viewModel.showData else { return }
+
+        recordingSelectionViewModel.showRecordingSelection(
+            showId: showData.id,
+            showTitle: showData.displayTitle,
+            showDate: showData.date,
+            currentRecordingId: viewModel.currentRecordingId
+        )
+
+        showRecordingSelection = true
     }
 }
 
