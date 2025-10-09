@@ -28,13 +28,20 @@ struct RootNavigationView: View {
 
     var body: some View {
         ZStack(alignment: .bottom) {
-            // TabView with NavigationStack wrapping each tab's content
+            // TabView - full screen
             DeadlyTabView(coordinator: coordinator)
                 .environmentObject(coordinator)
 
-            // MiniPlayer overlay (Spotify-style, above TabBar)
-            MiniPlayerView(mediaService: mediaService) {
-                coordinator.navigateToPlayer()
+            // MiniPlayer positioned above TabBar
+            // Using offset to position it just above the TabBar
+            GeometryReader { geometry in
+                VStack {
+                    Spacer()
+                    MiniPlayerView(mediaService: mediaService) {
+                        coordinator.navigateToPlayer()
+                    }
+                    .padding(.bottom, 49) // TabBar height (standard iOS TabBar is ~49pt)
+                }
             }
         }
         .ignoresSafeArea(.keyboard)
