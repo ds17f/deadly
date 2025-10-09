@@ -5,7 +5,6 @@ import kotlinx.datetime.Clock
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
-import kotlinx.atomicfu.atomic
 
 /**
  * Bridge for SmartQueuePlayer using the AppPlatform handler pattern.
@@ -20,9 +19,6 @@ object SmartQueuePlayerBridge {
         encodeDefaults = true
     }
 
-    // Atomic guard to prevent iOS Compose gesture bug from creating duplicate players
-    private val isReplacingPlaylist = atomic(false)
-
     /**
      * Replace current playlist with new URLs and metadata, start playback.
      * Stops any existing playback and creates new global player instance.
@@ -32,31 +28,15 @@ object SmartQueuePlayerBridge {
      * @param startIndex Index to start playback from
      */
     fun replacePlaylist(urls: List<String>, metadata: List<TrackMetadata>, startIndex: Int) {
-        println("🎯 🔵 [K→S] BRIDGE replacePlaylist() ENTRY: ${urls.size} urls, startIndex=$startIndex")
-
-        // Atomic guard: block duplicate calls from iOS Compose gesture bug
-        // compareAndSet returns true if it successfully changed false→true, false if already true
-        if (!isReplacingPlaylist.compareAndSet(expect = false, update = true)) {
-            println("🎯 🔴 [GUARD] BRIDGE replacePlaylist() BLOCKED - already replacing playlist")
-            return
-        }
-
-        try {
-            val command = SmartPlayerCommand(
-                action = "replacePlaylist",
-                playerId = "global", // Fixed ID since we use single instance
-                urls = urls,
-                trackMetadata = metadata,
-                startIndex = startIndex
-            )
-            val commandJson = json.encodeToString(command)
-            val result = AppPlatform.sendSmartPlayerCommand(commandJson)
-
-            println("🎯 🔵 [K→S] BRIDGE replacePlaylist() EXIT: result=$result")
-        } finally {
-            // Always reset flag even if exception occurs
-            isReplacingPlaylist.value = false
-        }
+        val command = SmartPlayerCommand(
+            action = "replacePlaylist",
+            playerId = "global", // Fixed ID since we use single instance
+            urls = urls,
+            trackMetadata = metadata,
+            startIndex = startIndex
+        )
+        val commandJson = json.encodeToString(command)
+        AppPlatform.sendSmartPlayerCommand(commandJson)
     }
 
     /**
