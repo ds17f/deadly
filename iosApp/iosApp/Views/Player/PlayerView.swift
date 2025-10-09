@@ -29,6 +29,9 @@ struct PlayerView: View {
     @StateObject private var viewModel: PlayerViewModelWrapper
     @Environment(\.dismiss) private var dismiss
     @State private var scrollOffset: CGFloat = 0
+    @State private var isDraggingSlider: Bool = false
+    @State private var dragProgress: Double = 0.0
+    @State private var isSeekingAfterDrag: Bool = false
 
     let onNavigateToShowDetail: (String, String?) -> Void
 
@@ -273,19 +276,51 @@ struct PlayerView: View {
 
     private var progressControl: some View {
         VStack(spacing: 2) {
-            // Slider
+            // Slider - matches Android PlayerProgressControl.kt behavior
+            // Only seeks when drag ends, not during drag for smooth performance
             Slider(
                 value: Binding(
-                    get: { Double(viewModel.progress) },
+                    get: {
+                        // Use drag progress while dragging or seeking, otherwise use actual progress
+                        if isDraggingSlider || isSeekingAfterDrag {
+                            return dragProgress
+                        } else {
+                            return Double(viewModel.progress)
+                        }
+                    },
                     set: { newValue in
-                        let newPosition = Int64(Double(viewModel.durationMs) * newValue)
-                        viewModel.seekTo(positionMs: newPosition)
+                        // Update local drag state only (UI-only, no seek)
+                        isDraggingSlider = true
+                        dragProgress = newValue
                     }
                 ),
-                in: 0...1
+                in: 0...1,
+                onEditingChanged: { editing in
+                    if !editing {
+                        isDraggingSlider = false
+                        isSeekingAfterDrag = true
+
+                        // Perform actual seek
+                        let newPosition = Int64(Double(viewModel.durationMs) * dragProgress)
+                        viewModel.seekTo(positionMs: newPosition)
+                    }
+                }
             )
             .accentColor(DeadRed)
             .padding(.vertical, 2)
+            .disabled(isSeekingAfterDrag) // Disable slider during seek
+            .onChange(of: viewModel.progress) { oldValue, newValue in
+                // When actual position catches up to drag position, stop showing drag position
+                if isSeekingAfterDrag {
+                    let actualProgress = Double(newValue)
+                    let difference = abs(actualProgress - dragProgress)
+
+                    // If actual position is within 2% of drag position, consider it caught up
+                    if difference < 0.02 {
+                        isSeekingAfterDrag = false
+                    }
+                }
+            }
 
             // Time labels
             HStack {
@@ -337,7 +372,7 @@ struct PlayerView: View {
                         .fill(DeadRed)
                         .frame(width: 72, height: 72)
 
-                    if viewModel.isLoading {
+                    if viewModel.isLoading || isSeekingAfterDrag {
                         ProgressView()
                             .progressViewStyle(CircularProgressViewStyle(tint: .white))
                             .scaleEffect(1.2)
