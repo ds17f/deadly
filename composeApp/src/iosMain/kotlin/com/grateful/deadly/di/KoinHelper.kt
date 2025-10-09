@@ -1,6 +1,8 @@
 package com.grateful.deadly.di
 
 import com.grateful.deadly.domain.home.HomeService
+import com.grateful.deadly.domain.search.SearchService
+import com.grateful.deadly.feature.search.SearchViewModel
 import com.grateful.deadly.feature.showdetail.ShowDetailService
 import com.grateful.deadly.services.media.MediaService
 import com.grateful.deadly.services.library.LibraryService
@@ -37,5 +39,15 @@ object KoinHelper : KoinComponent {
     fun getRecentShowsService(): com.grateful.deadly.services.data.RecentShowsService {
         val service: com.grateful.deadly.services.data.RecentShowsService by inject()
         return service
+    }
+
+    fun getSearchService(): SearchService {
+        val service: SearchService by inject()
+        return service
+    }
+
+    fun getSearchViewModel(): SearchViewModel {
+        val viewModel: SearchViewModel by inject()
+        return viewModel
     }
 }
