@@ -43,7 +43,7 @@ class SplashService(
      */
     suspend fun initializeData(): Boolean {
         return try {
-            Logger.d(TAG, "Starting data synchronization")
+            Logger.i(TAG, "🔍 Starting data synchronization")
             initStartTimeMs = Clock.System.now().toEpochMilliseconds()
 
             updateUiState(

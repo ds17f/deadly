@@ -19,9 +19,12 @@ class SplashViewModel(
     val uiState: StateFlow<SplashUiState> = splashService.uiState
 
     init {
+        com.grateful.deadly.core.logging.Logger.i("SplashViewModel", "🔍 🚀 SplashViewModel created, starting initialization...")
         // Start initialization on ViewModel creation
         viewModelScope.launch {
+            com.grateful.deadly.core.logging.Logger.i("SplashViewModel", "🔍 🔄 Calling splashService.initializeData()...")
             splashService.initializeData()
+            com.grateful.deadly.core.logging.Logger.i("SplashViewModel", "🔍 ✅ splashService.initializeData() completed")
         }
     }
 

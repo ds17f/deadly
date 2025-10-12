@@ -44,7 +44,7 @@ object DIHelper : KoinComponent
 @Composable
 @Preview
 fun App() {
-    Logger.i("App", "🎵 Deadly app UI starting")
+    Logger.i("App", "🔍 🎵 Deadly app UI starting - App composable invoked")
 
     // Get theme manager and current theme
     val themeManager: ThemeManager = remember { DIHelper.get() }
@@ -104,7 +104,12 @@ fun App() {
             ) {
             // Splash screen for initialization
             composable(AppScreen.Splash) {
-                val splashViewModel: com.grateful.deadly.feature.splash.SplashViewModel = remember { DIHelper.get() }
+                Logger.i("App", "🔍 📱 Splash screen composable invoked")
+                val splashViewModel: com.grateful.deadly.feature.splash.SplashViewModel = remember {
+                    Logger.i("App", "🔍 🏗️ Creating SplashViewModel from Koin...")
+                    DIHelper.get()
+                }
+                Logger.i("App", "🔍 ✅ SplashViewModel obtained: $splashViewModel")
 
                 com.grateful.deadly.feature.splash.SplashScreen(
                     onSplashComplete = {

@@ -40,55 +40,73 @@ class DataSyncOrchestrator(
      */
     suspend fun syncData(): SyncResult {
         return try {
-            Logger.d(TAG, "Starting data synchronization")
+            Logger.i(TAG, "🔍 🔄 Starting data synchronization...")
 
             // Check if import is needed
             val showCount = dataImportService.getShowCount()
             val recordingCount = dataImportService.getRecordingCount()
+            Logger.i(TAG, "🔍 📊 Current database: $showCount shows, $recordingCount recordings")
+
             if (showCount > 0 && recordingCount > 0) {
-                Logger.d(TAG, "Data already exists ($showCount shows, $recordingCount recordings), skipping sync")
+                Logger.i(TAG, "🔍 ✅ Data already exists, skipping sync")
                 return SyncResult.AlreadyExists(showCount.toInt(), recordingCount.toInt())
             }
+
+            Logger.i(TAG, "🔍 📥 Database empty, proceeding with data import...")
 
             val appFilesDir = getAppFilesDir()
 
             // Phase 1: Download data.zip
+            Logger.i(TAG, "🔍 📦 Phase 1: Downloading data.zip...")
             _progress.value = SyncProgress.Downloading
             val dataZipPath = downloadDataZip(appFilesDir)
                 ?: run {
+                    Logger.e(TAG, "🔍 ❌ Failed to download data.zip")
                     _progress.value = SyncProgress.Idle
                     return SyncResult.Error("Failed to download data.zip")
                 }
+            Logger.i(TAG, "✅ Downloaded: $dataZipPath")
 
             // Phase 2: Extract all files
+            Logger.i(TAG, "📂 Phase 2: Extracting files...")
             _progress.value = SyncProgress.Extracting
             val extractedFiles = extractDataZip(dataZipPath, appFilesDir)
                 ?: run {
+                    Logger.e(TAG, "❌ Failed to extract data.zip")
                     _progress.value = SyncProgress.Idle
                     return SyncResult.Error("Failed to extract data.zip")
                 }
+            Logger.i(TAG, "✅ Extracted ${extractedFiles.size} files")
 
             // Phase 3: Import show data
+            Logger.i(TAG, "📊 Phase 3: Importing show data...")
             _progress.value = SyncProgress.ImportingShows(0, extractedFiles.size)
             val importedShowCount = importShowData(extractedFiles)
                 ?: run {
+                    Logger.e(TAG, "❌ Failed to import show data")
                     _progress.value = SyncProgress.Idle
                     return SyncResult.Error("Failed to import show data")
                 }
+            Logger.i(TAG, "✅ Imported $importedShowCount shows")
 
             // Phase 4: Import recording data
+            Logger.i(TAG, "🎵 Phase 4: Importing recording data...")
             _progress.value = SyncProgress.ImportingRecordings(0, extractedFiles.size)
             val importedRecordingCount = importRecordingData(extractedFiles)
                 ?: run {
+                    Logger.e(TAG, "❌ Failed to import recording data")
                     _progress.value = SyncProgress.Idle
                     return SyncResult.Error("Failed to import recording data")
                 }
+            Logger.i(TAG, "✅ Imported $importedRecordingCount recordings")
 
             // Phase 5: Cleanup
+            Logger.i(TAG, "🧹 Phase 5: Cleaning up...")
             cleanupExtractionDirectory("$appFilesDir/extracted_data")
 
             _progress.value = SyncProgress.Idle
-            Logger.d(TAG, "Data synchronization completed: $importedShowCount shows, $importedRecordingCount recordings imported")
+            Logger.i(TAG, "🎉 Data synchronization completed successfully!")
+            Logger.i(TAG, "📊 Final counts: $importedShowCount shows, $importedRecordingCount recordings")
             SyncResult.Success(importedShowCount, importedRecordingCount)
 
         } catch (e: Exception) {

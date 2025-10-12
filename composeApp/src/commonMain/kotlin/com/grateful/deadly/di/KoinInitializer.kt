@@ -21,17 +21,17 @@ object KoinInitializer {
      * @param platformConfig Optional platform-specific Koin configuration
      */
     fun initializeKoin(
-        platformModule: Module, 
+        platformModule: Module,
         platformConfig: (org.koin.core.KoinApplication.() -> Unit)? = null
     ) {
-        Logger.i(TAG, "🚀 Deadly app starting up")
-        Logger.d(TAG, "Initializing Koin DI container")
-        
+        Logger.i(TAG, "🔍 🚀 Deadly app starting up - Koin initialization beginning")
+        Logger.d(TAG, "🔍 Initializing Koin DI container")
+
         startKoin {
             modules(commonModule, platformModule)
             platformConfig?.invoke(this)
         }
-        
-        Logger.i(TAG, "✅ Deadly app startup complete")
+
+        Logger.i(TAG, "🔍 ✅ Deadly app startup complete - Koin initialized")
     }
 }
