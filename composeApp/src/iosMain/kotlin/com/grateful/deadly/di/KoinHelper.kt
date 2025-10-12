@@ -6,6 +6,7 @@ import com.grateful.deadly.feature.search.SearchViewModel
 import com.grateful.deadly.feature.showdetail.ShowDetailService
 import com.grateful.deadly.services.media.MediaService
 import com.grateful.deadly.services.library.LibraryService
+import com.grateful.deadly.services.data.DataSyncOrchestrator
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 
@@ -59,5 +60,10 @@ object KoinHelper : KoinComponent {
     fun getRecordingSelectionService(): com.grateful.deadly.services.recording.RecordingSelectionService {
         val service: com.grateful.deadly.services.recording.RecordingSelectionService by inject()
         return service
+    }
+
+    fun getDataSyncOrchestrator(): DataSyncOrchestrator {
+        val orchestrator: DataSyncOrchestrator by inject()
+        return orchestrator
     }
 }

@@ -26,6 +26,7 @@ val androidModule = module {
         val context: Context = get()
         // SQLDelight automatically applies migrations from migrations/ directory
         // Migration 1.sqm: Adds recordingId to recent_shows (v1 -> v2)
+        // Migration 2.sqm: Adds user_recording_preferences table (v2 -> v3)
 
         // Get current database version before migration
         val oldVersion = try {
@@ -51,13 +52,13 @@ val androidModule = module {
             testDriver.close()
             version
         } catch (e: Exception) {
-            1L // Assume v1 if we can't read version
+            0L // Fresh install - database doesn't exist
         }
 
         val newVersion = Database.Schema.version
 
-        // Report migration start if versions differ
-        if (oldVersion < newVersion) {
+        // Report migration start if versions differ (and oldVersion > 0 means database exists)
+        if (oldVersion > 0 && oldVersion < newVersion) {
             DatabaseMigrationObserver.onMigrationStart(oldVersion, newVersion)
         }
 
@@ -68,8 +69,9 @@ val androidModule = module {
                 name = "deadly.db"
             )
 
-            // Manually trigger migration if needed (AndroidSqliteDriver doesn't auto-migrate)
-            if (oldVersion < newVersion) {
+            // Only run migrations if database exists (oldVersion > 0)
+            // Fresh installs (oldVersion = 0) get schema created automatically
+            if (oldVersion > 0 && oldVersion < newVersion) {
                 Database.Schema.migrate(androidDriver, oldVersion, newVersion)
                 DatabaseMigrationObserver.onMigrationSuccess(oldVersion, newVersion)
             }
@@ -77,7 +79,7 @@ val androidModule = module {
             androidDriver
         } catch (e: Exception) {
             // Report error if migration fails
-            if (oldVersion < newVersion) {
+            if (oldVersion > 0 && oldVersion < newVersion) {
                 DatabaseMigrationObserver.onMigrationError(oldVersion, newVersion, e)
             }
             throw e

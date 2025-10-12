@@ -31,61 +31,108 @@ val iosModule = module {
     single<Database> {
         // SQLDelight automatically applies migrations from migrations/ directory
         // Migration 1.sqm: Adds recordingId to recent_shows (v1 -> v2)
+        // Migration 2.sqm: Adds user_recording_preferences table (v2 -> v3)
 
-        // Get current database version before migration
-        val oldVersion = try {
-            val testDriver = NativeSqliteDriver(
-                schema = Database.Schema,
-                name = "deadly.db"
-            )
-            val version = testDriver.executeQuery(
-                identifier = null,
-                sql = "PRAGMA user_version",
-                mapper = { cursor ->
-                    app.cash.sqldelight.db.QueryResult.Value(
-                        if (cursor.next().value) {
-                            cursor.getLong(0) ?: 0L
-                        } else {
-                            0L
-                        }
-                    )
-                },
-                parameters = 0
-            ).value
-            testDriver.close()
-            version
-        } catch (e: Exception) {
-            1L // Assume v1 if we can't read version
+        val logger = com.grateful.deadly.core.logging.Logger
+        logger.i("IOSModule", "🔍 🗄️ Initializing database...")
+
+        // Check if database file exists before trying to open it
+        val supportDirectories = NSSearchPathForDirectoriesInDomains(
+            NSApplicationSupportDirectory,
+            NSUserDomainMask,
+            true
+        )
+        val supportPath = supportDirectories.firstOrNull() as? String ?: ""
+        val dbPath = "$supportPath/databases/deadly.db"
+        val fileManager = NSFileManager.defaultManager
+        val databaseExists = fileManager.fileExistsAtPath(dbPath)
+
+        logger.i("IOSModule", "🔍 📂 Database path: $dbPath")
+        logger.i("IOSModule", "🔍 📂 Database exists: $databaseExists")
+
+        // Get current database version (only if database exists)
+        val oldVersion = if (databaseExists) {
+            try {
+                // Open existing database WITHOUT schema to avoid creating it
+                val testDriver = NativeSqliteDriver(
+                    schema = Database.Schema,
+                    name = "deadly.db"
+                )
+                val version = testDriver.executeQuery(
+                    identifier = null,
+                    sql = "PRAGMA user_version",
+                    mapper = { cursor ->
+                        app.cash.sqldelight.db.QueryResult.Value(
+                            if (cursor.next().value) {
+                                cursor.getLong(0) ?: 0L
+                            } else {
+                                0L
+                            }
+                        )
+                    },
+                    parameters = 0
+                ).value
+                testDriver.close()
+                logger.i("IOSModule", "🔍 📊 Existing database version: $version")
+                version
+            } catch (e: Exception) {
+                logger.e("IOSModule", "🔍 ⚠️ Error reading database version: ${e.message}")
+                0L
+            }
+        } else {
+            logger.i("IOSModule", "🔍 ✨ Fresh install - no database file exists")
+            0L
         }
 
         val newVersion = Database.Schema.version
+        logger.i("IOSModule", "🔍 📊 Target schema version: $newVersion")
 
-        // Report migration start if versions differ
-        if (oldVersion < newVersion) {
+        // Report migration start if versions differ (and oldVersion > 0 means database exists)
+        if (oldVersion > 0 && oldVersion < newVersion) {
+            logger.i("IOSModule", "🔍 🔄 Migration needed: v$oldVersion → v$newVersion")
             DatabaseMigrationObserver.onMigrationStart(oldVersion, newVersion)
+        } else if (oldVersion == 0L) {
+            logger.i("IOSModule", "🔍 ✨ Fresh install - will create schema v$newVersion")
+        } else {
+            logger.i("IOSModule", "🔍 ✅ Database already at current version v$oldVersion")
         }
 
         val driver = try {
+            logger.i("IOSModule", "🔍 🔨 Creating NativeSqliteDriver (this may create database if it doesn't exist)...")
             val nativeDriver = NativeSqliteDriver(
                 schema = Database.Schema,
                 name = "deadly.db"
             )
+            logger.i("IOSModule", "🔍 ✅ NativeSqliteDriver created")
 
-            // Manually trigger migration if needed (NativeSqliteDriver doesn't auto-migrate)
-            if (oldVersion < newVersion) {
+            // Check if database was just created
+            val dbExistsNow = fileManager.fileExistsAtPath(dbPath)
+            if (!databaseExists && dbExistsNow) {
+                logger.i("IOSModule", "🔍 🆕 Database file was created by NativeSqliteDriver")
+            }
+
+            // Only run migrations if database exists (oldVersion > 0)
+            // Fresh installs (oldVersion = 0) get schema created automatically
+            if (oldVersion > 0 && oldVersion < newVersion) {
+                logger.i("IOSModule", "🔍 🔄 Running migration...")
                 Database.Schema.migrate(nativeDriver, oldVersion, newVersion)
                 DatabaseMigrationObserver.onMigrationSuccess(oldVersion, newVersion)
+                logger.i("IOSModule", "🔍 ✅ Migration completed successfully")
+            } else if (oldVersion == 0L) {
+                logger.i("IOSModule", "🔍 ✅ Fresh database created at schema v$newVersion")
             }
 
             nativeDriver
         } catch (e: Exception) {
+            logger.e("IOSModule", "🔍 ❌ Database initialization failed", e)
             // Report error if migration fails
-            if (oldVersion < newVersion) {
+            if (oldVersion > 0 && oldVersion < newVersion) {
                 DatabaseMigrationObserver.onMigrationError(oldVersion, newVersion, e)
             }
             throw e
         }
 
+        logger.i("IOSModule", "🔍 ✅ Database initialized successfully")
         Database(driver)
     }
 
