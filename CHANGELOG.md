@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.5.0] - 2025-10-12
+
+### New Features
+* add Compose splash screen with progress tracking to iOS (0a5f2b2)
+* add iOS device database extraction support (0ec9ab0)
+
+### Bug Fixes
+* initialize data sync on iOS fresh installs (7020aae)
+
+### Other Changes
+* chore: add comprehensive logging for initialization debugging (eaa3125)
+
+
 ## [1.4.0] - 2025-10-09
 
 ### New Features
@@ -9,8 +22,6 @@
 * update iOS version by modifying Xcode build settings directly (8c4f790)
 * remove obsolete atomicfu guard from SmartQueuePlayerBridge (61095a4)
 * improve iOS player slider performance and responsiveness (473f138)
-
-
 ## [1.3.0] - 2025-10-08
 
 ### New Features
