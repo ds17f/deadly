@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Script to extract SQLite database from Android or iOS for inspection
-# Usage: ./scripts/get-db.sh [android|ios] [--no-open]
+# Usage: ./scripts/get-db.sh [android|ios-simulator|ios-device] [--no-open]
 
 set -e
 
@@ -14,7 +14,7 @@ DEFAULT_OUTPUT="./sqliteDbs"
 # Parse arguments
 if [ $# -eq 0 ]; then
     echo "❌ Platform required"
-    echo "Usage: ./scripts/get-db.sh <android|ios> [--no-open]"
+    echo "Usage: ./scripts/get-db.sh <android|ios-simulator|ios-device> [--no-open]"
     exit 1
 fi
 
@@ -26,9 +26,14 @@ if [ $# -gt 1 ] && [ "$2" = "--no-open" ]; then
     OPEN_DB=false
 fi
 
-if [ "$PLATFORM" != "android" ] && [ "$PLATFORM" != "ios" ]; then
+# Support legacy "ios" argument (defaults to simulator)
+if [ "$PLATFORM" = "ios" ]; then
+    PLATFORM="ios-simulator"
+fi
+
+if [ "$PLATFORM" != "android" ] && [ "$PLATFORM" != "ios-simulator" ] && [ "$PLATFORM" != "ios-device" ]; then
     echo "❌ Invalid platform: $PLATFORM"
-    echo "Usage: ./scripts/get-db.sh <android|ios> [--no-open]"
+    echo "Usage: ./scripts/get-db.sh <android|ios-simulator|ios-device> [--no-open]"
     exit 1
 fi
 
@@ -92,9 +97,9 @@ if [ "$PLATFORM" = "android" ]; then
         adb shell "rm $TEMP_DIR/${DB_NAME}-shm" 2>/dev/null || true
     fi
 
-else
-    # iOS database extraction
-    echo "📱 Extracting iOS database..."
+elif [ "$PLATFORM" = "ios-simulator" ]; then
+    # iOS Simulator database extraction
+    echo "📱 Extracting iOS Simulator database..."
 
     # Find the running simulator
     DEVICE_UUID=$(xcrun simctl list devices | grep "(Booted)" | head -1 | grep -o '[A-F0-9-]\{36\}')
@@ -143,6 +148,78 @@ else
     # Copy SHM file if exists
     if [ -f "${DB_PATH}-shm" ]; then
         cp "${DB_PATH}-shm" "$OUTPUT_DIR/" && echo "✅ Copied SHM file: ${DB_NAME}-shm"
+    fi
+
+elif [ "$PLATFORM" = "ios-device" ]; then
+    # iOS Physical Device database extraction using xcrun devicectl
+    echo "📱 Extracting iOS Device database..."
+
+    # Check if xcrun and devicectl are available
+    if ! command -v xcrun >/dev/null 2>&1; then
+        echo "❌ Xcode command line tools not found"
+        echo "Install with: xcode-select --install"
+        exit 1
+    fi
+
+    # Get connected device using devicectl
+    DEVICE_INFO=$(xcrun devicectl list devices 2>/dev/null | grep "available (paired)" | head -1)
+
+    if [ -z "$DEVICE_INFO" ]; then
+        echo "❌ No paired iOS device found"
+        echo "Please connect and trust an iOS device via USB"
+        exit 1
+    fi
+
+    # Extract device identifier (3rd column)
+    DEVICE_ID=$(echo "$DEVICE_INFO" | awk '{print $3}')
+    DEVICE_NAME=$(echo "$DEVICE_INFO" | awk '{print $1}')
+
+    echo "📂 Found device: $DEVICE_NAME ($DEVICE_ID)"
+
+    # Copy database files from device using devicectl
+    echo "📋 Copying database files from device..."
+
+    DB_SOURCE="Library/Application Support/databases/$DB_NAME"
+
+    # Copy main database file
+    if xcrun devicectl device copy from \
+        --device "$DEVICE_ID" \
+        --source "$DB_SOURCE" \
+        --destination "$OUTPUT_DIR/$DB_NAME" \
+        --domain-type appDataContainer \
+        --domain-identifier "$APP_BUNDLE_ID" \
+        --quiet 2>/dev/null; then
+        echo "✅ Copied main database: $DB_NAME"
+    else
+        echo "❌ Database file not found at: $DB_SOURCE"
+        echo ""
+        echo "Make sure:"
+        echo "  1. The app is installed on the device"
+        echo "  2. The app has been launched and created data"
+        echo "  3. The device is unlocked and trusted"
+        exit 1
+    fi
+
+    # Copy WAL file if exists
+    if xcrun devicectl device copy from \
+        --device "$DEVICE_ID" \
+        --source "${DB_SOURCE}-wal" \
+        --destination "$OUTPUT_DIR/${DB_NAME}-wal" \
+        --domain-type appDataContainer \
+        --domain-identifier "$APP_BUNDLE_ID" \
+        --quiet 2>/dev/null; then
+        echo "✅ Copied WAL file: ${DB_NAME}-wal"
+    fi
+
+    # Copy SHM file if exists
+    if xcrun devicectl device copy from \
+        --device "$DEVICE_ID" \
+        --source "${DB_SOURCE}-shm" \
+        --destination "$OUTPUT_DIR/${DB_NAME}-shm" \
+        --domain-type appDataContainer \
+        --domain-identifier "$APP_BUNDLE_ID" \
+        --quiet 2>/dev/null; then
+        echo "✅ Copied SHM file: ${DB_NAME}-shm"
     fi
 fi
 

@@ -107,7 +107,9 @@ endif
 	@echo ""
 	@echo "DATABASE COMMANDS:"
 	@echo "  db-android              - Extract Android database and open in DB Browser"
-	@echo "  db-ios                  - Extract iOS database and open in DB Browser"
+	@echo "  db-ios-simulator        - Extract iOS Simulator database and open in DB Browser"
+	@echo "  db-ios-device           - Extract iOS Device database and open in DB Browser"
+	@echo "  db-ios                  - Alias for db-ios-simulator (legacy)"
 	@echo "  clean-db                - Delete databases on both platforms (force schema recreation)"
 	@echo "  clean-db-android        - Delete Android database only"
 	@echo "  clean-db-ios            - Delete iOS database only"
@@ -717,10 +719,19 @@ db-android:
 	@echo "🗄️ Extracting Android database..."
 	./scripts/get-db.sh android
 
+.PHONY: db-ios-simulator
+db-ios-simulator:
+	@echo "🗄️ Extracting iOS Simulator database..."
+	./scripts/get-db.sh ios-simulator
+
+.PHONY: db-ios-device
+db-ios-device:
+	@echo "🗄️ Extracting iOS Device database..."
+	./scripts/get-db.sh ios-device
+
 .PHONY: db-ios
-db-ios:
-	@echo "🗄️ Extracting iOS database..."
-	./scripts/get-db.sh ios
+db-ios: db-ios-simulator
+	@echo "💡 Tip: Use 'make db-ios-simulator' or 'make db-ios-device' to be explicit"
 
 .PHONY: clean-db
 clean-db:
