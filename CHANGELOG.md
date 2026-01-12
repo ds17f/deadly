@@ -1,5 +1,8 @@
 # Changelog
 
+## [1.5.1] - 2026-01-12
+
+
 ## [1.5.0] - 2025-10-12
 
 ### New Features
@@ -11,8 +14,6 @@
 
 ### Other Changes
 * chore: add comprehensive logging for initialization debugging (eaa3125)
-
-
 ## [1.4.0] - 2025-10-09
 
 ### New Features
