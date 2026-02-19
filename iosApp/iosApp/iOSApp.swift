@@ -5,6 +5,7 @@ import ComposeApp
 @main
 struct iOSApp: App {
     @State private var hasStartedTracking = false
+    @State private var pendingDeepLink: DeepLink?
 
     init() {
         setupAudioSession()
@@ -16,7 +17,28 @@ struct iOSApp: App {
 
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            ContentView(pendingDeepLink: $pendingDeepLink)
+                .onOpenURL { url in
+                    print("🔗 [DEEPLINK] onOpenURL received: \(url)")
+                    if let deepLink = DeepLink.from(url: url) {
+                        print("🔗 [DEEPLINK] Parsed: \(deepLink)")
+                        pendingDeepLink = deepLink
+                    } else {
+                        print("🔗 [DEEPLINK] Failed to parse URL")
+                    }
+                }
+                .onContinueUserActivity(NSUserActivityTypeBrowsingWeb) { activity in
+                    print("🔗 [DEEPLINK] onContinueUserActivity received")
+                    if let url = activity.webpageURL {
+                        print("🔗 [DEEPLINK] Universal link URL: \(url)")
+                        if let deepLink = DeepLink.from(url: url) {
+                            print("🔗 [DEEPLINK] Parsed: \(deepLink)")
+                            pendingDeepLink = deepLink
+                        } else {
+                            print("🔗 [DEEPLINK] Failed to parse URL")
+                        }
+                    }
+                }
                 .onAppear {
                     // Start tracking after UI is initialized (only once)
                     if !hasStartedTracking {

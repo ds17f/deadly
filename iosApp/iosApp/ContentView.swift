@@ -8,9 +8,11 @@ import ComposeApp
  * pure SwiftUI navigation with RootNavigationView after data sync completes.
  */
 struct ContentView: View {
+    @Binding var pendingDeepLink: DeepLink?
     @State private var showSplash = true
 
-    init() {
+    init(pendingDeepLink: Binding<DeepLink?>) {
+        self._pendingDeepLink = pendingDeepLink
         // Initialize Koin DI before any views are created
         IOSKoinInitKt.doInitKoin()
     }
@@ -26,7 +28,7 @@ struct ContentView: View {
                 )
                 .ignoresSafeArea()
             } else {
-                RootNavigationView()
+                RootNavigationView(pendingDeepLink: $pendingDeepLink)
             }
         }
     }

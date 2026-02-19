@@ -90,4 +90,16 @@ class NavigationCoordinator: ObservableObject {
     func popToRoot() {
         path = NavigationPath()
     }
+
+    func handleDeepLink(_ deepLink: DeepLink) {
+        print("🔗 [DEEPLINK] handleDeepLink called: \(deepLink)")
+        switch deepLink {
+        case .show(let showId):
+            print("🔗 [DEEPLINK] Navigating to show: \(showId)")
+            navigateToShowDetail(showId: showId)
+        case .showRecording(let showId, let recordingId):
+            print("🔗 [DEEPLINK] Navigating to show: \(showId), recording: \(recordingId)")
+            navigateToShowDetail(showId: showId, recordingId: recordingId)
+        }
+    }
 }

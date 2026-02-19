@@ -14,13 +14,15 @@ import ComposeApp
  */
 struct RootNavigationView: View {
     @StateObject private var coordinator = NavigationCoordinator()
+    @Binding var pendingDeepLink: DeepLink?
 
     // Get services from Koin
     private let mediaService: MediaService
     private let showDetailService: ShowDetailService
     private let libraryService: LibraryService
 
-    init() {
+    init(pendingDeepLink: Binding<DeepLink?>) {
+        self._pendingDeepLink = pendingDeepLink
         self.mediaService = KoinHelper.shared.getMediaService()
         self.showDetailService = KoinHelper.shared.getShowDetailService()
         self.libraryService = KoinHelper.shared.getLibraryService()
@@ -45,6 +47,20 @@ struct RootNavigationView: View {
             }
         }
         .ignoresSafeArea(.keyboard)
+        .onChange(of: pendingDeepLink) { _, newValue in
+            print("🔗 [DEEPLINK] RootNav onChange: \(String(describing: newValue))")
+            if let deepLink = newValue {
+                coordinator.handleDeepLink(deepLink)
+                pendingDeepLink = nil
+            }
+        }
+        .onAppear {
+            print("🔗 [DEEPLINK] RootNav onAppear, pending: \(String(describing: pendingDeepLink))")
+            if let deepLink = pendingDeepLink {
+                coordinator.handleDeepLink(deepLink)
+                pendingDeepLink = nil
+            }
+        }
         // Full-screen Player modal
         .fullScreenCover(isPresented: $coordinator.isPresentingPlayer) {
             PlayerView(mediaService: mediaService) { showId, recordingId in
@@ -87,5 +103,5 @@ struct RootNavigationView: View {
 }
 
 #Preview {
-    RootNavigationView()
+    RootNavigationView(pendingDeepLink: .constant(nil))
 }

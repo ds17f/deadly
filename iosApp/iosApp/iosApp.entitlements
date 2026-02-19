@@ -5,5 +5,10 @@
 	<!-- Allow outgoing network connections (required for GitHub API and downloads) -->
 	<key>com.apple.security.network.client</key>
 	<true/>
+	<key>com.apple.developer.associated-domains</key>
+	<array>
+		<string>applinks:share.thedeadly.app</string>
+		<string>applinks:share.thedeadly.app?mode=developer</string>
+	</array>
 </dict>
 </plist>
