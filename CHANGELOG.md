@@ -1,8 +1,16 @@
 # Changelog
 
+## [1.6.0] - 2026-02-19
+
+### New Features
+* add share URLs to ShowDetail and Player share buttons (7da7bf2)
+* add universal link and custom URL scheme deep linking for iOS (0ddda5a)
+
+### Other Changes
+* chore: remove Android CI/CD workflows from this repo (59eb4a9)
+
+
 ## [1.5.1] - 2026-01-12
-
-
 ## [1.5.0] - 2025-10-12
 
 ### New Features
