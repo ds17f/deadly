@@ -430,7 +430,13 @@ struct PlayerView: View {
             }
 
             Button(action: {
-                // TODO: Share
+                if let showId = viewModel.showId {
+                    ShareHelper.present(
+                        showId: showId,
+                        recordingId: viewModel.recordingIdForNav,
+                        showName: [viewModel.showDate, viewModel.venue].compactMap { $0 }.joined(separator: " — ")
+                    )
+                }
             }) {
                 VStack(spacing: 4) {
                     Image(systemName: "square.and.arrow.up")

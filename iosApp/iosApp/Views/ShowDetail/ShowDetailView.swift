@@ -495,18 +495,12 @@ struct ShowDetailView: View {
     private func shareShow() {
         guard let showData = viewModel.showData else { return }
 
-        let shareText = "Check out this Grateful Dead show: \(showData.date) at \(showData.venue.name), \(showData.location.displayText)"
-
-        let activityVC = UIActivityViewController(
-            activityItems: [shareText],
-            applicationActivities: nil
+        let showName = "\(showData.date) — \(showData.venue.name), \(showData.location.displayText)"
+        ShareHelper.present(
+            showId: showData.id,
+            recordingId: viewModel.currentRecordingId,
+            showName: showName
         )
-
-        // Present the share sheet
-        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-           let rootVC = windowScene.windows.first?.rootViewController {
-            rootVC.present(activityVC, animated: true)
-        }
     }
 
     private func openRecordingSelection() {
