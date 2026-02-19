@@ -44,49 +44,9 @@ jobs:
       if: always()
       run: rm -f .secrets/AuthKey_V862XWV7WB.p8
 
-  promote-android-production:
-    name: Promote Android Internal → Production
-    runs-on: ubuntu-latest
-
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@eef61447b9ff4aafe5dcd4e0bbf5d482be7e7871 # v4.2.1
-
-    - name: Set up Ruby for Fastlane
-      uses: ruby/setup-ruby@a6e6f86333f0a2523ece813039b8b4be04560854 # v1.190.0
-      with:
-        ruby-version: '3.1'
-
-    - name: Install Fastlane
-      run: gem install fastlane
-
-    - name: Decode Play Store service account key
-      run: |
-        mkdir -p .secrets
-        echo "${{ secrets.PLAY_STORE_SERVICE_ACCOUNT_JSON }}" | base64 -d > .secrets/thedeadly-app-f48493c2a133.json
-
-    - name: Get version from tag
-      id: get_version
-      run: |
-        VERSION=${GITHUB_REF#refs/tags/production-v}
-        echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
-
-    - name: Promote Internal → Production
-      run: |
-        cd android
-        # Promote internal → alpha → beta → production
-        # For initial production release, we'll go directly from internal
-        # In the future, you might want: internal → beta → production
-        echo "🚀 Promoting version ${{ steps.get_version.outputs.VERSION }} to production"
-        fastlane promote_beta_to_production || echo "⚠️  No beta build found, may need manual promotion"
-
-    - name: Clean up
-      if: always()
-      run: rm -f .secrets/thedeadly-app-f48493c2a133.json
-
   create-production-release:
     name: Create GitHub Production Release
-    needs: [promote-ios-production, promote-android-production]
+    needs: [promote-ios-production]
     runs-on: ubuntu-latest
 
     steps:
@@ -117,19 +77,19 @@ jobs:
       with:
         name: "Deadly v${{ steps.get_version.outputs.VERSION }}"
         body: |
-          ## 💀 Deadly v${{ steps.get_version.outputs.VERSION }}
+          ## Deadly v${{ steps.get_version.outputs.VERSION }}
 
           **Status:** Live in Production
 
-          ### 📱 Availability
+          ### Availability
           - **iOS:** Available on the App Store
-          - **Android:** Available on Google Play Store
+          - **Android:** Published from deadly-monorepo
 
-          ### 📝 Release Notes
+          ### Release Notes
 
           ${{ steps.changelog.outputs.CHANGELOG }}
 
-          ### 🔗 Download
+          ### Download
           - [App Store](https://apps.apple.com/app/deadly/)
           - [Google Play](https://play.google.com/store/apps/details?id=com.grateful.deadly)
         prerelease: false
