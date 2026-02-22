@@ -33,6 +33,7 @@ import com.grateful.deadly.feature.splash.SplashService
 import com.grateful.deadly.feature.splash.SplashViewModel
 // Library system imports (Universal Service + Platform Tool pattern)
 import com.grateful.deadly.data.library.LibraryDao
+import com.grateful.deadly.services.library.LibraryExportService
 import com.grateful.deadly.services.library.LibraryService
 import com.grateful.deadly.services.library.LibraryServiceImpl
 import com.grateful.deadly.feature.library.LibraryViewModel
@@ -209,6 +210,11 @@ val commonModule = module {
             libraryDao = get(),
             coroutineScope = get()
         )
+    }
+
+    single<LibraryExportService> {
+        Logger.d("CommonModule", "Creating LibraryExportService")
+        LibraryExportService(libraryDao = get())
     }
 
     // Data Layer (SearchRepository removed - functionality moved to ShowService)

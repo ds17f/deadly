@@ -80,4 +80,9 @@ expect class LibraryDao(database: Database) {
      * Unpin all shows
      */
     suspend fun unpinAllShows()
+
+    /**
+     * One-shot fetch of all library shows for export
+     */
+    suspend fun getAllLibraryShowsOnce(): List<com.grateful.deadly.database.LibraryShow>
 }

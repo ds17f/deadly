@@ -14,6 +14,7 @@ import com.grateful.deadly.services.data.DataSyncOrchestrator
 import com.grateful.deadly.services.data.SyncProgress
 import com.grateful.deadly.services.data.SyncResult
 import com.grateful.deadly.services.app.AppVersionService
+import com.grateful.deadly.services.library.LibraryExportService
 import kotlinx.coroutines.launch
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.get
@@ -31,17 +32,55 @@ fun SettingsScreen() {
     val themeManager: ThemeManager = remember { SettingsDIHelper.get() }
     val dataSyncOrchestrator: DataSyncOrchestrator = remember { SettingsDIHelper.get() }
     val appVersionService: AppVersionService = remember { SettingsDIHelper.get() }
+    val libraryExportService: LibraryExportService = remember { SettingsDIHelper.get() }
     val currentTheme by themeManager.currentTheme.collectAsState(initial = ThemeMode.SYSTEM)
     val syncProgress by dataSyncOrchestrator.progress.collectAsState(initial = SyncProgress.Idle)
 
     val scope = rememberCoroutineScope()
     var importMessage by remember { mutableStateOf<String?>(null) }
+    var exportContent by remember { mutableStateOf<String?>(null) }
+    var exportFilename by remember { mutableStateOf("grateful-dead-library.json") }
+    var isExporting by remember { mutableStateOf(false) }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(24.dp)
     ) {
+        // Library Migration Section
+        item {
+            SettingsSection(title = "Library Migration") {
+                Text(
+                    text = "Export your library to transfer it to the new Grateful Dead app.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                if (exportContent != null) {
+                    ShareTextButton(
+                        label = "Share Library Export",
+                        content = exportContent!!,
+                        filename = exportFilename,
+                        enabled = !isExporting
+                    )
+                } else {
+                    OutlinedButton(
+                        onClick = {
+                            scope.launch {
+                                isExporting = true
+                                exportFilename = libraryExportService.exportFilename()
+                                exportContent = libraryExportService.exportLibrary()
+                                isExporting = false
+                            }
+                        },
+                        enabled = !isExporting,
+                        modifier = androidx.compose.ui.Modifier.fillMaxWidth()
+                    ) {
+                        Text(if (isExporting) "Exporting…" else "Export Library")
+                    }
+                }
+            }
+        }
+
         // Database Management Section
         item {
             SettingsSection(title = "Database") {

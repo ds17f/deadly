@@ -143,4 +143,10 @@ actual class LibraryDao actual constructor(
             database.libraryShowQueries.unpinAllShows()
         }
     }
+
+    actual suspend fun getAllLibraryShowsOnce(): List<com.grateful.deadly.database.LibraryShow> {
+        return withContext(Dispatchers.Default) {
+            database.libraryShowQueries.getAllLibraryShowsFlow().executeAsList()
+        }
+    }
 }
