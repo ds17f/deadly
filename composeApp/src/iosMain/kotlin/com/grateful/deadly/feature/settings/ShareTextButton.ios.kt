@@ -9,8 +9,10 @@ import platform.Foundation.NSTemporaryDirectory
 import platform.Foundation.NSURL
 import platform.Foundation.NSUTF8StringEncoding
 import platform.Foundation.writeToFile
-import platform.UIKit.UIActivityViewController
+import kotlinx.cinterop.ExperimentalForeignApi
+import platform.UIKit.UIDocumentPickerViewController
 
+@OptIn(ExperimentalForeignApi::class)
 @Composable
 actual fun ShareTextButton(
     label: String,
@@ -30,12 +32,11 @@ actual fun ShareTextButton(
                 error = null
             )
             val fileUrl = NSURL.fileURLWithPath(tempPath)
-            val activityVC = UIActivityViewController(
-                activityItems = listOf(fileUrl),
-                applicationActivities = null
+            val documentPicker = UIDocumentPickerViewController(
+                forExportingURLs = listOf(fileUrl)
             )
             uiViewController.presentViewController(
-                viewControllerToPresent = activityVC,
+                viewControllerToPresent = documentPicker,
                 animated = true,
                 completion = null
             )

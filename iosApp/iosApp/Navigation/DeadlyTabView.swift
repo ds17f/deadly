@@ -151,16 +151,73 @@ struct CollectionsPlaceholderView: View {
 }
 
 struct SettingsPlaceholderView: View {
+    private let exportService = KoinHelper.shared.getLibraryExportService()
+
+    @State private var isExporting = false
+    @State private var exportContent: String?
+    @State private var exportFilename = "grateful-dead-library.json"
+    @State private var showingDocumentPicker = false
+    @State private var tempFileURL: URL?
+
     var body: some View {
-        VStack {
-            Image(systemName: "gearshape.fill")
-                .font(.system(size: 64))
-                .foregroundColor(.gray)
-            Text("Settings")
-                .font(.title)
-            Text("Settings screen coming soon")
-                .font(.caption)
-                .foregroundColor(.secondary)
+        NavigationStack {
+            List {
+                Section("Library Migration") {
+                    Text("Export your library to transfer it to the new Grateful Dead app.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+
+                    Button {
+                        isExporting = true
+                        Task {
+                            do {
+                                let content = try await exportService.exportLibrary()
+                                let filename = exportService.exportFilename()
+                                let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent(filename)
+                                try content.write(to: tempURL, atomically: true, encoding: .utf8)
+                                await MainActor.run {
+                                    tempFileURL = tempURL
+                                    exportFilename = filename
+                                    isExporting = false
+                                    showingDocumentPicker = true
+                                }
+                            } catch {
+                                await MainActor.run {
+                                    isExporting = false
+                                }
+                            }
+                        }
+                    } label: {
+                        HStack {
+                            Text(isExporting ? "Exporting\u{2026}" : "Export Library")
+                            if isExporting {
+                                Spacer()
+                                ProgressView()
+                            }
+                        }
+                    }
+                    .disabled(isExporting)
+                }
+            }
+            .navigationTitle("Settings")
+            .sheet(isPresented: $showingDocumentPicker) {
+                if let url = tempFileURL {
+                    DocumentExportPicker(url: url)
+                }
+            }
         }
     }
+}
+
+import UIKit
+
+struct DocumentExportPicker: UIViewControllerRepresentable {
+    let url: URL
+
+    func makeUIViewController(context: Context) -> UIDocumentPickerViewController {
+        let picker = UIDocumentPickerViewController(forExporting: [url])
+        return picker
+    }
+
+    func updateUIViewController(_ uiViewController: UIDocumentPickerViewController, context: Context) {}
 }
