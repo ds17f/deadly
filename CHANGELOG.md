@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.8.0] - 2026-02-22
+
+### New Features
+* use file picker for library export instead of share sheet (8bb0a94)
+
+### Other Changes
+* wip (2956ede)
+
+
 ## [1.7.0] - 2026-02-19
 
 ### New Features
@@ -9,8 +18,6 @@
 ### Other Changes
 * chore: release version 1.6.0 (727814f)
 * chore: remove Android CI/CD workflows from this repo (59eb4a9)
-
-
 ## [1.6.0] - 2026-02-19
 
 ### New Features
